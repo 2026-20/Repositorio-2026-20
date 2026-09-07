@@ -1,0 +1,11 @@
+/* Reset minimo global. Los tokens de diseño (colores, tipografia, espaciado)
+   y los estilos base del proyecto van en src/styles/ (ver styles/README.md),
+   no aqui -- esto reemplaza el CSS de demo que traia Vite por defecto. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}

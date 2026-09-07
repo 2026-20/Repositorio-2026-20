@@ -1,0 +1,46 @@
+package cr.co.capris.reactivos.seguridad;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+/**
+ * Traduce las excepciones de dominio de seguridad a un formato de error consistente.
+ * Cada HU lanza la excepcion que le corresponde (ver clases en este mismo paquete);
+ * este manejador solo decide el codigo HTTP y la forma de la respuesta, una sola vez
+ * para toda la API en vez de que cada controlador arme su propio manejo de errores.
+ */
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+	@ExceptionHandler(CredencialesInvalidasException.class)
+	public ResponseEntity<ErrorResponse> manejar(CredencialesInvalidasException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ErrorResponse.de("CREDENCIALES_INVALIDAS", ex.getMessage()));
+	}
+
+	@ExceptionHandler(CuentaBloqueadaException.class)
+	public ResponseEntity<ErrorResponse> manejar(CuentaBloqueadaException ex) {
+		return ResponseEntity.status(HttpStatus.LOCKED)
+				.body(ErrorResponse.de("CUENTA_BLOQUEADA", ex.getMessage()));
+	}
+
+	@ExceptionHandler(ContrasenaNoValidaException.class)
+	public ResponseEntity<ErrorResponse> manejar(ContrasenaNoValidaException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ErrorResponse.de("CONTRASENA_NO_VALIDA", ex.getMessage(), ex.getViolaciones()));
+	}
+
+	@ExceptionHandler(UsuarioDuplicadoException.class)
+	public ResponseEntity<ErrorResponse> manejar(UsuarioDuplicadoException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.de("USUARIO_DUPLICADO", ex.getMessage()));
+	}
+
+	@ExceptionHandler(UsuarioNoEncontradoException.class)
+	public ResponseEntity<ErrorResponse> manejar(UsuarioNoEncontradoException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ErrorResponse.de("USUARIO_NO_ENCONTRADO", ex.getMessage()));
+	}
+}

@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: reactivos-backend
+
+  # Base de datos local de desarrollo -- ver README.md para levantarla con Docker.
+  # En produccion esto se sobreescribe con variables de entorno (OCI Database, no local).
+  datasource:
+    url: jdbc:postgresql://localhost:5432/capris_reactivos
+    username: capris
+    password: capris_dev
+
+  jpa:
+    hibernate:
+      ddl-auto: validate # el esquema lo maneja Flyway, no Hibernate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+# Secreto de desarrollo local UNICAMENTE -- en produccion se sobreescribe con la
+# variable de entorno APP_JWT_SECRET (nunca commitear el secreto real).
+app:
+  jwt:
+    secret: PeE4XuHYQWqj6XZI1sS8DtZHT0nIesSkkDK-EK4QFivi_52Hpnu0A95Rxr7P6uks
+    expiracion-minutos: 480

@@ -1,0 +1,8 @@
+# Editores
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Documentacion de trabajo local
+docs/
