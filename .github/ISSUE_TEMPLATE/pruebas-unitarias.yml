@@ -1,5 +1,5 @@
 name: "HU-0XX: Pruebas Unitarias"
-description: Task de pruebas unitarias, sub-issue de una HU (ver docs/pruebas/Pruebas_Unitarias.md)
+description: Task de pruebas unitarias, sub-issue de una HU (ver la presentacion de Pruebas Unitarias del aula virtual)
 title: "HU-0XX: Pruebas Unitarias"
 labels:
   - prueba
@@ -28,7 +28,7 @@ body:
     id: cobertura
     attributes:
       label: Cobertura obtenida (RNF-002)
-      description: "% de cobertura que aportan especificamente estas pruebas unitarias (ver docs/pruebas/Pruebas_Unitarias.md seccion 9)."
+      description: "% de cobertura que aportan especificamente estas pruebas unitarias (ver la presentacion de Pruebas Unitarias del aula virtual)."
     validations:
       required: false
 
@@ -43,7 +43,7 @@ body:
   - type: checkboxes
     id: checklist
     attributes:
-      label: Checklist (ver docs/pruebas/Pruebas_Unitarias.md seccion 10)
+      label: Checklist (ver la presentacion de Pruebas Unitarias del aula virtual)
       options:
         - label: Cada unidad de codigo nueva o modificada tiene al menos un caso de prueba
         - label: Las pruebas se escribieron con datos reales, no placeholders arbitrarios

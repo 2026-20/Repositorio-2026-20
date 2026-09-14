@@ -1,5 +1,5 @@
 name: "HU-0XX: Pruebas Funcionales"
-description: Task de pruebas funcionales con Cypress, sub-issue de una HU (ver docs/pruebas/Pruebas_Funcionales.md)
+description: Task de pruebas funcionales con Cypress, sub-issue de una HU (ver la presentacion de Pruebas Funcionales del aula virtual)
 title: "HU-0XX: Pruebas Funcionales"
 labels:
   - prueba
@@ -25,7 +25,7 @@ body:
     id: escenarios
     attributes:
       label: Escenarios (exito + al menos un rechazo/error)
-      description: Un escenario por bloque, con pasos numerados. Ver docs/pruebas/Pruebas_Funcionales.md seccion 6 para el formato completo.
+      description: Un escenario por bloque, con pasos numerados. Ver la presentacion de Pruebas Funcionales del aula virtual para el formato completo.
       placeholder: |
         ### Escenario 1: [Nombre, ej. "Registro exitoso de reactivo"]
         Paso 1: ...
@@ -60,7 +60,7 @@ body:
   - type: checkboxes
     id: checklist
     attributes:
-      label: Checklist (ver docs/pruebas/Pruebas_Funcionales.md seccion 9)
+      label: Checklist (ver la presentacion de Pruebas Funcionales del aula virtual)
       options:
         - label: La HU tiene Criterios de Aceptacion claros y sin ambiguedad
         - label: Las pruebas unitarias de la HU ya pasaron y los defectos se corrigieron
