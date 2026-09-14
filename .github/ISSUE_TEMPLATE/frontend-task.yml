@@ -1,0 +1,20 @@
+name: "HU-0XX: Frontend"
+description: Task de implementacion de frontend, sub-issue de una HU
+title: "HU-0XX: Frontend"
+body:
+  - type: input
+    id: hu
+    attributes:
+      label: HU relacionada
+      description: Numero de la HU padre (ej. HU-048). Recordar tambien vincular este issue como sub-issue de esa HU.
+      placeholder: HU-0XX
+    validations:
+      required: true
+
+  - type: textarea
+    id: alcance
+    attributes:
+      label: Alcance del frontend para esta HU
+      description: Que pantalla(s)/componentes se van a construir para cumplir los criterios de aceptacion.
+    validations:
+      required: true

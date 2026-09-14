@@ -1,0 +1,51 @@
+name: "HU-0XX: Pruebas Unitarias"
+description: Task de pruebas unitarias, sub-issue de una HU (ver docs/pruebas/Pruebas_Unitarias.md)
+title: "HU-0XX: Pruebas Unitarias"
+labels:
+  - prueba
+body:
+  - type: input
+    id: hu
+    attributes:
+      label: HU relacionada
+      description: Numero de la HU padre (ej. HU-048). Recordar tambien vincular este issue como sub-issue de esa HU.
+      placeholder: HU-0XX
+    validations:
+      required: true
+
+  - type: textarea
+    id: reporte
+    attributes:
+      label: Reporte de la herramienta utilizada
+      description: Salida de JUnit/JaCoCo (backend) o Vitest (frontend). Pegar el resumen o adjuntar el archivo/captura.
+      placeholder: |
+        Tests run: X, Failures: 0, Errors: 0, Skipped: 0
+        BUILD SUCCESS
+    validations:
+      required: true
+
+  - type: textarea
+    id: cobertura
+    attributes:
+      label: Cobertura obtenida (RNF-002)
+      description: "% de cobertura que aportan especificamente estas pruebas unitarias (ver docs/pruebas/Pruebas_Unitarias.md seccion 9)."
+    validations:
+      required: false
+
+  - type: textarea
+    id: metodos
+    attributes:
+      label: Metodos/clases cubiertos (opcional)
+      description: Solo si el equipo lo considera relevante para trazabilidad.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist (ver docs/pruebas/Pruebas_Unitarias.md seccion 10)
+      options:
+        - label: Cada unidad de codigo nueva o modificada tiene al menos un caso de prueba
+        - label: Las pruebas se escribieron con datos reales, no placeholders arbitrarios
+        - label: Se ejecutaron tambien las pruebas ya existentes (regresion) y siguen pasando
+        - label: El framework usado corresponde al stack confirmado del proyecto
