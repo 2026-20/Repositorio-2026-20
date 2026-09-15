@@ -42,18 +42,18 @@ React + Vite, JavaScript puro (sin TypeScript). Hoy es solo estructura de carpet
 | `data/mocks/` | Datos simulados para construir pantallas antes de que el endpoint real del backend esté listo — temporal por diseño, se retira a medida que cada `service` se conecta al backend real. |
 | `assets/` | Imágenes y otros archivos estáticos importados desde JS (convención de Vite). |
 | `src/test/` | Configuración compartida de Vitest (`setup.js`). |
-| `e2e/` | Pruebas Playwright de flujos completos. |
+| `cypress/` | Pruebas funcionales end-to-end con Cypress (ver más abajo). Todo lo de Cypress vive contenido ahí — config, specs, fixtures y support — para no mezclarse con la raíz de `frontend/`. |
 
 Las carpetas que todavía no tienen ningún archivo real llevan un `.gitkeep` — es solo un archivo vacío para que la carpeta exista en git (git no trackea carpetas vacías); se borra en cuanto se agregue el primer archivo de verdad ahí.
 
 ### Convención de pruebas frontend
 - `Componente.test.jsx` → unitaria/componente, corre en jsdom (`npm test`).
 - `algo.browser.test.js` → necesita navegador real (ej. almacenamiento local/OPFS), corre en Chromium vía Playwright (`npm run test:browser`).
-- `e2e/*.spec.js` → flujo completo end-to-end (`npm run test:e2e`).
+- `cypress/e2e/HU-0XX-descripcion.cy.js` → prueba funcional Cypress de una HU, un archivo por HU (`npm run cypress:run` en CI/headless, `npm run cypress:open` en local para ver el navegador). Subir la evidencia al sub-issue "Pruebas Funcionales" de esa HU.
 
 ## CI (`.github/workflows/ci.yml`)
 
-Corre en cada push/PR contra `main`: job `backend` (`mvn verify`, incluye Testcontainers) y job `frontend` (unitarias + OPFS + cobertura + E2E), en paralelo. Los runners de GitHub ya traen Docker, no requieren configuración adicional.
+Corre en cada push/PR contra `main`: job `backend` (`mvn verify`, incluye Testcontainers) y job `frontend` (unitarias + OPFS + cobertura + E2E con Cypress), en paralelo. Los runners de GitHub ya traen Docker, no requieren configuración adicional. Si todavía no existe ningún spec en `cypress/e2e/`, el paso de Cypress avisa pero no pone el job en rojo (Cypress no tiene un equivalente a `--pass-with-no-tests`); un fallo real de una prueba sí lo hace.
 
 ## Otros archivos en `.github/`
 
