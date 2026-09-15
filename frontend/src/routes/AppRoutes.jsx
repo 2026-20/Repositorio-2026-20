@@ -6,6 +6,7 @@ import {
 
 import LoginPage from '../pages/Login/LoginPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
+import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
 
 export default function AppRoutes() {
@@ -21,6 +22,15 @@ export default function AppRoutes() {
                 element={
                     <ProtectedRoute>
                         <DashboardPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/admin/usuarios"
+                element={
+                    <ProtectedRoute>
+                        <UsersPage />
                     </ProtectedRoute>
                 }
             />

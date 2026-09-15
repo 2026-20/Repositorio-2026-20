@@ -1,0 +1,42 @@
+const API_URL = 'http://localhost:8080/api'
+
+async function procesarRespuesta(response) {
+    let datos = null
+
+    try {
+        datos = await response.json()
+    } catch {
+        datos = null
+    }
+
+    if (!response.ok) {
+        const mensaje =
+            datos?.mensaje ?? 'No fue posible completar la solicitud'
+
+        const error = new Error(mensaje)
+        error.codigo = datos?.codigo
+        error.status = response.status
+
+        throw error
+    }
+
+    return datos
+}
+
+export async function listarUsuarios() {
+    const response = await fetch(`${API_URL}/usuarios`)
+
+    return procesarRespuesta(response)
+}
+
+export async function inactivarUsuario(id, motivo) {
+    const response = await fetch(`${API_URL}/usuarios/${id}/inactivar`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ motivo: motivo || null }),
+    })
+
+    return procesarRespuesta(response)
+}

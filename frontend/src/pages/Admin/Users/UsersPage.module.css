@@ -1,0 +1,66 @@
+.pagina {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+
+.pagina h1 {
+    color: #0f426e;
+    margin-bottom: 24px;
+}
+
+.error {
+    padding: 12px;
+    border: 1px solid #b3261e;
+    border-radius: 6px;
+    background: #fff4f3;
+    color: #8c1d18;
+    margin-bottom: 20px;
+}
+
+.tabla {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #e3e7eb;
+}
+
+.estadoActivo {
+    color: #1e7a3d;
+    font-weight: 600;
+}
+
+.estadoInactivo {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.botonInactivar {
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid #b3261e;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #b3261e;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonInactivar:hover {
+    background: #fff4f3;
+}
+
+.motivo {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #aab2bb;
+    border-radius: 6px;
+    font: inherit;
+    resize: vertical;
+}
