@@ -27,7 +27,8 @@ public class EmpresaController {
 
 	@GetMapping
 	public List<EmpresaResumenDTO> listar() {
-		return empresaRepository.findAll().stream()
+		return empresaRepository.findAll()
+				.stream()
 				.map(EmpresaResumenDTO::from)
 				.toList();
 	}

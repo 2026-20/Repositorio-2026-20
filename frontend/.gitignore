@@ -14,9 +14,13 @@ dist-ssr
 
 # Reportes de pruebas
 coverage
-playwright-report
 test-results
 blob-report
+
+# Cypress: solo el codigo de las pruebas se versiona, esto lo genera cada corrida
+cypress/screenshots
+cypress/videos
+cypress/downloads
 
 # Editor directories and files
 .vscode/*
