@@ -91,8 +91,13 @@ jobs:
           salida=$(npm run cypress:run 2>&1)
           resultado=$?
           echo "$salida"
+          # El runner de GitHub si mantiene los codigos de color ANSI de Cypress
+          # (local no); hay que quitarlos antes de buscar el texto, si no el
+          # grep de abajo nunca matchea y el job queda en rojo aunque sea
+          # solo el caso de "todavia no hay specs".
+          salida_plana=$(echo "$salida" | sed -E 's/\x1b\[[0-9;]*[a-zA-Z]//g')
           if [ $resultado -ne 0 ]; then
-            if echo "$salida" | grep -q "no spec files were found"; then
+            if echo "$salida_plana" | grep -q "no spec files were found"; then
               echo "::warning::Sin specs de Cypress todavia (cypress/e2e/) -- no bloquea el CI."
             else
               exit $resultado
