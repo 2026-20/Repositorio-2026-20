@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { iniciarSesion } from '../services/authService'
+import {
+    cerrarSesion,
+    iniciarSesion,
+} from '../services/authService'
 import { AuthContext } from './AuthContext'
 
 export function AuthProvider({ children }) {
@@ -16,6 +19,7 @@ export function AuthProvider({ children }) {
     )
 
     async function login(username, contrasena, empresaId) {
+
         const respuesta = await iniciarSesion(
             username,
             contrasena,
@@ -44,13 +48,26 @@ export function AuthProvider({ children }) {
 
         return respuesta
     }
+    async function logout() {
+        try {
+            if (token) {
+                await cerrarSesion(token)
+            }
+        } finally {
+            setUsuario(null)
+            setToken(null)
 
+            sessionStorage.removeItem('capris_usuario')
+            sessionStorage.removeItem('capris_token')
+        }
+    }
     return (
         <AuthContext.Provider
             value={{
                 usuario,
                 token,
                 login,
+                logout,
                 estaAutenticado: Boolean(token),
             }}
         >

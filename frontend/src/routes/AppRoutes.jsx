@@ -4,8 +4,9 @@ import {
     Routes,
 } from 'react-router-dom'
 
-import LoginPage from '../pages/Login/LoginPage'
+import AppLayout from '../components/layout/AppLayout'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
+import LoginPage from '../pages/Login/LoginPage'
 import ProtectedRoute from './ProtectedRoute'
 
 export default function AppRoutes() {
@@ -17,13 +18,17 @@ export default function AppRoutes() {
             />
 
             <Route
-                path="/dashboard"
                 element={
                     <ProtectedRoute>
-                        <DashboardPage />
+                        <AppLayout />
                     </ProtectedRoute>
                 }
-            />
+            >
+                <Route
+                    path="/dashboard"
+                    element={<DashboardPage />}
+                />
+            </Route>
 
             <Route
                 path="*"
