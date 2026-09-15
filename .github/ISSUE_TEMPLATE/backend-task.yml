@@ -1,0 +1,20 @@
+name: "HU-0XX: Backend"
+description: Task de implementacion de backend, sub-issue de una HU
+title: "HU-0XX: Backend"
+body:
+  - type: input
+    id: hu
+    attributes:
+      label: HU relacionada
+      description: Numero de la HU padre (ej. HU-048). Recordar tambien vincular este issue como sub-issue de esa HU.
+      placeholder: HU-0XX
+    validations:
+      required: true
+
+  - type: textarea
+    id: alcance
+    attributes:
+      label: Alcance del backend para esta HU
+      description: Que se va a construir (entidades, endpoints, migraciones) para cumplir los criterios de aceptacion.
+    validations:
+      required: true
