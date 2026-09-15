@@ -1,7 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AuthContext } from '../../../context/AuthContext'
 import * as usuarioService from '../../../services/usuarioService'
 import UsersPage from './UsersPage'
+
+const TOKEN_DE_PRUEBA = 'token-de-prueba'
+
+function renderUsersPage() {
+    return render(
+        <AuthContext.Provider value={{ token: TOKEN_DE_PRUEBA }}>
+            <UsersPage />
+        </AuthContext.Provider>,
+    )
+}
 
 const usuarios = [
     {
@@ -32,7 +43,7 @@ describe('UsersPage', () => {
     it('lista los usuarios obtenidos del backend', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         expect(await screen.findByText('Andrey Meléndez Ovares')).toBeInTheDocument()
         expect(screen.getByText('Adrián Arce Soto')).toBeInTheDocument()
@@ -41,7 +52,7 @@ describe('UsersPage', () => {
     it('no muestra el boton de inactivar para un usuario ya inactivo', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         await screen.findByText('Andrey Meléndez Ovares')
 
@@ -51,7 +62,7 @@ describe('UsersPage', () => {
     it('pide confirmacion mostrando nombre y username antes de inactivar', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         await screen.findByText('Andrey Meléndez Ovares')
 
@@ -67,7 +78,7 @@ describe('UsersPage', () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         const inactivarSpy = vi.spyOn(usuarioService, 'inactivarUsuario')
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         await screen.findByText('Andrey Meléndez Ovares')
         fireEvent.click(screen.getByRole('button', { name: 'Inactivar' }))
@@ -84,7 +95,7 @@ describe('UsersPage', () => {
             estado: 'INACTIVO',
         })
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         await screen.findByText('Andrey Meléndez Ovares')
         fireEvent.click(screen.getByRole('button', { name: 'Inactivar' }))
@@ -93,7 +104,11 @@ describe('UsersPage', () => {
         fireEvent.click(within(dialogo).getByRole('button', { name: 'Inactivar' }))
 
         await waitFor(() => {
-            expect(usuarioService.inactivarUsuario).toHaveBeenCalledWith(1, '')
+            expect(usuarioService.inactivarUsuario).toHaveBeenCalledWith(
+                TOKEN_DE_PRUEBA,
+                1,
+                '',
+            )
         })
 
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -103,7 +118,7 @@ describe('UsersPage', () => {
     it('muestra un error si falla la carga inicial', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockRejectedValue(new Error('falla'))
 
-        render(<UsersPage />)
+        renderUsersPage()
 
         expect(
             await screen.findByText('No fue posible cargar el listado de usuarios.'),

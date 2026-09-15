@@ -23,17 +23,22 @@ async function procesarRespuesta(response) {
     return datos
 }
 
-export async function listarUsuarios() {
-    const response = await fetch(`${API_URL}/usuarios`)
+export async function listarUsuarios(token) {
+    const response = await fetch(`${API_URL}/usuarios`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
 
     return procesarRespuesta(response)
 }
 
-export async function inactivarUsuario(id, motivo) {
+export async function inactivarUsuario(token, id, motivo) {
     const response = await fetch(`${API_URL}/usuarios/${id}/inactivar`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ motivo: motivo || null }),
     })

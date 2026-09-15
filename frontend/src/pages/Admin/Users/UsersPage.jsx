@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ConfirmDialog from '../../../components/feedback/ConfirmDialog'
+import { useAuth } from '../../../context/useAuth'
 import { inactivarUsuario, listarUsuarios } from '../../../services/usuarioService'
 import styles from './UsersPage.module.css'
 
 export default function UsersPage() {
+    const { token } = useAuth()
+
     const [usuarios, setUsuarios] = useState([])
     const [cargando, setCargando] = useState(true)
     const [error, setError] = useState('')
@@ -12,22 +15,22 @@ export default function UsersPage() {
     const [motivo, setMotivo] = useState('')
     const [inactivando, setInactivando] = useState(false)
 
-    async function cargarUsuarios() {
+    const cargarUsuarios = useCallback(async () => {
         try {
             setCargando(true)
             setError('')
-            const datos = await listarUsuarios()
+            const datos = await listarUsuarios(token)
             setUsuarios(datos)
         } catch {
             setError('No fue posible cargar el listado de usuarios.')
         } finally {
             setCargando(false)
         }
-    }
+    }, [token])
 
     useEffect(() => {
         cargarUsuarios()
-    }, [])
+    }, [cargarUsuarios])
 
     function abrirConfirmacion(usuario) {
         setUsuarioAInactivar(usuario)
@@ -45,6 +48,7 @@ export default function UsersPage() {
             setInactivando(true)
 
             const actualizado = await inactivarUsuario(
+                token,
                 usuarioAInactivar.id,
                 motivo.trim(),
             )

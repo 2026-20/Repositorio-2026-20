@@ -1,5 +1,6 @@
 package cr.co.capris.reactivos.usuario;
 
+import cr.co.capris.reactivos.auth.JwtService;
 import cr.co.capris.reactivos.seguridad.BitacoraSeguridadRepository;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,14 @@ class InactivarUsuarioControllerIT {
 	@Autowired
 	private BitacoraSeguridadRepository bitacoraSeguridadRepository;
 
+	@Autowired
+	private JwtService jwtService;
+
+	private String tokenAdministrador() {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		return jwtService.generar(admin.getId(), admin.getEmpresa().getId(), admin.getRol().getNombre());
+	}
+
 	@Test
 	void inactivarUnUsuarioActivoLoMarcaInactivoYFijaLaRevocacionDeSesiones() throws Exception {
 		// usuario distinto al de la prueba de idempotencia -- ambas pruebas comparten
@@ -52,6 +61,7 @@ class InactivarUsuarioControllerIT {
 		long registrosBitacoraAntes = bitacoraSeguridadRepository.count();
 
 		mockMvc.perform(post("/api/usuarios/{id}/inactivar", id)
+						.header("Authorization", "Bearer " + tokenAdministrador())
 						.contentType("application/json")
 						.content(objectMapper.writeValueAsString(new InactivarUsuarioRequest("Renuncio a la empresa"))))
 				.andExpect(status().isOk())
@@ -66,14 +76,19 @@ class InactivarUsuarioControllerIT {
 	@Test
 	void inactivarUnUsuarioYaInactivoEsIdempotenteYNoDuplicaLaBitacora() throws Exception {
 		Long id = usuarioRepository.findByUsername("arcea").orElseThrow().getId();
+		String token = tokenAdministrador();
 
 		// primera llamada: lo inactiva de verdad
-		mockMvc.perform(post("/api/usuarios/{id}/inactivar", id).contentType("application/json").content("{}"))
+		mockMvc.perform(post("/api/usuarios/{id}/inactivar", id)
+						.header("Authorization", "Bearer " + token)
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isOk());
 		long registrosBitacoraDespuesDeLaPrimera = bitacoraSeguridadRepository.count();
 
 		// segunda llamada: no deberia volver a registrar nada
-		mockMvc.perform(post("/api/usuarios/{id}/inactivar", id).contentType("application/json").content("{}"))
+		mockMvc.perform(post("/api/usuarios/{id}/inactivar", id)
+						.header("Authorization", "Bearer " + token)
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.estado").value("INACTIVO"));
 
@@ -82,7 +97,9 @@ class InactivarUsuarioControllerIT {
 
 	@Test
 	void inactivarUnUsuarioInexistenteDevuelve404() throws Exception {
-		mockMvc.perform(post("/api/usuarios/{id}/inactivar", 999_999).contentType("application/json").content("{}"))
+		mockMvc.perform(post("/api/usuarios/{id}/inactivar", 999_999)
+						.header("Authorization", "Bearer " + tokenAdministrador())
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isNotFound());
 	}
 }

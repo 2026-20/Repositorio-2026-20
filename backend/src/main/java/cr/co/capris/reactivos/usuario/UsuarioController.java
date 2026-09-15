@@ -69,9 +69,7 @@ public class UsuarioController {
 		usuarioRepository.save(usuario);
 
 		String motivo = request != null ? request.motivo() : null;
-		String adminId = contextoUsuarioActual.getUsuarioId() != null
-				? String.valueOf(contextoUsuarioActual.getUsuarioId())
-				: "desconocido (endpoint aun no exige sesion, ver SecurityConfig)";
+		String adminId = String.valueOf(contextoUsuarioActual.getUsuarioId());
 		String detalle = "Inactivado por usuario id=%s. Motivo: %s".formatted(adminId, motivo != null ? motivo : "no indicado");
 
 		bitacoraSeguridadService.registrar(

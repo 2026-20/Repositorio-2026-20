@@ -9,35 +9,27 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-
 /**
- * Lee el header "Authorization: Bearer <token>" en cada peticion y, si es valido,
- * rellena ContextoUsuarioActualImpl y el SecurityContext de Spring Security (asi
- * SecurityConfig puede exigir sesion con authorizeHttpRequests). Si el token falta
- * o no es valido, simplemente deja la peticion sin autenticar -- SecurityConfig es
- * quien decide si esa ruta la rechaza o no.
+ * Lee el header "Authorization: Bearer <token>" en cada peticion. Si el JWT es
+ * valido, rellena ContextoUsuarioActualImpl y el SecurityContext de Spring Security
+ * (para que SecurityConfig pueda exigir sesion). Si falta o no es valido, deja la
+ * peticion sin autenticar -- cada ruta decide si eso la rechaza.
  *
- * HU-048: ademas de validar la firma/vigencia del JWT, consulta el usuario en cada
- * peticion para respetar la baja logica -- un token firmado correctamente y sin
- * vencer igual se trata como invalido (no se autentica) si el usuario fue
- * inactivado despues de que ese token se emitio, o si el usuario ya no esta
- * ACTIVO/PENDIENTE_PRIMER_INGRESO. Es asi como la revocacion de HU-048 realmente
- * cierra la sesion: la siguiente peticion con ese token cae en authorizeHttpRequests
- * como no autenticada. Es una consulta extra por peticion; aceptable dado el
- * volumen esperado del proyecto (bajo -- personal de campo de una sola empresa).
+ * HU-048: ademas valida que el usuario siga activo y que el token no sea anterior
+ * a una revocacion (ver sesionSigueValida). Asi la baja logica cierra la sesion de
+ * verdad: la siguiente peticion con ese token queda sin autenticar.
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -77,20 +69,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 							claims.get("empresaId", Long.class),
 							claims.get("rol", String.class));
 
-					UsernamePasswordAuthenticationToken autenticacion =
-							new UsernamePasswordAuthenticationToken(
-									claims.getSubject(),
-									null,
-									List.of(new SimpleGrantedAuthority("ROLE_" + claims.get("rol", String.class)))
-							);
+					UsernamePasswordAuthenticationToken autenticacion = new UsernamePasswordAuthenticationToken(
+							claims.getSubject(),
+							null,
+							List.of(new SimpleGrantedAuthority("ROLE_" + claims.get("rol", String.class))));
 
 					SecurityContextHolder.getContext().setAuthentication(autenticacion);
 				}
-				// Si el usuario no existe, esta INACTIVO, o el token se emitio antes de
-				// una revocacion (HU-048): no se autentica -- SecurityConfig rechaza la
-				// peticion en authorizeHttpRequests si la ruta exige sesion.
 			} catch (JwtException | IllegalArgumentException ex) {
-				// Token invalido, vencido o alterado.
+				// Token invalido, vencido o alterado -- se ignora, queda sin autenticar.
 			}
 		}
 
