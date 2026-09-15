@@ -3,6 +3,7 @@ package cr.co.capris.reactivos.config;
 import cr.co.capris.reactivos.auth.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,10 +14,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.config.http.SessionCreationPolicy;
 
 /**
- * El JWT ya se emite y se lee en cada peticion (ver paquete auth/, HU-001 minimo).
- * TODO: esto todavia deja todos los endpoints abiertos a proposito -- decidir que
- * rutas exigen sesion valida (via authorizeHttpRequests) es parte de terminar HU-001
- * de verdad, no se decidio aqui para no bloquear el trabajo en el resto de HUs.
+ * El JWT ya se emite y se lee en cada peticion (ver paquete auth/). Desde HU-001,
+ * /api/auth/login y /api/empresas son las unicas rutas publicas; el resto exige un
+ * JWT valido (JwtAuthenticationFilter deja el request sin autenticar si falta, esta
+ * vencido, o el usuario fue inactivado -- ver HU-048).
  */
 @Configuration
 @EnableWebSecurity
@@ -52,6 +53,8 @@ public class SecurityConfig {
 				)
 
 				.authorizeHttpRequests(auth -> auth
+						// El preflight CORS (OPTIONS) no lleva el JWT, hay que dejarlo pasar.
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers(
 								"/api/auth/login",
 								"/api/empresas"
