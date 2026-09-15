@@ -11,6 +11,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.List;
+
 /**
  * Lee el header "Authorization: Bearer <token>" en cada peticion y, si es valido,
  * rellena ContextoUsuarioActualImpl para esa peticion. No rechaza la peticion si el
@@ -36,13 +42,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		if (header != null && header.startsWith("Bearer ")) {
 			try {
 				Claims claims = jwtService.validarYObtenerClaims(header.substring(7));
+
 				contextoUsuarioActual.establecer(
 						Long.valueOf(claims.getSubject()),
 						claims.get("empresaId", Long.class),
 						claims.get("rol", String.class));
+
+				String rol = claims.get("rol", String.class);
+
+				UsernamePasswordAuthenticationToken autenticacion =
+						new UsernamePasswordAuthenticationToken(
+								claims.getSubject(),
+								null,
+								List.of(new SimpleGrantedAuthority("ROLE_" + rol))
+						);
+
+				SecurityContextHolder.getContext().setAuthentication(autenticacion);
+
 			} catch (JwtException | IllegalArgumentException ex) {
-				// Token invalido, vencido o alterado -- se ignora aqui. El contexto queda
-				// vacio y el endpoint que lo requiera decide como reaccionar.
+				// Token invalido, vencido o alterado.
 			}
 		}
 

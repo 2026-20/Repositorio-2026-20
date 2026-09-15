@@ -10,6 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 
 /**
  * El JWT ya se emite y se lee en cada peticion (ver paquete auth/, HU-001 minimo).
@@ -36,8 +37,33 @@ public class SecurityConfig {
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
 				.csrf(AbstractHttpConfigurer::disable)
-				.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+				.httpBasic(AbstractHttpConfigurer::disable)
+				.formLogin(AbstractHttpConfigurer::disable)
+
+				.sessionManagement(session ->
+						session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+				)
+
+				.exceptionHandling(exception ->
+						exception.authenticationEntryPoint(
+								(request, response, authException) ->
+										response.setStatus(401)
+						)
+				)
+
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(
+								"/api/auth/login",
+								"/api/empresas"
+						).permitAll()
+						.anyRequest().authenticated()
+				)
+
+				.addFilterBefore(
+						jwtAuthenticationFilter,
+						UsernamePasswordAuthenticationFilter.class
+				);
+
 		return http.build();
 	}
 }
