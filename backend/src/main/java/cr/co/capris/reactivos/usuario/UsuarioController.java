@@ -5,7 +5,6 @@ import cr.co.capris.reactivos.seguridad.BitacoraSeguridadService;
 import cr.co.capris.reactivos.seguridad.ContextoUsuarioActual;
 import cr.co.capris.reactivos.seguridad.SesionNoValidaException;
 import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
-import cr.co.capris.reactivos.seguridad.UsuarioNoEncontradoException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,13 +67,17 @@ public class UsuarioController {
 	 * cambia nada ni duplica el registro de bitacora, para que un doble clic del
 	 * administrador no genere ruido en la auditoria.
 	 *
+	 * HU-023: un administrador solo puede inactivar usuarios de su propia empresa
+	 * -- mismo patron y mismo error generico (403 ACCESO_NO_AUTORIZADO) que detalle().
+	 *
 	 * No implementa el criterio de aceptacion 3 (propagar el bloqueo a la cola de
 	 * sincronizacion de dispositivos offline) -- esa cola todavia no existe en el
 	 * proyecto (depende de HU-003 y del resto del modulo de sincronizacion).
 	 */
 	@PostMapping("/{id}/inactivar")
 	public UsuarioResumenDTO inactivar(@PathVariable Long id, @RequestBody(required = false) InactivarUsuarioRequest request) {
-		Usuario usuario = buscarOFallar(id);
+		Long empresaId = exigirEmpresaId();
+		Usuario usuario = buscarOFallar(id, empresaId);
 
 		if (usuario.getEstado() == EstadoUsuario.INACTIVO) {
 			return UsuarioResumenDTO.from(usuario);
@@ -94,8 +97,8 @@ public class UsuarioController {
 		return UsuarioResumenDTO.from(usuario);
 	}
 
-	private Usuario buscarOFallar(Long id) {
-		return usuarioRepository.findById(id)
-				.orElseThrow(() -> new UsuarioNoEncontradoException("No existe un usuario con id " + id));
+	private Usuario buscarOFallar(Long id, Long empresaId) {
+		return usuarioRepository.findByIdAndEmpresaId(id, empresaId)
+				.orElseThrow(() -> new AccesoNoAutorizadoException("No autorizado"));
 	}
 }
