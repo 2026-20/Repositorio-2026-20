@@ -28,6 +28,14 @@
     font-size: 30px;
 }
 
+.logo {
+    display: block;
+    max-width: 100%;
+    max-height: 72px;
+    margin: 0 auto 8px;
+    object-fit: contain;
+}
+
 .encabezado p {
     margin: 0;
     color: #59636e;

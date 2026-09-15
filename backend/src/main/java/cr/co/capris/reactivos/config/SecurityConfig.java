@@ -1,31 +1,41 @@
 package cr.co.capris.reactivos.config;
 
 import cr.co.capris.reactivos.auth.JwtAuthenticationFilter;
+import cr.co.capris.reactivos.seguridad.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
 
 /**
  * El JWT ya se emite y se lee en cada peticion (ver paquete auth/, HU-001 minimo).
- * TODO: esto todavia deja todos los endpoints abiertos a proposito -- decidir que
- * rutas exigen sesion valida (via authorizeHttpRequests) es parte de terminar HU-001
- * de verdad, no se decidio aqui para no bloquear el trabajo en el resto de HUs.
+ * Las rutas que no exigen sesion (login, listado de empresas para el selector) estan
+ * explicitas en authorizeHttpRequests; todo lo demas exige un JWT valido.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final ObjectMapper objectMapper;
 
-	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.objectMapper = objectMapper;
 	}
 
 	@Bean
@@ -45,10 +55,7 @@ public class SecurityConfig {
 				)
 
 				.exceptionHandling(exception ->
-						exception.authenticationEntryPoint(
-								(request, response, authException) ->
-										response.setStatus(401)
-						)
+						exception.authenticationEntryPoint(this::responderSesionNoValida)
 				)
 
 				.authorizeHttpRequests(auth -> auth
@@ -65,5 +72,14 @@ public class SecurityConfig {
 				);
 
 		return http.build();
+	}
+
+
+	private void responderSesionNoValida(
+			HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
+			throws IOException {
+		response.setStatus(HttpStatus.UNAUTHORIZED.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		objectMapper.writeValue(response.getWriter(), ErrorResponse.de("SESION_NO_VALIDA", "No hay sesion activa"));
 	}
 }

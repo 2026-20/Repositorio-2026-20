@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { obtenerEmpresas } from '../../services/authService'
 import { useAuth } from '../../context/useAuth'
+import { LOGOS_POR_EMPRESA } from '../../assets/logos'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
@@ -36,6 +37,14 @@ export default function LoginPage() {
 
         cargarEmpresas()
     }, [])
+
+    const empresaSeleccionada = empresas.find(
+        (empresa) => String(empresa.id) === empresaId,
+    )
+
+    const logoEmpresaSeleccionada = empresaSeleccionada
+        ? LOGOS_POR_EMPRESA[empresaSeleccionada.nombre]
+        : undefined
 
     async function manejarSubmit(event) {
         event.preventDefault()
@@ -75,7 +84,16 @@ export default function LoginPage() {
         <main className={styles.pagina}>
             <section className={styles.tarjeta}>
                 <div className={styles.encabezado}>
-                    <h1>CAPRIS Médica</h1>
+                    {logoEmpresaSeleccionada ? (
+                        <img
+                            src={logoEmpresaSeleccionada}
+                            alt={`Logo de ${empresaSeleccionada?.nombre ?? 'la empresa seleccionada'}`}
+                            className={styles.logo}
+                        />
+                    ) : (
+                        <h1>Iniciar sesión</h1>
+                    )}
+
                     <p>Sistema de gestión y control de reactivos</p>
                 </div>
 

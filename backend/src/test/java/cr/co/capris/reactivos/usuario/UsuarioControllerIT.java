@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -24,11 +23,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Prueba de extremo a extremo del aislamiento multiempresa de HU-023 sobre
- * UsuarioController, contra la semilla real (V1/V2/V3) mas los fixtures de una
- * segunda empresa que se agregan aqui -- la semilla de Flyway solo trae "CAPRIS
- * Médica", y HU-023 no se puede probar en serio con una sola empresa. Esos
- * fixtures no van en una migracion nueva porque son datos de prueba, no seed
- * real de la aplicacion.
+ * UsuarioController, enteramente contra la semilla real (V1-V5): "CAPRIS Médica" (con
+ * amelendez/arcea/wmolina) y "Diagnostika" (con pruebadiagnostika) ya son datos reales,
+ * no fixtures de prueba -- no hace falta insertar nada a mano en esta clase.
  *
  * Los tokens se generan directamente con JwtService (en vez de loguearse via
  * POST /api/auth/login) porque lo que se prueba aqui es el filtrado por empresa
@@ -41,9 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UsuarioControllerIT {
-
-	/** Hash de "Capris2026!" (igual al de la semilla) -- no se usa para login en estas pruebas. */
-	private static final String HASH_DE_RELLENO = "$2b$10$gC.hqSLQUPVroKuUU2VVEeG79UbOP3ym5hIjDXdY74Lau35Xe/RAG";
 
 	/** Muy por encima de cualquier id que la secuencia BIGSERIAL pueda haber alcanzado. */
 	private static final long ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA = 999_999_999L;
@@ -62,43 +56,18 @@ class UsuarioControllerIT {
 	private UsuarioRepository usuarioRepository;
 
 	@Autowired
-	private EmpresaRepository empresaRepository;
-
-	@Autowired
-	private RolRepository rolRepository;
-
-	@Autowired
 	private JwtService jwtService;
-
-	@Autowired
-	private JdbcTemplate jdbcTemplate;
 
 	private String tokenUsuarioCapris;
 	private Long usuarioDiagnostikaId;
 
 	@BeforeAll
-	void prepararSegundaEmpresaYTokens() {
-		Empresa diagnostika = empresaRepository.save(new Empresa("Diagnostika"));
-
-		Long rolUsuarioDeCampoId = rolRepository.findAll().stream()
-				.filter(rol -> rol.getNombre().equals("Usuario de Campo"))
-				.findFirst()
-				.orElseThrow()
-				.getId();
-
-		usuarioDiagnostikaId = jdbcTemplate.queryForObject("""
-				INSERT INTO usuario
-					(nombre_completo, cedula, correo, username, password_hash, estado, rol_id, empresa_id)
-				VALUES (?, ?, ?, ?, ?, 'ACTIVO', ?, ?)
-				RETURNING id
-				""",
-				Long.class,
-				"Usuaria de Prueba Diagnostika", "PENDIENTE-900", "udiagnostika@diagnostika.test",
-				"udiagnostika", HASH_DE_RELLENO, rolUsuarioDeCampoId, diagnostika.getId());
-
+	void prepararTokens() {
 		Usuario wmolina = usuarioRepository.findByUsername("wmolina").orElseThrow();
 		tokenUsuarioCapris = jwtService.generar(
 				wmolina.getId(), wmolina.getEmpresa().getId(), wmolina.getRol().getNombre());
+
+		usuarioDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
 	}
 
 	@Test

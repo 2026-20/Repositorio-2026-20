@@ -8,10 +8,20 @@ Spring Boot (Java 17, Maven). Paquete base: `cr.co.capris.reactivos`.
 
 | Paquete | Qué contiene |
 |---|---|
-| `usuario/` | Entidades del dominio de usuarios: `Usuario`, `Rol`, `Empresa`, `EstadoUsuario` (enum), sus repositorios JPA, el DTO de respuesta (`UsuarioResumenDTO`, nunca expone el hash de contraseña) y el controlador de solo lectura (`UsuarioController`, `GET /api/usuarios`). |
+| `usuario/` | Entidades del dominio de usuarios: `Usuario`, `Rol`, `Empresa`, `EstadoUsuario` (enum), sus repositorios JPA, los DTO de respuesta (`UsuarioResumenDTO`, `EmpresaResumenDTO` — nunca exponen el hash de contraseña) y los controladores de solo lectura: `UsuarioController` (`GET /api/usuarios`, `GET /api/usuarios/{id}`, filtrados por la empresa del token — ver "Convención multiempresa" abajo) y `EmpresaController` (`GET /api/empresas`, público a propósito porque alimenta el selector de empresa del login, antes de autenticarse). |
 | `auth/` | HU-001 (login), versión mínima pero funcional: `AutenticacionController` (`POST /api/auth/login`), `JwtService` (emite/valida el JWT), `JwtAuthenticationFilter` (lo lee en cada petición) y `ContextoUsuarioActualImpl` (implementación real del contrato de `seguridad/`). No cubre todavía todos los criterios de aceptación de HU-001 — ver `README.md` sección "Sprint 1" para el detalle de qué falta. |
-| `seguridad/` | Infraestructura compartida para las HUs de seguridad del Sprint 1 — **no implementa ninguna HU en particular**, son contratos y piezas base: interfaces `ContextoUsuarioActual` (ya tiene implementación real en `auth/`) y `ValidadorPoliticaContrasena` (todavía sin implementación), `TokenRecuperacion` (recuperación de contraseña), `BitacoraSeguridad` + `BitacoraSeguridadService` (auditoría), las excepciones de dominio y el `GlobalExceptionHandler`. Ver `README.md` sección "Sprint 1" para el detalle de qué HU implementa qué. |
-| `config/` | `SecurityConfig` (BCrypt + registra el filtro JWT; los endpoints siguen abiertos por ahora — hay un `TODO` explícito sobre cuáles deberían exigir sesión) y `WebConfig` (CORS para el frontend en desarrollo). |
+| `seguridad/` | Infraestructura compartida para las HUs de seguridad del Sprint 1 — **no implementa ninguna HU en particular**, son contratos y piezas base: interfaces `ContextoUsuarioActual` (ya tiene implementación real en `auth/`) y `ValidadorPoliticaContrasena` (todavía sin implementación), `TokenRecuperacion` (recuperación de contraseña), `BitacoraSeguridad` + `BitacoraSeguridadService` (auditoría), las excepciones de dominio (incluye `SesionNoValidaException` y `AccesoNoAutorizadoException`, de HU-023) y el `GlobalExceptionHandler`. Ver `README.md` sección "Sprint 1" para el detalle de qué HU implementa qué. |
+| `config/` | `SecurityConfig` (BCrypt + registra el filtro JWT; `authorizeHttpRequests` ya exige sesión válida en toda ruta excepto `/api/auth/login` y `/api/empresas` — el rechazo sin JWT devuelve el mismo `ErrorResponse` con código `SESION_NO_VALIDA` que usaría `GlobalExceptionHandler`, porque este rechazo ocurre en el filtro de Spring Security, antes de llegar a un controlador) y `WebConfig` (CORS para el frontend en desarrollo). |
+
+### Convención multiempresa (HU-023)
+
+Toda entidad visible al usuario autenticado (no solo `Usuario`) debe aislarse por empresa. Cuando un sprint futuro agregue una entidad nueva (`Bodega`, `Contrato`, `Reactivo`, etc.), seguir el mismo patrón que ya usa `usuario/` en vez de reinventarlo:
+
+- La tabla necesita su propia columna `empresa_id` (como ya tiene `usuario`, ver `V1__crear_esquema_usuarios.sql`).
+- El repositorio expone variantes `...ByEmpresaId(...)` (`findAllByEmpresaId`, `findByIdAndEmpresaId`) — el filtro va en el `WHERE` que genera Spring Data, nunca en un `.stream().filter(...)` después de traer todo de la base.
+- El controlador obtiene la empresa siempre de `ContextoUsuarioActual.getEmpresaId()` (el JWT), **nunca** de un parámetro que mande el cliente.
+- Pedir un recurso que existe en otra empresa y pedir un id que no existe en ninguna deben responder **exactamente igual** (`403 FORBIDDEN`, código `ACCESO_NO_AUTORIZADO`, mismo mensaje genérico) — un 404 o un mensaje distinto filtraría cuáles ids son válidos en otras empresas.
+- Sin JWT válido, `401` con código `SESION_NO_VALIDA`, antes de tocar la base de datos.
 
 **Migraciones:** `src/main/resources/db/migration/`, versionadas (`V1`, `V2`, `V3`...). Se aplican solas al arrancar el backend (Flyway). Convención: **un archivo nuevo por cambio, nunca editar uno que ya esté mergeado.**
 

@@ -14,7 +14,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-
 @Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,8 +30,10 @@ class EmpresaControllerIT {
 	void listadoDeEmpresasNoRequiereSesionYDevuelveLaSemilla() throws Exception {
 		mockMvc.perform(get("/api/empresas"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].nombre").value("CAPRIS Médica"))
-				.andExpect(jsonPath("$[0].id").isNotEmpty());
+				.andExpect(jsonPath("$[0].id").value(1))
+				.andExpect(jsonPath("$[1].nombre").value("Diagnostika"))
+				.andExpect(jsonPath("$[1].id").value(2));
 	}
 }
