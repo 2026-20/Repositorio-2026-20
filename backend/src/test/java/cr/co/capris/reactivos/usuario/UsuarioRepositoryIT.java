@@ -14,9 +14,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Corre las migraciones reales de Flyway (V1/V2/V3, ver src/main/resources/db/migration)
+ * Corre las migraciones reales de Flyway (V1-V6, ver src/main/resources/db/migration)
  * contra un Postgres real -- confirma que el SQL de la semilla es valido y que los
- * 3 usuarios iniciales quedan con el rol y estado correctos.
+ * usuarios iniciales (3 de CAPRIS Médica + 1 de Diagnostika) quedan con el rol,
+ * empresa y estado correctos.
  * Requiere Docker; se ejecuta con "mvn verify", no con "mvn test".
  */
 @Testcontainers
@@ -32,8 +33,17 @@ class UsuarioRepositoryIT {
 	private UsuarioRepository usuarioRepository;
 
 	@Test
-	void lasMigracionesFlywayCarganLosTresUsuariosSemilla() {
-		assertThat(usuarioRepository.findAll()).hasSize(3);
+	void lasMigracionesFlywayCarganLosCuatroUsuariosSemilla() {
+		assertThat(usuarioRepository.findAll()).hasSize(4);
+	}
+
+	@Test
+	void usuarioDePruebaDeDiagnostikaQuedaActivoEnSuPropiaEmpresa() {
+		Optional<Usuario> usuarioDiagnostika = usuarioRepository.findByUsername("pruebadiagnostika");
+
+		assertThat(usuarioDiagnostika).isPresent();
+		assertThat(usuarioDiagnostika.get().getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
+		assertThat(usuarioDiagnostika.get().getEmpresa().getNombre()).isEqualTo("Diagnostika");
 	}
 
 	@Test
