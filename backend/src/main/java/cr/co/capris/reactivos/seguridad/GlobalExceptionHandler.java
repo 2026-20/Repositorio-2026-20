@@ -43,4 +43,18 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ErrorResponse.de("USUARIO_NO_ENCONTRADO", ex.getMessage()));
 	}
+
+	@ExceptionHandler(SesionNoValidaException.class)
+	public ResponseEntity<ErrorResponse> manejar(SesionNoValidaException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ErrorResponse.de("SESION_NO_VALIDA", ex.getMessage()));
+	}
+
+	//  Mensaje siempre generico -- nunca confirmar ni negar si el recurso
+	// solicitado existe en otra empresa (evita filtrar informacion por enumeracion).
+	@ExceptionHandler(AccesoNoAutorizadoException.class)
+	public ResponseEntity<ErrorResponse> manejar(AccesoNoAutorizadoException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(ErrorResponse.de("ACCESO_NO_AUTORIZADO", ex.getMessage()));
+	}
 }
