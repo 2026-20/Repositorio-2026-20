@@ -1,4 +1,4 @@
--- HU-023: usuario de prueba para Diagnostika. Hasta V4, Diagnostika era una empresa sin
+-- HU-023: usuario de prueba para Diagnostika. Hasta V5, Diagnostika era una empresa sin
 -- ningun usuario -- no se podia probar el login ni el selector de empresa con datos reales
 -- de esa empresa. A diferencia de los 3 usuarios de V2 (personas reales de CAPRIS), este
 -- es explicitamente una cuenta de prueba/QA, no una persona.

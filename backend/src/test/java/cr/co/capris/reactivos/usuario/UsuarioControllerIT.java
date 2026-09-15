@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Prueba de extremo a extremo del aislamiento multiempresa de HU-023 sobre
- * UsuarioController, enteramente contra la semilla real (V1-V5): "CAPRIS Médica" (con
+ * UsuarioController, enteramente contra la semilla real (V1-V6): "CAPRIS Médica" (con
  * amelendez/arcea/wmolina) y "Diagnostika" (con pruebadiagnostika) ya son datos reales,
  * no fixtures de prueba -- no hace falta insertar nada a mano en esta clase.
  *

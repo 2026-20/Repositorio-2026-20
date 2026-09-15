@@ -14,7 +14,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Corre las migraciones reales de Flyway (V1-V5, ver src/main/resources/db/migration)
+ * Corre las migraciones reales de Flyway (V1-V6, ver src/main/resources/db/migration)
  * contra un Postgres real -- confirma que el SQL de la semilla es valido y que los
  * usuarios iniciales (3 de CAPRIS Médica + 1 de Diagnostika) quedan con el rol,
  * empresa y estado correctos.

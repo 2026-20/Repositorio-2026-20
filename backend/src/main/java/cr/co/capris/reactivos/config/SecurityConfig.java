@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,9 +23,10 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 
 /**
- * El JWT ya se emite y se lee en cada peticion (ver paquete auth/, HU-001 minimo).
- * Las rutas que no exigen sesion (login, listado de empresas para el selector) estan
- * explicitas en authorizeHttpRequests; todo lo demas exige un JWT valido.
+ * El JWT ya se emite y se lee en cada peticion (ver paquete auth/). Desde HU-001,
+ * /api/auth/login y /api/empresas son las unicas rutas publicas; el resto exige un
+ * JWT valido (JwtAuthenticationFilter deja el request sin autenticar si falta, esta
+ * vencido, o el usuario fue inactivado -- ver HU-048).
  */
 @Configuration
 @EnableWebSecurity
@@ -59,6 +61,8 @@ public class SecurityConfig {
 				)
 
 				.authorizeHttpRequests(auth -> auth
+						// El preflight CORS (OPTIONS) no lleva el JWT, hay que dejarlo pasar.
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers(
 								"/api/auth/login",
 								"/api/empresas"
@@ -73,7 +77,6 @@ public class SecurityConfig {
 
 		return http.build();
 	}
-
 
 	private void responderSesionNoValida(
 			HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
