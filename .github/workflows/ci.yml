@@ -75,15 +75,36 @@ jobs:
       - name: Cobertura
         run: npm run test:coverage
 
-      - name: Pruebas E2E
-        run: npm run test:e2e
+      - name: Levantar frontend para Cypress
+        run: npm run dev &
 
-      - name: Publicar reporte de Playwright
-        if: always()
+      - name: Esperar a que el frontend responda
+        run: npx wait-on http://localhost:5173
+
+      # Cypress no tiene un equivalente a --pass-with-no-tests: si todavia no
+      # existe ningun spec en cypress/e2e/ (antes de que se agregue el primero
+      # de una HU), esto solo avisa en vez de poner el CI en rojo. Un fallo real
+      # de una prueba existente si detiene el job.
+      - name: Pruebas E2E (Cypress)
+        run: |
+          set +e
+          salida=$(npm run cypress:run 2>&1)
+          resultado=$?
+          echo "$salida"
+          if [ $resultado -ne 0 ]; then
+            if echo "$salida" | grep -q "no spec files were found"; then
+              echo "::warning::Sin specs de Cypress todavia (cypress/e2e/) -- no bloquea el CI."
+            else
+              exit $resultado
+            fi
+          fi
+
+      - name: Publicar capturas de Cypress (si algo falla)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-playwright-report
-          path: frontend/playwright-report
+          name: frontend-cypress-screenshots
+          path: frontend/cypress/screenshots
           retention-days: 14
 
       - name: Publicar reporte de cobertura (frontend)
