@@ -66,11 +66,10 @@ public class UsuarioController {
 	 * HU-048: baja logica. Idempotente a proposito -- si ya estaba INACTIVO no
 	 * cambia nada ni duplica el registro de bitacora, para que un doble clic del
 	 * administrador no genere ruido en la auditoria.
-	 *
 	 * No implementa el criterio de aceptacion 3 (propagar el bloqueo a la cola de
 	 * sincronizacion de dispositivos offline) -- esa cola todavia no existe en el
 	 * proyecto (depende de HU-003 y del resto del modulo de sincronizacion).
-	 */
+	 **/
 	@PostMapping("/{id}/inactivar")
 	public UsuarioResumenDTO inactivar(@PathVariable Long id, @RequestBody(required = false) InactivarUsuarioRequest request) {
 		Long empresaId = exigirEmpresaId();
