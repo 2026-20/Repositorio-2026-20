@@ -29,6 +29,13 @@ public class AutenticacionController {
 
 	private static final String MENSAJE_CREDENCIALES_INVALIDAS = "Usuario, contraseña o empresa no válidos";
 
+	// Hash BCrypt de una cadena que no es contraseña de nadie -- se usa para que
+	// passwordEncoder.matches(...) tarde lo mismo cuando el usuario no existe que
+	// cuando si existe. Sin esto, un username inexistente responde en milisegundos
+	// (nunca llega a BCrypt) y uno real tarda decenas de ms -- una diferencia facil
+	// de medir para enumerar usernames validos sin que el mensaje de error lo diga.
+	private static final String HASH_SENUELO = "$2a$10$uxSRyCPxQT6DLKACxaK7.OhwBoPNoydC2jcLtzSoSTDh.RCk/fIVu";
+
 	private final UsuarioRepository usuarioRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
@@ -46,6 +53,10 @@ public class AutenticacionController {
 	public LoginResponse login(@RequestBody LoginRequest request) {
 		Usuario usuario = usuarioRepository.findByUsername(request.username()).orElse(null);
 
+		// Se corre siempre, exista o no el usuario -- ver comentario de HASH_SENUELO.
+		String hashParaComparar = usuario != null ? usuario.getPasswordHash() : HASH_SENUELO;
+		boolean contrasenaCorrecta = passwordEncoder.matches(request.contrasena(), hashParaComparar);
+
 		if (usuario == null) {
 			bloqueoCuentaService.registrarIntentoUsuarioInexistente(request.username(), obtenerIdentificadorCliente());
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
@@ -61,7 +72,7 @@ public class AutenticacionController {
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
-		if (!passwordEncoder.matches(request.contrasena(), usuario.getPasswordHash())) {
+		if (!contrasenaCorrecta) {
 			bloqueoCuentaService.registrarIntentoFallido(usuario, obtenerIdentificadorCliente());
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}

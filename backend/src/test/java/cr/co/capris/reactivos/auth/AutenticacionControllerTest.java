@@ -78,6 +78,47 @@ class AutenticacionControllerTest {
                 .registrarIntentoUsuarioInexistente(eq("noexiste"), anyString());
     }
 
+    // Prueba de mitigacion de enumeracion de usuarios por tiempo de respuesta:
+    // aunque el usuario no exista, passwordEncoder.matches(...) debe correr igual
+    // (contra el hash senuelo), para que este camino no responda mas rapido que
+    // uno con usuario real -- ver comentario de HASH_SENUELO en el controller.
+    @Test
+    void loginConUsuarioInexistenteCorrePasswordEncoderParaIgualarTiempos() {
+
+        LoginRequest request =
+                new LoginRequest("noexiste", "cualquiera", 1L);
+        when(usuarioRepository.findByUsername("noexiste"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> controller.login(request))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(passwordEncoder).matches(eq("cualquiera"), anyString());
+    }
+
+    // Mismo caso pero para el camino de empresa incorrecta -- tambien debe correr
+    // passwordEncoder.matches(...) antes de rechazar, no solo el camino de usuario
+    // inexistente.
+    @Test
+    void loginConEmpresaIncorrectaCorrePasswordEncoderParaIgualarTiempos() {
+
+        LoginRequest request =
+                new LoginRequest("wmolina", "cualquiera", 99L);
+        when(usuarioRepository.findByUsername("wmolina"))
+                .thenReturn(Optional.of(usuario));
+        when(usuario.getEmpresa())
+                .thenReturn(empresa);
+        when(empresa.getId())
+                .thenReturn(1L);
+        when(usuario.getPasswordHash())
+                .thenReturn("hash-prueba");
+
+        assertThatThrownBy(() -> controller.login(request))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(passwordEncoder).matches("cualquiera", "hash-prueba");
+    }
+
     //Prueba de usuario inactivo
     @Test
     void loginConUsuarioInactivoLanzaCredencialesInvalidas() {
