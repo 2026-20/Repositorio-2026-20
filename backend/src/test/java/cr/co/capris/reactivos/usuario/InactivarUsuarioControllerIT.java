@@ -25,6 +25,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * HU-023: inactivar tambien respeta el aislamiento multiempresa -- un id que no existe
  * y un id que existe en otra empresa responden exactamente igual (403 ACCESO_NO_AUTORIZADO).
+ *
+ * Solo un Administrador puede inactivar -- SecurityConfig lo exige a nivel de filtro,
+ * antes de que la peticion llegue al controller.
  */
 @Testcontainers
 @SpringBootTest
@@ -53,6 +56,11 @@ class InactivarUsuarioControllerIT {
 	private String tokenAdministrador() {
 		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
 		return jwtService.generar(admin.getId(), admin.getEmpresa().getId(), admin.getRol().getNombre());
+	}
+
+	private String tokenUsuarioDeCampo() {
+		Usuario usuario = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow();
+		return jwtService.generar(usuario.getId(), usuario.getEmpresa().getId(), usuario.getRol().getNombre());
 	}
 
 	@Test
@@ -119,5 +127,19 @@ class InactivarUsuarioControllerIT {
 
 		Usuario usuarioDiagnostika = usuarioRepository.findById(idDiagnostika).orElseThrow();
 		assertThat(usuarioDiagnostika.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
+	}
+
+	@Test
+	void inactivarComoUsuarioDeCampoDevuelve403AccesoNoAutorizado() throws Exception {
+		Long idAdmin = usuarioRepository.findByUsername("wmolina").orElseThrow().getId();
+
+		mockMvc.perform(post("/api/usuarios/{id}/inactivar", idAdmin)
+						.header("Authorization", "Bearer " + tokenUsuarioDeCampo())
+						.contentType("application/json").content("{}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
+
+		Usuario admin = usuarioRepository.findById(idAdmin).orElseThrow();
+		assertThat(admin.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
 	}
 }

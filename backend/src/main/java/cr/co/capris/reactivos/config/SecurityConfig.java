@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -57,7 +58,9 @@ public class SecurityConfig {
 				)
 
 				.exceptionHandling(exception ->
-						exception.authenticationEntryPoint(this::responderSesionNoValida)
+						exception
+								.authenticationEntryPoint(this::responderSesionNoValida)
+								.accessDeniedHandler(this::responderAccesoNoAutorizado)
 				)
 
 				.authorizeHttpRequests(auth -> auth
@@ -67,7 +70,11 @@ public class SecurityConfig {
 								"/api/auth/login",
 								"/api/empresas"
 						).permitAll()
-						.requestMatchers(HttpMethod.POST, "/api/usuarios/*/desbloquear").hasRole("Administrador")
+						.requestMatchers(
+								HttpMethod.POST,
+								"/api/usuarios/*/inactivar",
+								"/api/usuarios/*/desbloquear"
+						).hasRole("Administrador")
 						.anyRequest().authenticated()
 				)
 
@@ -85,5 +92,13 @@ public class SecurityConfig {
 		response.setStatus(HttpStatus.UNAUTHORIZED.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		objectMapper.writeValue(response.getWriter(), ErrorResponse.de("SESION_NO_VALIDA", "No hay sesion activa"));
+	}
+
+	private void responderAccesoNoAutorizado(
+			HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException)
+			throws IOException {
+		response.setStatus(HttpStatus.FORBIDDEN.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		objectMapper.writeValue(response.getWriter(), ErrorResponse.de("ACCESO_NO_AUTORIZADO", "No autorizado"));
 	}
 }
