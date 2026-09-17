@@ -22,6 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * HU-048: baja logica contra la semilla real. No cubre el criterio de aceptacion 3
  * (cola de sincronizacion hacia dispositivos offline) -- esa infraestructura todavia
  * no existe en el proyecto (depende de HU-003). Requiere Docker; corre con "mvn verify".
+ *
+ * HU-023: inactivar tambien respeta el aislamiento multiempresa -- un id que no existe
+ * y un id que existe en otra empresa responden exactamente igual (403 ACCESO_NO_AUTORIZADO).
  */
 @Testcontainers
 @SpringBootTest
@@ -96,10 +99,25 @@ class InactivarUsuarioControllerIT {
 	}
 
 	@Test
-	void inactivarUnUsuarioInexistenteDevuelve404() throws Exception {
+	void inactivarUnUsuarioInexistenteDevuelve403AccesoNoAutorizado() throws Exception {
 		mockMvc.perform(post("/api/usuarios/{id}/inactivar", 999_999)
 						.header("Authorization", "Bearer " + tokenAdministrador())
 						.contentType("application/json").content("{}"))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
+	}
+
+	@Test
+	void inactivarUnUsuarioDeOtraEmpresaDevuelve403AccesoNoAutorizado() throws Exception {
+		Long idDiagnostika = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
+
+		mockMvc.perform(post("/api/usuarios/{id}/inactivar", idDiagnostika)
+						.header("Authorization", "Bearer " + tokenAdministrador())
+						.contentType("application/json").content("{}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
+
+		Usuario usuarioDiagnostika = usuarioRepository.findById(idDiagnostika).orElseThrow();
+		assertThat(usuarioDiagnostika.getEstado()).isEqualTo(EstadoUsuario.ACTIVO);
 	}
 }

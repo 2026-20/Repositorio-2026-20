@@ -1,17 +1,26 @@
 package cr.co.capris.reactivos.config;
 
 import cr.co.capris.reactivos.auth.JwtAuthenticationFilter;
+import cr.co.capris.reactivos.seguridad.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
 
 /**
  * El JWT ya se emite y se lee en cada peticion (ver paquete auth/). Desde HU-001,
@@ -24,9 +33,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final ObjectMapper objectMapper;
 
-	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.objectMapper = objectMapper;
 	}
 
 	@Bean
@@ -46,10 +57,7 @@ public class SecurityConfig {
 				)
 
 				.exceptionHandling(exception ->
-						exception.authenticationEntryPoint(
-								(request, response, authException) ->
-										response.setStatus(401)
-						)
+						exception.authenticationEntryPoint(this::responderSesionNoValida)
 				)
 
 				.authorizeHttpRequests(auth -> auth
@@ -69,5 +77,13 @@ public class SecurityConfig {
 				);
 
 		return http.build();
+	}
+
+	private void responderSesionNoValida(
+			HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
+			throws IOException {
+		response.setStatus(HttpStatus.UNAUTHORIZED.value());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		objectMapper.writeValue(response.getWriter(), ErrorResponse.de("SESION_NO_VALIDA", "No hay sesion activa"));
 	}
 }

@@ -1,17 +1,16 @@
 package cr.co.capris.reactivos.usuario;
 
 import cr.co.capris.reactivos.seguridad.BitacoraSeguridadService;
+import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import cr.co.capris.reactivos.seguridad.ContextoUsuarioActual;
 import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
 import cr.co.capris.reactivos.seguridad.UsuarioNoEncontradoException;
-import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -89,6 +88,7 @@ public class UsuarioController {
 		bloqueoCuentaService.desbloquearManualmente(usuario, contextoUsuarioActual.getUsuarioId());
 		return UsuarioResumenDTO.from(usuario);
 	}
+
 
 	private Usuario buscarOFallar(Long id) {
 		return usuarioRepository.findById(id)
