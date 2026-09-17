@@ -4,12 +4,14 @@ import cr.co.capris.reactivos.seguridad.BitacoraSeguridadService;
 import cr.co.capris.reactivos.seguridad.ContextoUsuarioActual;
 import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
 import cr.co.capris.reactivos.seguridad.UsuarioNoEncontradoException;
+import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,14 +27,17 @@ public class UsuarioController {
 	private final UsuarioRepository usuarioRepository;
 	private final BitacoraSeguridadService bitacoraSeguridadService;
 	private final ContextoUsuarioActual contextoUsuarioActual;
+	private final BloqueoCuentaService bloqueoCuentaService;
 
 	public UsuarioController(
 			UsuarioRepository usuarioRepository,
 			BitacoraSeguridadService bitacoraSeguridadService,
-			ContextoUsuarioActual contextoUsuarioActual) {
+			ContextoUsuarioActual contextoUsuarioActual,
+			BloqueoCuentaService bloqueoCuentaService) {
 		this.usuarioRepository = usuarioRepository;
 		this.bitacoraSeguridadService = bitacoraSeguridadService;
 		this.contextoUsuarioActual = contextoUsuarioActual;
+		this.bloqueoCuentaService = bloqueoCuentaService;
 	}
 
 	@GetMapping
@@ -75,6 +80,13 @@ public class UsuarioController {
 		bitacoraSeguridadService.registrar(
 				usuario.getUsername(), usuario.getId(), TipoEventoSeguridad.USUARIO_INACTIVADO, detalle);
 
+		return UsuarioResumenDTO.from(usuario);
+	}
+
+	@PostMapping("/{id}/desbloquear")
+	public UsuarioResumenDTO desbloquear(@PathVariable Long id) {
+		Usuario usuario = buscarOFallar(id);
+		bloqueoCuentaService.desbloquearManualmente(usuario, contextoUsuarioActual.getUsuarioId());
 		return UsuarioResumenDTO.from(usuario);
 	}
 

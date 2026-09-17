@@ -110,4 +110,14 @@ public class BloqueoCuentaService {
                 TipoEventoSeguridad.CUENTA_DESBLOQUEADA,
                 "Desbloqueo manual realizado por administrador id=%s".formatted(administradorId));
     }
+
+    public void registrarIntentoUsuarioInexistente(String username, String identificadorCliente) {
+        String detalle = "numeroIntento=no-aplica; identificadorCliente=%s; "
+                        + "bloqueoActivado=false; usuarioNoRegistrado=true";
+        bitacoraSeguridadService.registrar(
+                username,
+                null,
+                TipoEventoSeguridad.LOGIN_FALLIDO,
+                detalle.formatted(identificadorCliente));
+    }
 }

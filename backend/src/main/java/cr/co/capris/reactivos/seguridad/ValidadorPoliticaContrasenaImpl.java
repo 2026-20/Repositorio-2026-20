@@ -21,12 +21,11 @@ public class ValidadorPoliticaContrasenaImpl implements ValidadorPoliticaContras
             violaciones.add("La contraseña debe tener al menos 8 caracteres");
         }
 
-        if (valor.chars().noneMatch(c -> c >= 'A' && c <= 'Z')) {
-
+        if (valor.codePoints().noneMatch(Character::isUpperCase)) {
             violaciones.add("La contraseña debe contener al menos una letra mayúscula");
         }
 
-        if (valor.chars().noneMatch(c -> c >= 'a' && c <= 'z')) {
+        if (valor.codePoints().noneMatch(Character::isLowerCase)) {
             violaciones.add("La contraseña debe contener al menos una letra minúscula");
         }
 

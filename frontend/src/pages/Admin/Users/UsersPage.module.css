@@ -64,3 +64,25 @@
     font: inherit;
     resize: vertical;
 }
+
+.botonDesbloquear {
+    min-height: 44px;
+    padding: 8px 14px;
+    margin-right: 8px;
+    border: 1px solid #1e7a3d;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1e7a3d;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonDesbloquear:hover {
+    background: #f0f9f3;
+}
+
+.botonDesbloquear:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}

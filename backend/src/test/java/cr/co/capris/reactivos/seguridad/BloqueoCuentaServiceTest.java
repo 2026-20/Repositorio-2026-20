@@ -201,4 +201,16 @@ class BloqueoCuentaServiceTest {
                         TipoEventoSeguridad.CUENTA_DESBLOQUEADA,
                         "Desbloqueo manual realizado por administrador id=99");
     }
+
+    @Test
+    void intentoConUsuarioInexistenteSeRegistraEnBitacora() {
+
+        bloqueoCuentaService.registrarIntentoUsuarioInexistente("noexiste", "ip:127.0.0.1");
+        verify(bitacoraSeguridadService).registrar(
+                        "noexiste",
+                        null,
+                        TipoEventoSeguridad.LOGIN_FALLIDO,
+                        "numeroIntento=no-aplica; identificadorCliente=ip:127.0.0.1; "
+                                + "bloqueoActivado=false; usuarioNoRegistrado=true");
+    }
 }

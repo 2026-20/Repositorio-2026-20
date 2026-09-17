@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-
 import java.time.OffsetDateTime;
 
 /**
@@ -45,8 +44,12 @@ public class AutenticacionController {
 
 	@PostMapping("/login")
 	public LoginResponse login(@RequestBody LoginRequest request) {
-		Usuario usuario = usuarioRepository.findByUsername(request.username())
-				.orElseThrow(() -> new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS));
+		Usuario usuario = usuarioRepository.findByUsername(request.username()).orElse(null);
+
+		if (usuario == null) {
+			bloqueoCuentaService.registrarIntentoUsuarioInexistente(request.username(), obtenerIdentificadorCliente());
+			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
+		}
 
 		bloqueoCuentaService.verificarBloqueo(usuario);
 
@@ -82,8 +85,7 @@ public class AutenticacionController {
 				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
 	}
 
-	private String obtenerIdentificadorCliente()
-	{
+	private String obtenerIdentificadorCliente() {
 		var atributos = RequestContextHolder.getRequestAttributes();
 
 		if (atributos instanceof ServletRequestAttributes servletAttributes) {

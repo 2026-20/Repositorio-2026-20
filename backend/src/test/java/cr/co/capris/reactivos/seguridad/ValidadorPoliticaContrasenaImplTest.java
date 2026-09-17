@@ -64,4 +64,15 @@ class ValidadorPoliticaContrasenaImplTest {
                 "La contraseña debe contener al menos un número",
                 "La contraseña debe contener al menos un carácter especial");
     }
+
+    @Test
+    void contrasenaConMayusculaAcentuadaEsValida() {
+        assertThat(validador.validar("Árbol123!")).isEmpty();
+    }
+
+    @Test
+    void contrasenaConMinusculaAcentuadaEsValida() {
+        assertThat(validador.validar("CLAVÉñ123!")).isEmpty();
+    }
+
 }

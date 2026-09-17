@@ -74,6 +74,8 @@ class AutenticacionControllerTest {
                 .thenReturn(Optional.empty());
         assertThatThrownBy(() -> controller.login(request))
                 .isInstanceOf(CredencialesInvalidasException.class);
+        verify(bloqueoCuentaService)
+                .registrarIntentoUsuarioInexistente(eq("noexiste"), anyString());
     }
 
     //Prueba de usuario inactivo
