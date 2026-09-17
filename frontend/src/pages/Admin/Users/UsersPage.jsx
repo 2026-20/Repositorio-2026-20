@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import ConfirmDialog from '../../../components/feedback/ConfirmDialog'
 import { useAuth } from '../../../context/useAuth'
-import { inactivarUsuario, listarUsuarios } from '../../../services/usuarioService'
+import {desbloquearUsuario, inactivarUsuario, listarUsuarios, } from '../../../services/usuarioService'
 import styles from './UsersPage.module.css'
 
 export default function UsersPage() {
@@ -14,6 +14,7 @@ export default function UsersPage() {
     const [usuarioAInactivar, setUsuarioAInactivar] = useState(null)
     const [motivo, setMotivo] = useState('')
     const [inactivando, setInactivando] = useState(false)
+    const [desbloqueandoId, setDesbloqueandoId] = useState(null)
 
     const cargarUsuarios = useCallback(async () => {
         try {
@@ -68,6 +69,32 @@ export default function UsersPage() {
         }
     }
 
+    async function desbloquear(usuario) {
+        try {
+            setDesbloqueandoId(usuario.id)
+            setError('')
+
+            const actualizado = await desbloquearUsuario(
+                token,
+                usuario.id,
+            )
+
+            setUsuarios((actual) =>
+                actual.map((item) =>
+                    item.id === actualizado.id
+                        ? actualizado
+                        : item,
+                ),
+            )
+        } catch {
+            setError(
+                'No fue posible desbloquear al usuario. Intente nuevamente.',
+            )
+        } finally {
+            setDesbloqueandoId(null)
+        }
+    }
+
     return (
         <main className={styles.pagina}>
             <h1>Usuarios</h1>
@@ -106,10 +133,26 @@ export default function UsersPage() {
                                                 : styles.estadoActivo
                                         }
                                     >
-                                        {usuario.estado}
+                                        {usuario.bloqueado
+                                            ? 'BLOQUEADO'
+                                            : usuario.estado}
                                     </span>
                                 </td>
                                 <td>
+                                    {usuario.bloqueado
+                                        && usuario.estado !== 'INACTIVO' && (
+                                            <button
+                                                type="button"
+                                                className={styles.botonDesbloquear}
+                                                onClick={() => desbloquear(usuario)}
+                                                disabled={desbloqueandoId === usuario.id}
+                                            >
+                                                {desbloqueandoId === usuario.id
+                                                    ? 'Desbloqueando...'
+                                                    : 'Desbloquear'}
+                                            </button>
+                                        )}
+
                                     {usuario.estado !== 'INACTIVO' && (
                                         <button
                                             type="button"

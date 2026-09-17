@@ -124,4 +124,25 @@ describe('UsersPage', () => {
             await screen.findByText('No fue posible cargar el listado de usuarios.'),
         ).toBeInTheDocument()
     })
+
+    it('permite desbloquear una cuenta bloqueada desde el panel', async () => {
+        const usuarioBloqueado = {...usuarios[0], bloqueado: true, bloqueadoHasta: '2026-09-16T21:00:00Z',
+        }
+
+        vi.spyOn(usuarioService, 'listarUsuarios',).mockResolvedValue([usuarioBloqueado,])
+        vi.spyOn(usuarioService, 'desbloquearUsuario',).mockResolvedValue({...usuarioBloqueado, bloqueado: false, bloqueadoHasta: null,})
+
+        renderUsersPage()
+
+        await screen.findByText('BLOQUEADO')
+
+        fireEvent.click(screen.getByRole('button', { name: 'Desbloquear' },),)
+
+        await waitFor(() => {
+            expect(usuarioService.desbloquearUsuario,).toHaveBeenCalledWith(TOKEN_DE_PRUEBA, 1,)
+        })
+
+        expect(screen.queryByText('BLOQUEADO'),).not.toBeInTheDocument()
+    })
+
 })

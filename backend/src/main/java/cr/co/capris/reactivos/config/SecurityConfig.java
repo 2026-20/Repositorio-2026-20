@@ -67,6 +67,7 @@ public class SecurityConfig {
 								"/api/auth/login",
 								"/api/empresas"
 						).permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/usuarios/*/desbloquear").hasRole("Administrador")
 						.anyRequest().authenticated()
 				)
 
