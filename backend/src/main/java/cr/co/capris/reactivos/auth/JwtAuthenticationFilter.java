@@ -56,6 +56,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			try {
 				Claims claims = jwtService.validarYObtenerClaims(header.substring(7));
 				Long usuarioId = Long.valueOf(claims.getSubject());
+				String proposito = claims.get("proposito", String.class);
+
+				// Token de recuperación: no autenticar como sesión normal
+				if ("recuperacion_password".equals(proposito)) {
+					chain.doFilter(request, response);
+					return;
+				}
 
 				Optional<Usuario> usuario = usuarioRepository.findById(usuarioId);
 				OffsetDateTime emitidoEn = claims.getIssuedAt().toInstant().atOffset(ZoneOffset.UTC);

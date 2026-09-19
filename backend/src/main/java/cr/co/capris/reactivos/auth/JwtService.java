@@ -3,6 +3,7 @@ package cr.co.capris.reactivos.auth;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -23,12 +24,21 @@ public class JwtService {
 
 	private final SecretKey key;
 	private final long expiracionMinutos;
+	private final long expiracionRecuperacionMinutos;
 
+	@Autowired
 	public JwtService(
 			@Value("${app.jwt.secret}") String secret,
-			@Value("${app.jwt.expiracion-minutos:480}") long expiracionMinutos) {
+			@Value("${app.jwt.expiracion-minutos:480}") long expiracionMinutos,
+			@Value("${app.jwt.recuperacion.expiracion-minutos:10}") long expiracionRecuperacionMinutos) {
 		this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 		this.expiracionMinutos = expiracionMinutos;
+		this.expiracionRecuperacionMinutos = expiracionRecuperacionMinutos;
+	}
+
+	/** Variante para pruebas unitarias que no necesitan configurar la sesión temporal. */
+	JwtService(String secret, long expiracionMinutos) {
+		this(secret, expiracionMinutos, 10);
 	}
 
 	public String generar(Long usuarioId, Long empresaId, String rol) {
@@ -41,6 +51,26 @@ public class JwtService {
 				.expiration(Date.from(ahora.plus(expiracionMinutos, ChronoUnit.MINUTES)))
 				.signWith(key)
 				.compact();
+	}
+
+	public String generarTokenRecuperacion(Long usuarioId) {
+		Instant ahora = Instant.now();
+		return Jwts.builder()
+				.subject(String.valueOf(usuarioId))
+				.claim("proposito", "recuperacion_password")
+				.issuedAt(Date.from(ahora))
+				.expiration(Date.from(ahora.plus(expiracionRecuperacionMinutos, ChronoUnit.MINUTES)))
+				.signWith(key)
+				.compact();
+	}
+
+	public Long validarTokenRecuperacionYObtenerUsuarioId(String token) {
+		Claims claims = validarYObtenerClaims(token);
+		String proposito = claims.get("proposito", String.class);
+		if (!"recuperacion_password".equals(proposito)) {
+			throw new IllegalArgumentException("El token no es un token de recuperación de contraseña");
+		}
+		return Long.valueOf(claims.getSubject());
 	}
 
 	/** Lanza io.jsonwebtoken.JwtException si el token es invalido, esta vencido o fue alterado. */

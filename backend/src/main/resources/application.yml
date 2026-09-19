@@ -23,3 +23,25 @@ app:
   jwt:
     secret: PeE4XuHYQWqj6XZI1sS8DtZHT0nIesSkkDK-EK4QFivi_52Hpnu0A95Rxr7P6uks
     expiracion-minutos: 480
+    recuperacion:
+      expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
+
+  # HU-046: envío del correo con el OTP de recuperación.
+  email:
+    # "log" (por defecto): no envía nada real, solo escribe el OTP en el log --
+    # así "mvn test" / "mvn verify" y el arranque en local no necesitan una API
+    # key. "sendgrid": envía de verdad -- SOLO activarlo explícitamente, en la
+    # práctica vía la variable de entorno APP_EMAIL_PROVEEDOR=sendgrid en el
+    # servidor real (nunca en este archivo).
+    proveedor: log
+    remitente: ${APP_EMAIL_REMITENTE:recuperacioncapris@hotmail.com}
+    remitente-nombre: "CAPRIS Médica - Reactivos"
+    sendgrid:
+      # NUNCA la contraseña del buzón de correo -- esto es la API Key que se
+      # genera dentro de SendGrid (Settings > API Keys, permiso restringido a
+      # "Mail Send"). No se comitea un valor real acá, solo la referencia a la
+      # variable de entorno.
+      api-key: ${APP_SENDGRID_API_KEY:}
+    otp:
+      expiracion-minutos: 15 # criterio de aceptación 3
+      intentos-maximos: 3    # criterio de aceptación 5

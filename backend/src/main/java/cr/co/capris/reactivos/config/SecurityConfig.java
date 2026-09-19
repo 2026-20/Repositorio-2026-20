@@ -67,6 +67,7 @@ public class SecurityConfig {
 								"/api/auth/login",
 								"/api/empresas"
 						).permitAll()
+						.requestMatchers("/api/auth/recuperacion/**").permitAll()
 						.anyRequest().authenticated()
 				)
 

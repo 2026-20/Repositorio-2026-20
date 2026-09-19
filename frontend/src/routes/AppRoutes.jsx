@@ -5,6 +5,7 @@ import {
 } from 'react-router-dom'
 
 import LoginPage from '../pages/Login/LoginPage'
+import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
@@ -15,6 +16,11 @@ export default function AppRoutes() {
             <Route
                 path="/login"
                 element={<LoginPage />}
+            />
+
+            <Route
+                path="/recuperar-contrasena"
+                element={<RecuperarContrasena />}
             />
 
             <Route

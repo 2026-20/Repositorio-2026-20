@@ -47,6 +47,13 @@ Si prefieren no usar Docker, pueden instalar PostgreSQL nativamente desde [postg
 
 Para inspeccionar la base visualmente, recomendamos **[DBeaver](https://dbeaver.io/)** (gratuito, multiplataforma) — conectar contra `localhost:5432`, base `capris_reactivos`, usuario `capris`.
 
+> **Si ya tenés un PostgreSQL instalado en la máquina ocupando el 5432** (pasa en
+> algunas laptops del equipo), el contenedor puede quedar detrás de esa instancia.
+> Dos opciones: detener el servicio nativo y arrancar el contenedor en 5432; o
+> dejar el contenedor en otro puerto (ej. `-p 5433:5432`) y levantar el backend con
+> `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/capris_reactivos`
+> (solo como variable de entorno del proceso, no se commitea en `application.yml`).
+
 Las migraciones (Flyway) se aplican **automáticamente** al arrancar el backend — no hay que correr nada manualmente. El esquema y los datos semilla están en `backend/src/main/resources/db/migration/`.
 
 ## Cómo levantar el backend
@@ -119,6 +126,59 @@ Para que el resto de las HUs de este sprint no tuvieran que esperar a que HU-001
 
 Usuario de prueba para el login: `wmolina` / `Capris2026!` / `empresaId: 1`.
 
+### HU-046 — Recuperación de contraseña por OTP
+
+Flujo de 3 pasos: pedir un código (OTP) al correo, validarlo con una sesión
+temporal restringida, y fijar la contraseña nueva. Cumple los 5 criterios de
+aceptación (mensaje offline desde el frontend, mensaje genérico que no revela
+si el correo existe, OTP vence a los 15 min y es de un solo uso, sesión
+temporal que no sirve como sesión normal, y tope de 3 intentos).
+
+**Endpoints públicos** (en `RecuperacionContrasenaController`):
+
+| Método | Endpoint | Qué hace |
+|---|---|---|
+| `POST` | `/api/auth/recuperacion/solicitar` | Envía el OTP al correo (si la cuenta existe y está activa) |
+| `POST` | `/api/auth/recuperacion/validar-otp` | Valida OTP; devuelve `tokenSesionTemporal` |
+| `POST` | `/api/auth/recuperacion/nueva-contrasena` | Cambia la contraseña usando la sesión temporal |
+
+**Correo por interfaz intercambiable** — `EmailService` con dos
+implementaciones vía `app.email.proveedor`:
+- `log` (default): escribe el OTP en la consola del backend. Así `mvn test`,
+  `mvn verify` y levantar el proyecto en cualquier laptop **no necesitan API
+  key**. CI nunca llama a SendGrid.
+- `sendgrid`: envía de verdad (activar solo con la variable de entorno
+  `APP_EMAIL_PROVEEDOR=sendgrid` en el servidor real).
+
+**Variables de entorno nuevas** (todas con default seguro en `application.yml`
+para desarrollo):
+
+| Variable | Default local | Para qué |
+|---|---|---|
+| `APP_EMAIL_PROVEEDOR` | `log` | `log` o `sendgrid` |
+| `APP_SENDGRID_API_KEY` | (vacío) | API Key de SendGrid (permiso solo Mail Send) — nunca comitear |
+| `APP_EMAIL_REMITENTE` | `recuperacioncapris@hotmail.com` | dirección "de" del correo |
+| `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | orígenes permitidos por CORS (probarlo también al dejar el backend en una URL distinta) |
+| `APP_JWT_SECRET` | (ya existía) | secreto de firma — en producción siempre por entorno |
+| `VITE_API_BASE_URL` (frontend) | `http://localhost:8080` | URL base del backend para el frontend |
+
+**El OTP nunca se guarda en texto plano**: se guarda su hash BCrypt
+(`token_recuperacion.token`, migración `V7__recuperacion_password_otp.sql`).
+La sesión temporal es un JWT con claim `proposito=recuperacion_password`
+(10 min por defecto) que `JwtAuthenticationFilter` **nunca** trata como sesión
+normal. El historial de contraseñas (`historial_contrasena`, también V7) impide
+reutilizar una contraseña usada recientemente, y lo comparten HU-044/045.
+
+**Cómo probarlo:**
+```bash
+cd backend
+mvn spring-boot:run        # correo en modo "log": el OTP sale en la consola
+```
+Docker: hay `backend/Dockerfile` listo (compila en Java 17, imagen final solo
+JRE+jar, corre como usuario no-root). Detalle de despliegue y comparativa
+Railway / Render / OCI para decidir en la reunión con la empresa: ver
+**[`docs/GUIA_HU-046.md`](docs/GUIA_HU-046.md)** y la sección 10 de la guía.
+
 Convenciones para trabajar en paralelo sin chocar:
 - Una rama por HU (ej. `feature/HU-042-validacion-password`).
 - Cada HU que necesite cambiar el esquema agrega una migración Flyway **nueva** (`V4__...`, `V5__...`) — nunca editar `V1`/`V2`/`V3` que ya existen.
@@ -130,6 +190,7 @@ Cada push o PR contra `main` corre automáticamente ambos conjuntos de pruebas e
 ## Documentación
 
 - [`.github/ESTRUCTURA.md`](.github/ESTRUCTURA.md) — mapa de qué hay en cada carpeta del código y las convenciones de nombres.
+- [`docs/GUIA_HU-046.md`](docs/GUIA_HU-046.md) — decisiones de implementación, configuración de SendGrid y despliegue de la recuperación de contraseña (HU-046).
 
 ---
 

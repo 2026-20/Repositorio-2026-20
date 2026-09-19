@@ -112,6 +112,19 @@
     cursor: not-allowed;
 }
 
+.enlaceRecuperacion {
+    display: block;
+    text-align: center;
+    color: #0f426e;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.enlaceRecuperacion:hover {
+    text-decoration: underline;
+}
+
 @media (max-width: 520px) {
     .pagina {
         padding: 16px;

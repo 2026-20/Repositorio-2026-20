@@ -187,6 +187,13 @@ export default function LoginPage() {
                             ? 'Iniciando sesión...'
                             : 'Iniciar sesión'}
                     </button>
+
+                    <a
+                        className={styles.enlaceRecuperacion}
+                        href="/recuperar-contrasena"
+                    >
+                        ¿Olvidaste tu contraseña?
+                    </a>
                 </form>
             </section>
         </main>

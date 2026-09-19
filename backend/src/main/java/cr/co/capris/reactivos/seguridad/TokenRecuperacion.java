@@ -37,6 +37,8 @@ public class TokenRecuperacion {
 
 	private boolean usado;
 
+	private int intentosFallidos = 0;
+
 	protected TokenRecuperacion() {
 		// requerido por JPA
 	}
@@ -75,5 +77,17 @@ public class TokenRecuperacion {
 
 	public void setUsado(boolean usado) {
 		this.usado = usado;
+	}
+
+	public int getIntentosFallidos() {
+		return intentosFallidos;
+	}
+
+	public void incrementarIntentosFallidos() {
+		this.intentosFallidos++;
+	}
+
+	public void reiniciarIntentosFallidos() {
+		this.intentosFallidos = 0;
 	}
 }
