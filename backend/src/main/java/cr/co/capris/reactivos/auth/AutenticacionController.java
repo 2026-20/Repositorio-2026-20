@@ -1,15 +1,17 @@
 package cr.co.capris.reactivos.auth;
 
 import cr.co.capris.reactivos.seguridad.CredencialesInvalidasException;
-import cr.co.capris.reactivos.seguridad.CuentaBloqueadaException;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
+import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.OffsetDateTime;
 
@@ -27,27 +29,40 @@ public class AutenticacionController {
 
 	private static final String MENSAJE_CREDENCIALES_INVALIDAS = "Usuario, contraseña o empresa no válidos";
 
+	// Hash BCrypt de una cadena que no es contraseña de nadie -- se usa para que
+	// passwordEncoder.matches(...) tarde lo mismo cuando el usuario no existe que
+	// cuando si existe. Sin esto, un username inexistente responde en milisegundos
+	// (nunca llega a BCrypt) y uno real tarda decenas de ms -- una diferencia facil
+	// de medir para enumerar usernames validos sin que el mensaje de error lo diga.
+	private static final String HASH_SENUELO = "$2a$10$uxSRyCPxQT6DLKACxaK7.OhwBoPNoydC2jcLtzSoSTDh.RCk/fIVu";
+
 	private final UsuarioRepository usuarioRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final BloqueoCuentaService bloqueoCuentaService;
 
 	public AutenticacionController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-			JwtService jwtService) {
+			JwtService jwtService, BloqueoCuentaService bloqueoCuentaService) {
 		this.usuarioRepository = usuarioRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.bloqueoCuentaService = bloqueoCuentaService;
 	}
 
 	@PostMapping("/login")
 	public LoginResponse login(@RequestBody LoginRequest request) {
-		Usuario usuario = usuarioRepository.findByUsername(request.username())
-				.orElseThrow(() -> new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS));
+		Usuario usuario = usuarioRepository.findByUsername(request.username()).orElse(null);
 
-		if (usuario.getBloqueadoHasta() != null && usuario.getBloqueadoHasta().isAfter(OffsetDateTime.now())) {
-			// HU-043 es quien fija bloqueadoHasta; el login solo lo respeta.
-			throw new CuentaBloqueadaException(
-					"Cuenta bloqueada temporalmente por intentos fallidos", usuario.getBloqueadoHasta());
+		// Se corre siempre, exista o no el usuario -- ver comentario de HASH_SENUELO.
+		String hashParaComparar = usuario != null ? usuario.getPasswordHash() : HASH_SENUELO;
+		boolean contrasenaCorrecta = passwordEncoder.matches(request.contrasena(), hashParaComparar);
+
+		if (usuario == null) {
+			bloqueoCuentaService.registrarIntentoUsuarioInexistente(request.username(), obtenerIdentificadorCliente());
+			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
+
+		bloqueoCuentaService.verificarBloqueo(usuario);
 
 		if (usuario.getEstado() == EstadoUsuario.INACTIVO) {
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
@@ -57,9 +72,8 @@ public class AutenticacionController {
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
-		if (!passwordEncoder.matches(request.contrasena(), usuario.getPasswordHash())) {
-			// TODO (HU-043): incrementar usuario.intentosFallidos aqui; al llegar a 4,
-			// fijar bloqueadoHasta = ahora + 7 minutos y registrar en la bitacora.
+		if (!contrasenaCorrecta) {
+			bloqueoCuentaService.registrarIntentoFallido(usuario, obtenerIdentificadorCliente());
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
@@ -70,7 +84,7 @@ public class AutenticacionController {
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
-		// TODO (HU-043): reiniciar usuario.intentosFallidos a 0 aqui, en login exitoso.
+		bloqueoCuentaService.reiniciarIntentosTrasLoginExitoso(usuario);
 
 		String token = jwtService.generar(usuario.getId(), usuario.getEmpresa().getId(), usuario.getRol().getNombre());
 
@@ -80,5 +94,16 @@ public class AutenticacionController {
 				usuario.getNombreCompleto(),
 				usuario.getRol().getNombre(),
 				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
+	}
+
+	private String obtenerIdentificadorCliente() {
+		var atributos = RequestContextHolder.getRequestAttributes();
+
+		if (atributos instanceof ServletRequestAttributes servletAttributes) {
+			String ip = servletAttributes.getRequest().getRemoteAddr();
+			return "ip:" + ip;
+		}
+
+		return "ip:no-disponible";
 	}
 }
