@@ -44,3 +44,17 @@ export async function iniciarSesion(username, contrasena, empresaId) {
 
     return procesarRespuesta(response)
 }
+export async function cerrarSesion(token) {
+    const response = await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    if (!response.ok) {
+        const error = new Error('No fue posible cerrar la sesión')
+        error.status = response.status
+        throw error
+    }
+}

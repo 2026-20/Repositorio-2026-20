@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Lógica de negocio de HU-046. El controlador (RecuperacionContrasenaController)
@@ -20,6 +21,9 @@ import java.util.List;
  */
 @Service
 public class RecuperacionContrasenaService {
+
+	private static final org.slf4j.Logger log =
+			org.slf4j.LoggerFactory.getLogger(RecuperacionContrasenaService.class);
 
 	private final UsuarioRepository usuarioRepository;
 	private final TokenRecuperacionRepository tokenRecuperacionRepository;
@@ -32,6 +36,7 @@ public class RecuperacionContrasenaService {
 
 	private final int otpExpiracionMinutos;
 	private final int otpIntentosMaximos;
+	private final boolean emailAsincrono;
 
 	public RecuperacionContrasenaService(
 			UsuarioRepository usuarioRepository,
@@ -43,7 +48,8 @@ public class RecuperacionContrasenaService {
 			JwtService jwtService,
 			ValidadorPoliticaContrasena validadorPoliticaContrasena,
 			@Value("${app.email.otp.expiracion-minutos:15}") int otpExpiracionMinutos,
-			@Value("${app.email.otp.intentos-maximos:3}") int otpIntentosMaximos) {
+			@Value("${app.email.otp.intentos-maximos:3}") int otpIntentosMaximos,
+			@Value("${app.email.asincrono:true}") boolean emailAsincrono) {
 		this.usuarioRepository = usuarioRepository;
 		this.tokenRecuperacionRepository = tokenRecuperacionRepository;
 		this.historialContrasenaService = historialContrasenaService;
@@ -54,6 +60,7 @@ public class RecuperacionContrasenaService {
 		this.validadorPoliticaContrasena = validadorPoliticaContrasena;
 		this.otpExpiracionMinutos = otpExpiracionMinutos;
 		this.otpIntentosMaximos = otpIntentosMaximos;
+		this.emailAsincrono = emailAsincrono;
 	}
 
 	/**
@@ -84,8 +91,17 @@ public class RecuperacionContrasenaService {
 							ahora.plusMinutes(otpExpiracionMinutos));
 					tokenRecuperacionRepository.save(token);
 
-					emailService.enviarOtpRecuperacion(
-							usuario.getCorreo(), usuario.getNombreCompleto(), otp, otpExpiracionMinutos);
+					// Criterio 2: el envío NO puede delatar por temporización si el
+					// correo existe o no, así que por defecto va en segundo plano
+					// (fire-and-forget). Cuando app.email.asincrono=false (solo en
+					// pruebas de integración) se envía en el hilo actual para poder
+					// capturar el OTP sin carreras.
+					if (emailAsincrono) {
+						enviarOtpEnSegundoPlano(usuario, otp);
+					} else {
+						emailService.enviarOtpRecuperacion(
+								usuario.getCorreo(), usuario.getNombreCompleto(), otp, otpExpiracionMinutos);
+					}
 
 					bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(),
 							TipoEventoSeguridad.CONTRASENA_RECUPERACION_SOLICITADA,
@@ -94,6 +110,24 @@ public class RecuperacionContrasenaService {
 		// Si no existe el correo (o la cuenta está inactiva): no se hace nada --
 		// ni se escribe en la bitácora, ni se lanza ninguna excepción. El
 		// controller responde el mismo mensaje genérico en cualquier caso.
+	}
+
+	/**
+	 * Envío fire-and-forget: este método NO debe tardar (la respuesta HTTP no
+	 * debe esperar a SendGrid, criterio 2) ni propagar el error al hilo que
+	 * atiende la petición -- cualquier fallo del proveedor se registra en el
+	 * log y no rompe la llamada (el usuario igual recibe el mensaje genérico).
+	 */
+	private void enviarOtpEnSegundoPlano(Usuario usuario, String otp) {
+		String correo = usuario.getCorreo();
+		String nombreCompleto = usuario.getNombreCompleto();
+		CompletableFuture.runAsync(() -> {
+			try {
+				emailService.enviarOtpRecuperacion(correo, nombreCompleto, otp, otpExpiracionMinutos);
+			} catch (RuntimeException ex) {
+				log.error("No se pudo enviar el OTP de recuperación a {}", correo, ex);
+			}
+		});
 	}
 
 	/**
@@ -161,6 +195,10 @@ public class RecuperacionContrasenaService {
 		usuario.setIntentosFallidos(0);
 		usuario.setBloqueadoHasta(null);
 		usuarioRepository.save(usuario);
+
+		// Criterio 4: la sesión temporal es de UN solo uso -- al completar el
+		// cambio se revoca su jti; reutilizar el mismo JWT ya no debe servir.
+		jwtService.revocarTokenRecuperacion(tokenSesionTemporal);
 
 		bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(),
 				TipoEventoSeguridad.CONTRASENA_CAMBIADA,

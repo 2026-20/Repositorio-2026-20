@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+    cerrarSesion,
     iniciarSesion,
     obtenerEmpresas,
 } from './authService'
@@ -89,6 +90,38 @@ describe('authService', () => {
             message: 'Credenciales inválidas',
             codigo: 'CREDENCIALES_INVALIDAS',
             status: 401,
+        })
+    })
+    it('envia el token al cerrar sesion', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            status: 204,
+        })
+
+        await cerrarSesion('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith(
+            'http://localhost:8080/api/auth/logout',
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: 'Bearer jwt-prueba',
+                },
+            },
+        )
+    })
+
+    it('lanza error cuando no es posible cerrar sesion', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: false,
+            status: 500,
+        })
+
+        await expect(
+            cerrarSesion('jwt-prueba'),
+        ).rejects.toMatchObject({
+            message: 'No fue posible cerrar la sesión',
+            status: 500,
         })
     })
 })

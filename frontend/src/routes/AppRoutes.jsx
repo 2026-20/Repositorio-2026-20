@@ -4,9 +4,10 @@ import {
     Routes,
 } from 'react-router-dom'
 
+import AppLayout from '../components/layout/AppLayout'
+import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
-import DashboardPage from '../pages/Dashboard/DashboardPage'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -18,7 +19,7 @@ export default function AppRoutes() {
                 element={<LoginPage />}
             />
 
-            <Route
+<Route
                 path="/recuperar-contrasena"
                 element={<RecuperarContrasena />}
             />
@@ -27,19 +28,20 @@ export default function AppRoutes() {
                 path="/dashboard"
                 element={
                     <ProtectedRoute>
-                        <DashboardPage />
+                        <AppLayout />
                     </ProtectedRoute>
                 }
-            />
+            >
+                <Route
+                    path="/dashboard"
+                    element={<DashboardPage />}
+                />
 
-            <Route
-                path="/admin/usuarios"
-                element={
-                    <ProtectedRoute>
-                        <UsersPage />
-                    </ProtectedRoute>
-                }
-            />
+                <Route
+                    path="/admin/usuarios"
+                    element={<UsersPage />}
+                />
+            </Route>
 
             <Route
                 path="*"

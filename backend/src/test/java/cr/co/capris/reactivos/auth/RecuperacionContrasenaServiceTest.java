@@ -49,7 +49,7 @@ class RecuperacionContrasenaServiceTest {
 		service = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS);
+				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false);
 		usuario = construirUsuario(1L, "persona@capris.cr", "persona.prueba", "hash-actual");
 	}
 
@@ -76,6 +76,44 @@ class RecuperacionContrasenaServiceTest {
 
 		verifyNoInteractions(emailService);
 		verify(tokenRecuperacionRepository, never()).save(any());
+	}
+
+	@Test
+	void solicitarConCorreoExistenteYAsincronoAutomaticoIgualmenteDespachaElEnvio() {
+		RecuperacionContrasenaService asincrono = new RecuperacionContrasenaService(
+				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
+				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
+				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true);
+
+		when(usuarioRepository.findByCorreo("persona@capris.cr")).thenReturn(Optional.of(usuario));
+		when(tokenRecuperacionRepository.findByUsuarioIdAndUsadoFalse(1L)).thenReturn(List.of());
+		when(passwordEncoder.encode(anyString())).thenReturn("otp-hasheado");
+
+		asincrono.solicitar("persona@capris.cr");
+
+		// El envío va en otro hilo: se espera la invocación con timeout en vez
+		// de un verify sincrónico (que sería una carrera).
+		verify(emailService, timeout(3000)).enviarOtpRecuperacion(
+				eq("persona@capris.cr"), anyString(), anyString(), eq(OTP_EXPIRACION_MINUTOS));
+	}
+
+	@Test
+	void solicitarConAsincronoNoPropagaElErrorDelEnvio() {
+		RecuperacionContrasenaService asincrono = new RecuperacionContrasenaService(
+				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
+				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
+				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true);
+
+		when(usuarioRepository.findByCorreo("persona@capris.cr")).thenReturn(Optional.of(usuario));
+		when(tokenRecuperacionRepository.findByUsuarioIdAndUsadoFalse(1L)).thenReturn(List.of());
+		when(passwordEncoder.encode(anyString())).thenReturn("otp-hasheado");
+		doThrow(new EnvioCorreoFallidoException("SendGrid caído"))
+				.when(emailService).enviarOtpRecuperacion(anyString(), anyString(), anyString(), anyInt());
+
+		asincrono.solicitar("persona@capris.cr");
+
+		verify(bitacoraSeguridadService).registrar(anyString(), eq(1L),
+				eq(TipoEventoSeguridad.CONTRASENA_RECUPERACION_SOLICITADA), anyString());
 	}
 
 	@Test
@@ -174,6 +212,7 @@ class RecuperacionContrasenaServiceTest {
 		verify(historialContrasenaService).registrarContrasenaReemplazada(usuario);
 		assertThat(usuario.getPasswordHash()).isEqualTo("nuevo-hash");
 		verify(usuarioRepository).save(usuario);
+		verify(jwtService).revocarTokenRecuperacion("token-temporal");
 		verify(bitacoraSeguridadService).registrar(anyString(), eq(1L),
 				eq(TipoEventoSeguridad.CONTRASENA_CAMBIADA), anyString());
 	}

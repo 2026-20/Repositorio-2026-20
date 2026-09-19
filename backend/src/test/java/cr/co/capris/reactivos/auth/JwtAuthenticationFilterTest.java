@@ -12,10 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * el usuario no esta INACTIVO y fue emitido despues de la ultima revocacion.
  */
 class JwtAuthenticationFilterTest {
-
 	private final JwtAuthenticationFilter filtro =
-			new JwtAuthenticationFilter(null, null, null);
-
+			new JwtAuthenticationFilter(null, null, null, null);
 	@Test
 	void tokenValidoSiNuncaSeRevocoNadaYElUsuarioSigueActivo() {
 		OffsetDateTime emitidoEn = OffsetDateTime.now();

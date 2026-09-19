@@ -158,16 +158,20 @@ para desarrollo):
 | `APP_EMAIL_PROVEEDOR` | `log` | `log` o `sendgrid` |
 | `APP_SENDGRID_API_KEY` | (vacío) | API Key de SendGrid (permiso solo Mail Send) — nunca comitear |
 | `APP_EMAIL_REMITENTE` | `recuperacioncapris@hotmail.com` | dirección "de" del correo |
+| `APP_EMAIL_ASINCRONO` | `true` | envío del OTP en segundo plano (fire-and-forget, evita filtrar por temporización si el correo existe) — `false` solo en pruebas de integración |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | orígenes permitidos por CORS (probarlo también al dejar el backend en una URL distinta) |
 | `APP_JWT_SECRET` | (ya existía) | secreto de firma — en producción siempre por entorno |
 | `VITE_API_BASE_URL` (frontend) | `http://localhost:8080` | URL base del backend para el frontend |
 
 **El OTP nunca se guarda en texto plano**: se guarda su hash BCrypt
-(`token_recuperacion.token`, migración `V7__recuperacion_password_otp.sql`).
+(`token_recuperacion.token`, migración `V8__recuperacion_password_otp.sql`).
 La sesión temporal es un JWT con claim `proposito=recuperacion_password`
 (10 min por defecto) que `JwtAuthenticationFilter` **nunca** trata como sesión
-normal. El historial de contraseñas (`historial_contrasena`, también V7) impide
-reutilizar una contraseña usada recientemente, y lo comparten HU-044/045.
+normal, es **de un solo uso**: al completar `nueva-contrasena` se revoca su
+`jti` (misma tabla `token_sesion_revocado` de HU-002) y reutilizar el mismo
+JWT es rechazado. El historial de contraseñas (`historial_contrasena`, también
+V8) impide reutilizar una contraseña usada recientemente, y lo comparten
+HU-044/045.
 
 **Cómo probarlo:**
 ```bash

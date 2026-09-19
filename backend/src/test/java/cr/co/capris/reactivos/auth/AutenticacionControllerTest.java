@@ -7,6 +7,7 @@ import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Rol;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
+import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 
 @ExtendWith(MockitoExtension.class)
 class AutenticacionControllerTest {
@@ -44,6 +49,9 @@ class AutenticacionControllerTest {
     @Mock
     private Rol rol;
 
+    @Mock
+    private BloqueoCuentaService bloqueoCuentaService;
+
     private AutenticacionController controller;
 
     @BeforeEach
@@ -51,7 +59,8 @@ class AutenticacionControllerTest {
         controller = new AutenticacionController(
                 usuarioRepository,
                 passwordEncoder,
-                jwtService
+                jwtService,
+                bloqueoCuentaService
         );
     }
 
@@ -65,6 +74,49 @@ class AutenticacionControllerTest {
                 .thenReturn(Optional.empty());
         assertThatThrownBy(() -> controller.login(request))
                 .isInstanceOf(CredencialesInvalidasException.class);
+        verify(bloqueoCuentaService)
+                .registrarIntentoUsuarioInexistente(eq("noexiste"), anyString());
+    }
+
+    // Prueba de mitigacion de enumeracion de usuarios por tiempo de respuesta:
+    // aunque el usuario no exista, passwordEncoder.matches(...) debe correr igual
+    // (contra el hash senuelo), para que este camino no responda mas rapido que
+    // uno con usuario real -- ver comentario de HASH_SENUELO en el controller.
+    @Test
+    void loginConUsuarioInexistenteCorrePasswordEncoderParaIgualarTiempos() {
+
+        LoginRequest request =
+                new LoginRequest("noexiste", "cualquiera", 1L);
+        when(usuarioRepository.findByUsername("noexiste"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> controller.login(request))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(passwordEncoder).matches(eq("cualquiera"), anyString());
+    }
+
+    // Mismo caso pero para el camino de empresa incorrecta -- tambien debe correr
+    // passwordEncoder.matches(...) antes de rechazar, no solo el camino de usuario
+    // inexistente.
+    @Test
+    void loginConEmpresaIncorrectaCorrePasswordEncoderParaIgualarTiempos() {
+
+        LoginRequest request =
+                new LoginRequest("wmolina", "cualquiera", 99L);
+        when(usuarioRepository.findByUsername("wmolina"))
+                .thenReturn(Optional.of(usuario));
+        when(usuario.getEmpresa())
+                .thenReturn(empresa);
+        when(empresa.getId())
+                .thenReturn(1L);
+        when(usuario.getPasswordHash())
+                .thenReturn("hash-prueba");
+
+        assertThatThrownBy(() -> controller.login(request))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(passwordEncoder).matches("cualquiera", "hash-prueba");
     }
 
     //Prueba de usuario inactivo
@@ -75,8 +127,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("wmolina", "Capris2026!", 1L);
         when(usuarioRepository.findByUsername("wmolina"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.INACTIVO);
         assertThatThrownBy(() -> controller.login(request))
@@ -91,8 +141,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("wmolina", "Capris2026!", 99L);
         when(usuarioRepository.findByUsername("wmolina"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.ACTIVO);
         when(usuario.getEmpresa())
@@ -111,8 +159,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("wmolina", "incorrecta", 1L);
         when(usuarioRepository.findByUsername("wmolina"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.ACTIVO);
         when(usuario.getEmpresa())
@@ -125,20 +171,26 @@ class AutenticacionControllerTest {
                 .thenReturn(false);
         assertThatThrownBy(() -> controller.login(request))
                 .isInstanceOf(CredencialesInvalidasException.class);
+        verify(bloqueoCuentaService).registrarIntentoFallido(eq(usuario), anyString());
     }
 
     //Prueba cuenta bloqueada
     @Test
     void loginConCuentaBloqueadaLanzaCuentaBloqueadaException() {
 
-        LoginRequest request =
-                new LoginRequest("wmolina", "Capris2026!", 1L);
-        when(usuarioRepository.findByUsername("wmolina"))
-                .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(OffsetDateTime.now().plusMinutes(5));
-        assertThatThrownBy(() -> controller.login(request))
-                .isInstanceOf(CuentaBloqueadaException.class);
+        LoginRequest request = new LoginRequest("wmolina", "Capris2026!", 1L);
+
+        OffsetDateTime bloqueadoHasta = OffsetDateTime.now().plusMinutes(5);
+
+        when(usuarioRepository.findByUsername("wmolina")).thenReturn(Optional.of(usuario));
+
+        doThrow(
+                new CuentaBloqueadaException(BloqueoCuentaService.MENSAJE_BLOQUEO, bloqueadoHasta)
+        )
+                .when(bloqueoCuentaService).verificarBloqueo(usuario);
+
+        assertThatThrownBy(() ->
+                controller.login(request)).isInstanceOf(CuentaBloqueadaException.class);
     }
 
     //Prueba de login exitoso
@@ -149,8 +201,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("wmolina", "Capris2026!", 1L);
         when(usuarioRepository.findByUsername("wmolina"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.ACTIVO);
         when(usuario.getEmpresa())
@@ -182,6 +232,7 @@ class AutenticacionControllerTest {
                 .isEqualTo("Administrador");
         assertThat(respuesta.debeCambiarContrasena())
                 .isFalse();
+        verify(bloqueoCuentaService).reiniciarIntentosTrasLoginExitoso(usuario);
     }
 
     //Prueba contraseña temporal vencida
@@ -192,8 +243,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("nuevo", "Temporal123!", 1L);
         when(usuarioRepository.findByUsername("nuevo"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
         when(usuario.getEmpresa())
@@ -218,8 +267,6 @@ class AutenticacionControllerTest {
                 new LoginRequest("nuevo", "Temporal123!", 1L);
         when(usuarioRepository.findByUsername("nuevo"))
                 .thenReturn(Optional.of(usuario));
-        when(usuario.getBloqueadoHasta())
-                .thenReturn(null);
         when(usuario.getEstado())
                 .thenReturn(EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
         when(usuario.getEmpresa())
@@ -245,5 +292,6 @@ class AutenticacionControllerTest {
         LoginResponse respuesta = controller.login(request);
         assertThat(respuesta.debeCambiarContrasena())
                 .isTrue();
+        verify(bloqueoCuentaService).reiniciarIntentosTrasLoginExitoso(usuario);
     }
 }

@@ -36,6 +36,11 @@ app:
     proveedor: log
     remitente: ${APP_EMAIL_REMITENTE:recuperacioncapris@hotmail.com}
     remitente-nombre: "CAPRIS Médica - Reactivos"
+    # HU-046 criterio 2: enviar el OTP en segundo plano (fire-and-forget) para
+    # que la respuesta a /solicitar no tarde según exista o no el correo (eso
+    # filtraría por temporización). false solo en las IT, que capturan el OTP
+    # del mock de forma síncrona.
+    asincrono: true
     sendgrid:
       # NUNCA la contraseña del buzón de correo -- esto es la API Key que se
       # genera dentro de SendGrid (Settings > API Keys, permiso restringido a

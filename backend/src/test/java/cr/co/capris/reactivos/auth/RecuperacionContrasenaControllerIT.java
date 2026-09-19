@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * de una IT.
  */
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = "app.email.asincrono=false")
 @AutoConfigureMockMvc
 class RecuperacionContrasenaControllerIT {
 
@@ -95,13 +96,52 @@ class RecuperacionContrasenaControllerIT {
 	}
 
 	@Test
-	void solicitarConCorreoInexistenteRespondeIgualQueConUnoExistente() throws Exception {
+	void solicitarConCorreoInexistenteNoLlegaAlCorreoNiTardaDependiendoDeLaCuenta() throws Exception {
 		mockMvc.perform(post("/api/auth/recuperacion/solicitar")
 						.contentType("application/json")
 						.content(objectMapper.writeValueAsString(new SolicitarRecuperacionRequest("nadie@capris.cr"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.mensaje").value(
 						"Si el correo corresponde a una cuenta registrada, vas a recibir un mensaje con instrucciones."));
+
+		verify(emailService, never()).enviarOtpRecuperacion(
+				eq("nadie@capris.cr"), anyString(), anyString(), anyInt());
+	}
+
+	@Test
+	void elTokenSesionTemporalEsDeUnSoloUso() throws Exception {
+		String correo = "wmolina@capris.cr";
+
+		mockMvc.perform(post("/api/auth/recuperacion/solicitar")
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(new SolicitarRecuperacionRequest(correo))))
+				.andExpect(status().isOk());
+
+		ArgumentCaptor<String> otpCapturado = ArgumentCaptor.forClass(String.class);
+		verify(emailService).enviarOtpRecuperacion(eq(correo), anyString(), otpCapturado.capture(), anyInt());
+
+		String respuestaValidar = mockMvc.perform(post("/api/auth/recuperacion/validar-otp")
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(
+								new ValidarOtpRequest(correo, otpCapturado.getValue()))))
+				.andExpect(status().isOk())
+				.andReturn().getResponse().getContentAsString();
+
+		String tokenSesionTemporal = JsonPath.read(respuestaValidar, "$.tokenSesionTemporal");
+
+		mockMvc.perform(post("/api/auth/recuperacion/nueva-contrasena")
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(
+								new NuevaContrasenaRequest(tokenSesionTemporal, "NuevaClave2030!"))))
+				.andExpect(status().isOk());
+
+		// Reutilizar el MISMO JWT ya no es válido: su jti quedó revocado.
+		mockMvc.perform(post("/api/auth/recuperacion/nueva-contrasena")
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(
+								new NuevaContrasenaRequest(tokenSesionTemporal, "OtraClave2031!"))))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.codigo").value("TOKEN_RECUPERACION_INVALIDO"));
 	}
 
 	@Test
