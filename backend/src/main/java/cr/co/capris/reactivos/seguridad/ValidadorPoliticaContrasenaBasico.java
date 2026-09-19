@@ -40,7 +40,8 @@ public class ValidadorPoliticaContrasenaBasico {
 			if (contrasena == null || !Pattern.compile("[0-9]").matcher(contrasena).find()) {
 				violaciones.add("Debe incluir al menos un número");
 			}
-			if (contrasena == null || !Pattern.compile("[^A-Za-z0-9]").matcher(contrasena).find()) {
+			// El espacio (U+0020) NO cuenta como carácter especial: solo puntuación/símbolos.
+			if (contrasena == null || !Pattern.compile("[^A-Za-z0-9 ]").matcher(contrasena).find()) {
 				violaciones.add("Debe incluir al menos un carácter especial");
 			}
 			return violaciones;
