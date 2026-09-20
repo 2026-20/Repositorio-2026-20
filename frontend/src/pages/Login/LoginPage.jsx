@@ -6,7 +6,7 @@ import { LOGOS_POR_EMPRESA } from '../../assets/logos'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
-    const { login, estaAutenticado } = useAuth()
+    const { login, estaAutenticado, usuario } = useAuth()
 
     const [username, setUsername] = useState('')
     const [contrasena, setContrasena] = useState('')
@@ -77,7 +77,15 @@ export default function LoginPage() {
     }
 
     if (estaAutenticado) {
-        return <Navigate to="/dashboard" replace />
+        // Temporal: mientras HU-047 esta en desarrollo, un Administrador entra
+        // directo a la ventana de alta de usuarios en vez del dashboard, para no
+        // tener que navegar manualmente cada vez que se prueba el flujo.
+        return (
+            <Navigate
+                to={usuario?.rol === 'Administrador' ? '/admin/usuarios' : '/dashboard'}
+                replace
+            />
+        )
     }
 
     return (

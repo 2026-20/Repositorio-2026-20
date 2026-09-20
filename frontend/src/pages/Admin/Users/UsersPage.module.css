@@ -86,3 +86,65 @@
     cursor: not-allowed;
     opacity: 0.6;
 }
+
+.acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+
+.botonCrear {
+    min-height: 44px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 10px;
+    background: #0f426e;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonCrear:hover {
+    background: #0c3457;
+}
+
+.botonCrear:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.exito {
+    padding: 12px;
+    border: 1px solid #1e7a3d;
+    border-radius: 6px;
+    background: #f0f9f3;
+    color: #1e7a3d;
+    margin-bottom: 20px;
+}
+
+.grupo {
+    margin-bottom: 14px;
+}
+
+.grupo label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.campo {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid #aab2bb;
+    border-radius: 6px;
+    font: inherit;
+}
+
+.campo:focus {
+    outline: none;
+    border-color: #1558b0;
+    box-shadow: 0 0 0 3px rgba(21, 88, 176, 0.15);
+}
