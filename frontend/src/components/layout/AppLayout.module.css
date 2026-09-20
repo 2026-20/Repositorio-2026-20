@@ -1,0 +1,24 @@
+.shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.contenido {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.principal {
+    flex: 1;
+    padding: var(--space-4);
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-4));
+}
+
+@media (min-width: 768px) {
+    .principal {
+        padding: var(--space-6);
+        padding-bottom: var(--space-6);
+    }
+}

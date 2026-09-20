@@ -1,0 +1,31 @@
+.topBar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    height: var(--topbar-height);
+    padding: 0 var(--space-4);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 15;
+}
+
+.marcaMovil {
+    font-weight: var(--font-weight-logo);
+    color: var(--color-primary);
+    letter-spacing: 0.04em;
+}
+
+@media (min-width: 768px) {
+    .marcaMovil {
+        display: none;
+    }
+}
+
+.acciones {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-left: auto;
+}
