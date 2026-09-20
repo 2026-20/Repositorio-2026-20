@@ -15,7 +15,7 @@ import styles from './UsersPage.module.css'
 const EXPRESION_CORREO_BASICA = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function UsersPage() {
-    const { token, usuario } = useAuth()
+    const { token } = useAuth()
 
     const [usuarios, setUsuarios] = useState([])
     const [cargando, setCargando] = useState(true)
@@ -57,16 +57,6 @@ export default function UsersPage() {
     useEffect(() => {
         cargarUsuarios()
     }, [cargarUsuarios])
-
-    // Temporal (ver LoginPage): si un Administrador llega aqui recien logueado,
-    // se le abre el formulario de alta de una vez en lugar de que tenga que
-    // hacer clic en "Crear usuario".
-    useEffect(() => {
-        if (usuario?.rol === 'Administrador') {
-            abrirFormularioCrear()
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
 
     async function abrirFormularioCrear() {
         setMostrarCrear(true)
