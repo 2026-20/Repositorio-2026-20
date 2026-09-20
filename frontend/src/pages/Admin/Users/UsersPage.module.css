@@ -1,0 +1,166 @@
+.pagina {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4);
+}
+
+.pagina h1 {
+    color: var(--color-primary);
+    margin-bottom: var(--space-4);
+}
+
+.error {
+    padding: var(--space-3);
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    margin-bottom: var(--space-4);
+}
+
+.tabla {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+    text-align: left;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.estadoActivo {
+    color: var(--color-success);
+    font-weight: 600;
+}
+
+.estadoInactivo {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.celdaAcciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.botonInactivar {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-danger);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonInactivar:hover {
+    background: rgba(179, 38, 30, 0.08);
+}
+
+.motivo {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    resize: vertical;
+}
+
+.botonDesbloquear {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-success);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonDesbloquear:hover {
+    background: rgba(26, 127, 75, 0.08);
+}
+
+.botonDesbloquear:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.botonReactivar {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: var(--color-success);
+    color: var(--color-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonReactivar:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.botonReactivar:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Tabla -> tarjetas apiladas por debajo de 640px. Se mantiene el mismo
+   <table> semantico (no un layout distinto en JS): solo cambia como se
+   presenta, ocultando el encabezado visualmente (sigue disponible para
+   lectores de pantalla) y usando data-label para rotular cada celda. */
+@media (max-width: 640px) {
+    .tabla thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .tabla,
+    .tabla tbody,
+    .tabla tr,
+    .tabla td {
+        display: block;
+        width: 100%;
+    }
+
+    .tabla tr {
+        margin-bottom: var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-2) var(--space-3);
+        box-shadow: var(--shadow-low);
+    }
+
+    .tabla td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        border-bottom: none;
+        padding: var(--space-2) 0;
+    }
+
+    .tabla td[data-label]::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+    }
+
+    .celdaAcciones {
+        justify-content: flex-end;
+        padding-top: var(--space-2);
+    }
+}

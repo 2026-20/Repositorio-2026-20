@@ -1,5 +1,10 @@
-function App() {
-  return <div>CAPRIS Médica</div>
-}
+import { BrowserRouter } from 'react-router-dom'
+import AppRoutes from './routes/AppRoutes'
 
-export default App
+export default function App() {
+  return (
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+  )
+}

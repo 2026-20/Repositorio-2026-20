@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Emite y valida los JWT que usan el resto de las HUs de seguridad para saber
@@ -33,12 +34,16 @@ public class JwtService {
 
 	public String generar(Long usuarioId, Long empresaId, String rol) {
 		Instant ahora = Instant.now();
+
 		return Jwts.builder()
+				.id(UUID.randomUUID().toString())
 				.subject(String.valueOf(usuarioId))
 				.claim("empresaId", empresaId)
 				.claim("rol", rol)
 				.issuedAt(Date.from(ahora))
-				.expiration(Date.from(ahora.plus(expiracionMinutos, ChronoUnit.MINUTES)))
+				.expiration(Date.from(
+						ahora.plus(expiracionMinutos, ChronoUnit.MINUTES)
+				))
 				.signWith(key)
 				.compact();
 	}

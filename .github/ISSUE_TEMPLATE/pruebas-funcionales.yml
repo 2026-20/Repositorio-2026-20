@@ -1,0 +1,69 @@
+name: "HU-0XX: Pruebas Funcionales"
+description: Task de pruebas funcionales con Cypress, sub-issue de una HU (ver la presentacion de Pruebas Funcionales del aula virtual)
+title: "HU-0XX: Pruebas Funcionales"
+labels:
+  - prueba
+body:
+  - type: input
+    id: hu
+    attributes:
+      label: HU relacionada
+      description: Numero de la HU padre (ej. HU-048). Recordar tambien vincular este issue como sub-issue de esa HU.
+      placeholder: HU-0XX
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Criterio(s) de Aceptacion cubierto(s)
+      description: Referenciar el/los criterios de aceptacion de la HU que estas pruebas verifican.
+    validations:
+      required: true
+
+  - type: textarea
+    id: escenarios
+    attributes:
+      label: Escenarios (exito + al menos un rechazo/error)
+      description: Un escenario por bloque, con pasos numerados. Ver la presentacion de Pruebas Funcionales del aula virtual para el formato completo.
+      placeholder: |
+        ### Escenario 1: [Nombre, ej. "Registro exitoso de reactivo"]
+        Paso 1: ...
+        Paso 2: ...
+        Paso N: El sistema muestra/valida [resultado esperado]
+
+        ### Escenario 2: [Nombre alterno, ej. "Rechazo por dato invalido"]
+        Paso 1: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: datos
+    attributes:
+      label: Datos de prueba utilizados
+      description: Tabla Campo | Valor, suministrados por el Product Owner (no inventados por el equipo).
+      placeholder: |
+        | Campo | Valor |
+        |---|---|
+        | ... | ... |
+    validations:
+      required: true
+
+  - type: input
+    id: archivo
+    attributes:
+      label: Archivo de prueba Cypress
+      placeholder: "[nombre].cy.js"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist (ver la presentacion de Pruebas Funcionales del aula virtual)
+      options:
+        - label: La HU tiene Criterios de Aceptacion claros y sin ambiguedad
+        - label: Las pruebas unitarias de la HU ya pasaron y los defectos se corrigieron
+        - label: Se cuenta con datos de prueba reales del Product Owner
+        - label: Se definieron los escenarios (exito + al menos un rechazo/error relevante)
+        - label: El .cy.js esta escrito, ejecutado, y su evidencia adjunta a este issue

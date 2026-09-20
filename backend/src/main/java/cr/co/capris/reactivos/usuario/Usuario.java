@@ -61,6 +61,13 @@ public class Usuario {
 	/** HU-043: no nulo mientras la cuenta esta bloqueada por intentos fallidos. */
 	private OffsetDateTime bloqueadoHasta;
 
+	/**
+	 * HU-048: cualquier JWT emitido ANTES de esta fecha se considera invalido,
+	 * sin importar que no haya expirado todavia (ver JwtAuthenticationFilter).
+	 * Se fija al inactivar la cuenta; null significa que nunca se revoco nada.
+	 */
+	private OffsetDateTime sesionesInvalidadasDesde;
+
 	protected Usuario() {
 		// requerido por JPA
 	}
@@ -127,5 +134,13 @@ public class Usuario {
 
 	public void setBloqueadoHasta(OffsetDateTime bloqueadoHasta) {
 		this.bloqueadoHasta = bloqueadoHasta;
+	}
+
+	public OffsetDateTime getSesionesInvalidadasDesde() {
+		return sesionesInvalidadasDesde;
+	}
+
+	public void setSesionesInvalidadasDesde(OffsetDateTime sesionesInvalidadasDesde) {
+		this.sesionesInvalidadasDesde = sesionesInvalidadasDesde;
 	}
 }

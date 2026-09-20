@@ -1,0 +1,99 @@
+/* Telon: cubre toda la pantalla con el azul de marca (mismo fondo fijo
+   que la barra lateral, D08). Bloquea interaccion mientras esta visible.
+   La salida no es un fundido: el telon completo se desliza hacia arriba
+   y sale de la pantalla, revelando el dashboard debajo -- como si se
+   levantara, no como si se disolviera. */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--sidebar-bg);
+    box-shadow: 0 24px 40px rgba(0, 0, 0, 0.35);
+    animation: telon 1500ms var(--ease-out) forwards;
+}
+
+@keyframes telon {
+    0%, 80% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .overlay {
+        animation-name: telonReducido;
+    }
+}
+
+@keyframes telonReducido {
+    0%, 80% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Contenido: entra con una escala leve (nunca desde 0) mas fundido y se
+   mantiene -- ya no necesita salida propia porque se va junto con el
+   telon al deslizarse fuera de pantalla. */
+.contenido {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: textoBienvenida 1500ms var(--ease-out) forwards;
+}
+
+@keyframes textoBienvenida {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    16%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contenido {
+        animation-name: textoBienvenidaReducido;
+    }
+}
+
+@keyframes textoBienvenidaReducido {
+    0% {
+        opacity: 0;
+    }
+    16%, 80% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.resplandor {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-primary-glow) 0%, transparent 70%);
+    filter: blur(24px);
+}
+
+.saludo {
+    position: relative;
+    margin: 0;
+    padding: 0 var(--space-5);
+    color: #ffffff;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-heading);
+    text-align: center;
+}

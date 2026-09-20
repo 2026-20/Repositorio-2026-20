@@ -1,0 +1,133 @@
+.pagina {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #f4f6f8;
+    font-family: Inter, Arial, sans-serif;
+    overflow: hidden;
+}
+
+.fondo {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.tarjeta {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 36px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+}
+
+.encabezado {
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+.encabezado h1 {
+    margin: 0 0 8px;
+    color: #0f426e;
+    font-size: 30px;
+}
+
+.logo {
+    display: block;
+    max-width: 100%;
+    max-height: 72px;
+    margin: 0 auto 8px;
+    object-fit: contain;
+}
+
+.encabezado p {
+    margin: 0;
+    color: #59636e;
+    line-height: 1.5;
+}
+
+.formulario {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.grupo label {
+    font-weight: 600;
+    color: #20262e;
+}
+
+.grupo input,
+.grupo select {
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #aab2bb;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #20262e;
+    font: inherit;
+}
+
+.grupo input:focus,
+.grupo select:focus {
+    outline: 3px solid rgba(15, 66, 110, 0.18);
+    border-color: #0f426e;
+}
+
+.grupo input:disabled,
+.grupo select:disabled {
+    background: #edf0f3;
+    cursor: not-allowed;
+}
+
+.error {
+    padding: 12px;
+    border: 1px solid #b3261e;
+    border-radius: 6px;
+    background: #fff4f3;
+    color: #8c1d18;
+    line-height: 1.4;
+}
+
+.boton {
+    min-height: 44px;
+    border: none;
+    border-radius: 6px;
+    padding: 11px 16px;
+    background: #0f426e;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.boton:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.boton:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+    .pagina {
+        padding: 16px;
+    }
+
+    .tarjeta {
+        padding: 24px;
+    }
+}
