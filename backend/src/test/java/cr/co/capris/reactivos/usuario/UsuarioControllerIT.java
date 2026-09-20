@@ -17,6 +17,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -87,15 +89,21 @@ class UsuarioControllerIT {
 	@Autowired
 	private BitacoraSeguridadRepository bitacoraSeguridadRepository;
 
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
 	@MockitoBean
 	private CorreoService correoService;
 
 	private String tokenUsuarioCapris;
 	private String tokenUsuarioDeCampoCapris;
 	private Long usuarioDiagnostikaId;
+	private TransactionTemplate transactionTemplate;
 
 	@BeforeAll
 	void prepararTokens() {
+		transactionTemplate = new TransactionTemplate(transactionManager);
+
 		Usuario wmolina = usuarioRepository.findByUsername("wmolina").orElseThrow();
 		tokenUsuarioCapris = jwtService.generar(
 				wmolina.getId(), wmolina.getEmpresa().getId(), wmolina.getRol().getNombre());
@@ -107,15 +115,23 @@ class UsuarioControllerIT {
 		usuarioDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
 	}
 
+	// La limpieza necesita una transaccion propia y explicita: deleteByUsuarioId es
+	// un metodo derivado (no uno de los CRUD estandar de JpaRepository), y esta clase
+	// no es @Transactional (no podria serlo -- MockMvc ejerce la app completa via
+	// SecurityFilterChain/JwtAuthenticationFilter, cuyas propias transacciones no
+	// deben compartir conexion con la del test). Sin este TransactionTemplate,
+	// Hibernate falla con "No EntityManager with actual transaction available".
 	@AfterEach
 	void limpiarUsuariosCreadosPorLasPruebas() {
-		USERNAMES_DE_PRUEBA.stream()
-				.map(usuarioRepository::findByUsername)
-				.flatMap(Optional::stream)
-				.forEach(usuario -> {
-					bitacoraSeguridadRepository.deleteByUsuarioId(usuario.getId());
-					usuarioRepository.delete(usuario);
-				});
+		transactionTemplate.executeWithoutResult(status -> {
+			USERNAMES_DE_PRUEBA.stream()
+					.map(usuarioRepository::findByUsername)
+					.flatMap(Optional::stream)
+					.forEach(usuario -> {
+						bitacoraSeguridadRepository.deleteByUsuarioId(usuario.getId());
+						usuarioRepository.deleteById(usuario.getId());
+					});
+		});
 	}
 
 	@Test
