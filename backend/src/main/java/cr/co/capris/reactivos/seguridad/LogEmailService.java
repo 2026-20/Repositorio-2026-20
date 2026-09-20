@@ -26,4 +26,10 @@ public class LogEmailService implements EmailService {
 		log.warn("[EMAIL SIMULADO -- app.email.proveedor=log] Para {} ({}): OTP={} (vence en {} min)",
 				correoDestino, nombreCompleto, otp, minutosExpiracion);
 	}
+
+	@Override
+	public void enviarCredencialesIniciales(String correoDestino, String nombreCompleto, String nombreUsuario, String contrasenaTemporal) {
+		log.warn("[EMAIL SIMULADO -- app.email.proveedor=log] Para {} ({}): credenciales iniciales -- usuario={}, contraseña temporal={}",
+				correoDestino, nombreCompleto, nombreUsuario, contrasenaTemporal);
+	}
 }

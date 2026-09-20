@@ -142,21 +142,29 @@ temporal que no sirve como sesión normal, y tope de 3 intentos).
 | `POST` | `/api/auth/recuperacion/validar-otp` | Valida OTP; devuelve `tokenSesionTemporal` |
 | `POST` | `/api/auth/recuperacion/nueva-contrasena` | Cambia la contraseña usando la sesión temporal |
 
-**Correo por interfaz intercambiable** — `EmailService` con dos
-implementaciones vía `app.email.proveedor`:
-- `log` (default): escribe el OTP en la consola del backend. Así `mvn test`,
+**Correo por interfaz intercambiable** — `EmailService` con tres
+implementaciones vía `app.email.proveedor` (la misma interfaz la usan otras
+HU que mandan correo, p. ej. HU-047 credenciales iniciales):
+- `log` (default): escribe el correo en la consola del backend. Así `mvn test`,
   `mvn verify` y levantar el proyecto en cualquier laptop **no necesitan API
-  key**. CI nunca llama a SendGrid.
+  key**. CI nunca llama a ningún proveedor real.
 - `sendgrid`: envía de verdad (activar solo con la variable de entorno
   `APP_EMAIL_PROVEEDOR=sendgrid` en el servidor real).
+- `smtp`: envía vía JavaMailSender (MailHog en desarrollo en `localhost:1025`
+  sin credenciales) — útil mientras no haya un dominio propio verificado en
+  SendGrid, sin depender de ninguna API key.
 
 **Variables de entorno nuevas** (todas con default seguro en `application.yml`
 para desarrollo):
 
 | Variable | Default local | Para qué |
 |---|---|---|
-| `APP_EMAIL_PROVEEDOR` | `log` | `log` o `sendgrid` |
+| `APP_EMAIL_PROVEEDOR` | `log` | `log`, `sendgrid` o `smtp` |
 | `APP_SENDGRID_API_KEY` | (vacío) | API Key de SendGrid (permiso solo Mail Send) — nunca comitear |
+| `APP_EMAIL_SMTP_HOST` | `localhost` | host SMTP (MailHog por defecto) |
+| `APP_EMAIL_SMTP_PORT` | `1025` | puerto SMTP (1025 = MailHog) |
+| `APP_EMAIL_SMTP_USERNAME` | (vacío) | usuario SMTP si el servidor exige autenticación |
+| `APP_EMAIL_SMTP_PASSWORD` | (vacío) | contraseña SMTP si el servidor exige autenticación |
 | `APP_EMAIL_REMITENTE` | `recuperacioncapris@hotmail.com` | dirección "de" del correo |
 | `APP_EMAIL_ASINCRONO` | `true` | envío del OTP en segundo plano (fire-and-forget, evita filtrar por temporización si el correo existe) — `false` solo en pruebas de integración |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | orígenes permitidos por CORS (probarlo también al dejar el backend en una URL distinta) |

@@ -26,13 +26,16 @@ app:
     recuperacion:
       expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
 
-  # HU-046: envío del correo con el OTP de recuperación.
+  # HU-046: envío del correo con el OTP de recuperación. HU-047 (credenciales
+  # iniciales) usa EL MISMO EmailService -- ver /seguridad/EmailService.java.
   email:
-    # "log" (por defecto): no envía nada real, solo escribe el OTP en el log --
+    # "log" (por defecto): no envía nada real, solo escribe el correo en el log --
     # así "mvn test" / "mvn verify" y el arranque en local no necesitan una API
     # key. "sendgrid": envía de verdad -- SOLO activarlo explícitamente, en la
     # práctica vía la variable de entorno APP_EMAIL_PROVEEDOR=sendgrid en el
-    # servidor real (nunca en este archivo).
+    # servidor real (nunca en este archivo). "smtp": envía vía JavaMailSender
+    # (MailHog en desarrollo: localhost:1025 sin credenciales), útil mientras no
+    # haya un dominio propio verificado en SendGrid.
     proveedor: log
     remitente: ${APP_EMAIL_REMITENTE:recuperacioncapris@hotmail.com}
     remitente-nombre: "CAPRIS Médica - Reactivos"
@@ -47,6 +50,13 @@ app:
       # "Mail Send"). No se comitea un valor real acá, solo la referencia a la
       # variable de entorno.
       api-key: ${APP_SENDGRID_API_KEY:}
+    smtp:
+      # SMTP vía JavaMailSender (MailHog por defecto: localhost:1025, sin
+      # autenticación). Ver SmtpEmailService.
+      host: ${APP_EMAIL_SMTP_HOST:localhost}
+      port: ${APP_EMAIL_SMTP_PORT:1025}
+      username: ${APP_EMAIL_SMTP_USERNAME:}
+      password: ${APP_EMAIL_SMTP_PASSWORD:}
     otp:
       expiracion-minutos: 15 # criterio de aceptación 3
       intentos-maximos: 3    # criterio de aceptación 5

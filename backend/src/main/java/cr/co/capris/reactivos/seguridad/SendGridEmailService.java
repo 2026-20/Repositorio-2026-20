@@ -55,10 +55,22 @@ public class SendGridEmailService implements EmailService {
 
 	@Override
 	public void enviarOtpRecuperacion(String correoDestino, String nombreCompleto, String otp, int minutosExpiracion) {
+		enviar(correoDestino, nombreCompleto,
+				"Código para recuperar tu contraseña - CAPRIS Reactivos",
+				cuerpoOtp(nombreCompleto, otp, minutosExpiracion));
+	}
+
+	@Override
+	public void enviarCredencialesIniciales(String correoDestino, String nombreCompleto, String nombreUsuario, String contrasenaTemporal) {
+		enviar(correoDestino, nombreCompleto,
+				"Tus credenciales de acceso - CAPRIS Reactivos",
+				cuerpoCredenciales(nombreCompleto, nombreUsuario, contrasenaTemporal));
+	}
+
+	private void enviar(String correoDestino, String nombreCompleto, String asunto, String cuerpo) {
 		Email from = new Email(remitente, nombreRemitente);
 		Email to = new Email(correoDestino);
-		String asunto = "Código para recuperar tu contraseña - CAPRIS Reactivos";
-		Content content = new Content("text/plain", cuerpoCorreo(nombreCompleto, otp, minutosExpiracion));
+		Content content = new Content("text/plain", cuerpo);
 		Mail mail = new Mail(from, asunto, to, content);
 
 		Request request = new Request();
@@ -71,7 +83,7 @@ public class SendGridEmailService implements EmailService {
 			if (response.getStatusCode() >= 300) {
 				// No se registra el cuerpo de la respuesta de SendGrid en el log por si
 				// llegara a incluir datos del destinatario -- solo el código de estado.
-				log.error("SendGrid respondió {} al intentar enviar el OTP de recuperación", response.getStatusCode());
+				log.error("SendGrid respondió {} al intentar enviar el correo a {}", response.getStatusCode(), correoDestino);
 				throw new EnvioCorreoFallidoException(
 						"El proveedor de correo rechazó el envío (código " + response.getStatusCode() + ")");
 			}
@@ -81,11 +93,20 @@ public class SendGridEmailService implements EmailService {
 		}
 	}
 
-	private String cuerpoCorreo(String nombreCompleto, String otp, int minutosExpiracion) {
+	private String cuerpoOtp(String nombreCompleto, String otp, int minutosExpiracion) {
 		return "Hola " + nombreCompleto + ",\n\n"
 				+ "Tu código para restablecer la contraseña es: " + otp + "\n\n"
 				+ "Este código vence en " + minutosExpiracion + " minutos y solo se puede usar una vez.\n"
 				+ "Si no solicitaste este cambio, podés ignorar este correo -- tu contraseña actual sigue vigente.\n\n"
+				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
+	}
+
+	private String cuerpoCredenciales(String nombreCompleto, String nombreUsuario, String contrasenaTemporal) {
+		return "Hola " + nombreCompleto + ",\n\n"
+				+ "Se creó tu cuenta en el Sistema de Gestión de Reactivos de CAPRIS Médica.\n\n"
+				+ "Usuario: " + nombreUsuario + "\n"
+				+ "Contraseña temporal: " + contrasenaTemporal + "\n\n"
+				+ "Te pedimos que la cambies en tu primer acceso.\n\n"
 				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
 	}
 }
