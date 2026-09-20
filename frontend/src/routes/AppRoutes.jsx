@@ -24,7 +24,7 @@ export default function AppRoutes() {
                 element={<RecuperarContrasena />}
             />
 
-            <Route
+<Route
                 path="/dashboard"
                 element={
                     <ProtectedRoute>
@@ -33,12 +33,12 @@ export default function AppRoutes() {
                 }
             >
                 <Route
-                    path="/dashboard"
+                    index
                     element={<DashboardPage />}
                 />
 
                 <Route
-                    path="/admin/usuarios"
+                    path="admin/usuarios"
                     element={<UsersPage />}
                 />
             </Route>
