@@ -112,6 +112,12 @@ class RecuperacionContrasenaServiceTest {
 
 		asincrono.solicitar("persona@capris.cr");
 
+		// El envío es fire-and-forget, pero el test debe esperar a que el hilo
+		// del CompletableFuture haya llamado al mock; si no, Mockito marca el
+		// doThrow como "unused stub" y el test es una carrera.
+		verify(emailService, timeout(3000)).enviarOtpRecuperacion(
+				anyString(), anyString(), anyString(), anyInt());
+
 		verify(bitacoraSeguridadService).registrar(anyString(), eq(1L),
 				eq(TipoEventoSeguridad.CONTRASENA_RECUPERACION_SOLICITADA), anyString());
 	}
