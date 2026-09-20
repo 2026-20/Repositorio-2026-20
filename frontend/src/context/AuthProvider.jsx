@@ -18,6 +18,12 @@ export function AuthProvider({ children }) {
         sessionStorage.getItem('capris_token'),
     )
 
+    // Arranca siempre en false (nunca se lee de sessionStorage): la
+    // bienvenida solo debe dispararse justo despues de un login real en
+    // esta ejecucion, no cada vez que se recarga la pagina con una sesion
+    // ya activa.
+    const [mostrarBienvenida, setMostrarBienvenida] = useState(false)
+
     async function login(username, contrasena, empresaId) {
 
         const respuesta = await iniciarSesion(
@@ -35,6 +41,7 @@ export function AuthProvider({ children }) {
 
         setUsuario(usuarioAutenticado)
         setToken(respuesta.token)
+        setMostrarBienvenida(true)
 
         sessionStorage.setItem(
             'capris_usuario',
@@ -69,6 +76,8 @@ export function AuthProvider({ children }) {
                 login,
                 logout,
                 estaAutenticado: Boolean(token),
+                mostrarBienvenida,
+                ocultarBienvenida: () => setMostrarBienvenida(false),
             }}
         >
             {children}

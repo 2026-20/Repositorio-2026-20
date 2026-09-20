@@ -46,6 +46,17 @@ export async function inactivarUsuario(token, id, motivo) {
     return procesarRespuesta(response)
 }
 
+export async function reactivarUsuario(token, id) {
+    const response = await fetch(`${API_URL}/usuarios/${id}/reactivar`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}
+
 export async function desbloquearUsuario(token, id) {
     const response = await fetch(
         `${API_URL}/usuarios/${id}/desbloquear`,

@@ -1,11 +1,18 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/useAuth'
+import Sidebar from './Sidebar'
+import TopBar from './TopBar'
+import BottomNav from './BottomNav'
+import BienvenidaOverlay from '../feedback/BienvenidaOverlay'
+import styles from './AppLayout.module.css'
 
 export default function AppLayout() {
     const {
         usuario,
         logout,
         estaAutenticado,
+        mostrarBienvenida,
+        ocultarBienvenida,
     } = useAuth()
 
     async function manejarCerrarSesion() {
@@ -17,23 +24,27 @@ export default function AppLayout() {
     }
 
     return (
-        <>
-            <header>
-                <strong>CAPRIS Médica</strong>
+        <div className={styles.shell}>
+            <BienvenidaOverlay
+                nombre={usuario?.nombreCompleto?.split(' ')[0]}
+                visible={mostrarBienvenida}
+                onTerminar={ocultarBienvenida}
+            />
 
-                <span>
-          {usuario?.nombreCompleto}
-        </span>
+            <Sidebar rolUsuario={usuario?.rol} />
 
-                <button
-                    type="button"
-                    onClick={manejarCerrarSesion}
-                >
-                    Cerrar sesión
-                </button>
-            </header>
+            <div className={styles.contenido}>
+                <TopBar
+                    usuario={usuario}
+                    onCerrarSesion={manejarCerrarSesion}
+                />
 
-            <Outlet />
-        </>
+                <main className={styles.principal}>
+                    <Outlet />
+                </main>
+            </div>
+
+            <BottomNav rolUsuario={usuario?.rol} />
+        </div>
     )
 }

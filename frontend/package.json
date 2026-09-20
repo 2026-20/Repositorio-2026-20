@@ -16,6 +16,8 @@
     "cypress:run": "cypress run --config-file cypress/cypress.config.js"
   },
   "dependencies": {
+    "lucide-react": "^1.47.0",
+    "ogl": "^1.0.11",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3"

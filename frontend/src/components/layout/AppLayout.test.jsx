@@ -23,6 +23,7 @@ describe('AppLayout', () => {
                 value={{
                     usuario: {
                         nombreCompleto: 'William Molina',
+                        rol: 'Administrador',
                     },
                     logout,
                     estaAutenticado: true,
@@ -43,6 +44,12 @@ describe('AppLayout', () => {
 
         fireEvent.click(
             screen.getByRole('button', {
+                name: 'Menú de William Molina',
+            }),
+        )
+
+        fireEvent.click(
+            screen.getByRole('menuitem', {
                 name: 'Cerrar sesión',
             }),
         )
