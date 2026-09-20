@@ -44,12 +44,19 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
             .should('include', '/dashboard')
     }
 
+    function cerrarSesion() {
+        cy.get('button[aria-label^="Menú de"]')
+            .click()
+
+        cy.contains('[role="menuitem"]', 'Cerrar sesión')
+            .should('be.visible')
+            .click()
+    }
+
     it('permite cerrar sesion y vuelve al login', () => {
         iniciarSesion()
 
-        cy.contains('button', 'Cerrar sesión')
-            .should('be.visible')
-            .click()
+        cerrarSesion()
 
         cy.wait('@logout')
 
@@ -70,8 +77,7 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
             ).not.to.equal(null)
         })
 
-        cy.contains('button', 'Cerrar sesión')
-            .click()
+        cerrarSesion()
 
         cy.wait('@logout')
 
@@ -96,8 +102,7 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
             )
         })
 
-        cy.contains('button', 'Cerrar sesión')
-            .click()
+        cerrarSesion()
 
         cy.wait('@logout')
 
@@ -117,8 +122,7 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
     it('impide regresar al dashboard despues de cerrar sesion', () => {
         iniciarSesion()
 
-        cy.contains('button', 'Cerrar sesión')
-            .click()
+        cerrarSesion()
 
         cy.wait('@logout')
 
@@ -131,8 +135,7 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
     it('permite iniciar una nueva sesion despues del logout', () => {
         iniciarSesion()
 
-        cy.contains('button', 'Cerrar sesión')
-            .click()
+        cerrarSesion()
 
         cy.wait('@logout')
 

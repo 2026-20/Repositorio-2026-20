@@ -3,10 +3,35 @@ import { Navigate } from 'react-router-dom'
 import { obtenerEmpresas } from '../../services/authService'
 import { useAuth } from '../../context/useAuth'
 import { LOGOS_POR_EMPRESA } from '../../assets/logos'
+import GradientWaves from '../../components/effects/GradientWaves'
 import styles from './LoginPage.module.css'
+
+// Experimental: fondo animado detras de la tarjeta de acceso (ver
+// components/effects/GradientWaves). Se omite con prefers-reduced-motion,
+// igual que el resto de las animaciones del proyecto.
+function usePrefiereMenosMovimiento() {
+    const [prefiere, setPrefiere] = useState(
+        () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    )
+
+    useEffect(() => {
+        const medioConsulta = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+        if (!medioConsulta) return undefined
+
+        function manejarCambio(evento) {
+            setPrefiere(evento.matches)
+        }
+
+        medioConsulta.addEventListener('change', manejarCambio)
+        return () => medioConsulta.removeEventListener('change', manejarCambio)
+    }, [])
+
+    return prefiere
+}
 
 export default function LoginPage() {
     const { login, estaAutenticado } = useAuth()
+    const prefiereMenosMovimiento = usePrefiereMenosMovimiento()
 
     const [username, setUsername] = useState('')
     const [contrasena, setContrasena] = useState('')
@@ -82,6 +107,33 @@ export default function LoginPage() {
 
     return (
         <main className={styles.pagina}>
+            {!prefiereMenosMovimiento && (
+                <div className={styles.fondo} aria-hidden="true">
+                    <GradientWaves
+                        horizonColor="#bfd6ec"
+                        waveColor="#0f426e"
+                        crestColor="#ffffff"
+                        speed={0.4}
+                        amplitude={2.5}
+                        waveScale={0.6}
+                        waveRatio={0.9}
+                        swell={35}
+                        turbulence={20}
+                        tilt={1.11}
+                        zoom={1}
+                        height={5.5}
+                        fogDepth={30}
+                        detail="medium"
+                        brightness={1}
+                        opacity={1}
+                        grain
+                        grainIntensity={0.05}
+                        mouseInteraction
+                        parallaxStrength={0.5}
+                    />
+                </div>
+            )}
+
             <section className={styles.tarjeta}>
                 <div className={styles.encabezado}>
                     {logoEmpresaSeleccionada ? (

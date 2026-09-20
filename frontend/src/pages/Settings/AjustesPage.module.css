@@ -1,0 +1,47 @@
+.seccion {
+    margin-top: var(--space-5);
+    max-width: 480px;
+}
+
+.tituloSeccion {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-lg);
+}
+
+.descripcion {
+    margin: 0 0 var(--space-4);
+    color: var(--color-text-muted);
+}
+
+.opciones {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.opcion {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-height: 88px;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition-theme), background-color var(--transition-theme);
+}
+
+.opcion:hover {
+    border-color: var(--color-primary-border);
+}
+
+.seleccionada {
+    border-color: var(--color-primary);
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+}
