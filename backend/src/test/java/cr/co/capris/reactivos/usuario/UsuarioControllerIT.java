@@ -6,6 +6,7 @@ import cr.co.capris.reactivos.seguridad.BitacoraSeguridadRepository;
 import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -19,6 +20,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +53,20 @@ class UsuarioControllerIT {
 
 	/** Muy por encima de cualquier id que la secuencia BIGSERIAL pueda haber alcanzado. */
 	private static final long ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA = 999_999_999L;
+
+	// Usernames que los tests de alta intentan crear -- se limpian en @AfterEach para
+	// que un usuario creado por un test no contamine las aserciones de otro (ej. el
+	// listado de usuarioDeCaprisSoloVeUsuariosDeCaprisEnElListado, que exige que la
+	// semilla sea exactamente wmolina/amelendez/arcea). Algunos de estos nunca llegan
+	// a crearse de verdad (los que prueban un camino de error) -- limpiar un username
+	// que no existe es un no-op, no hace falta distinguir los casos aqui.
+	private static final List<String> USERNAMES_DE_PRUEBA = List.of(
+			"persona.nueva",
+			"otra.persona",
+			"intento.no.autorizado",
+			"rol.inexistente",
+			"persona.otra.empresa",
+			"empresa.inexistente");
 
 	@Container
 	@ServiceConnection
@@ -87,6 +105,17 @@ class UsuarioControllerIT {
 				amelendez.getId(), amelendez.getEmpresa().getId(), amelendez.getRol().getNombre());
 
 		usuarioDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
+	}
+
+	@AfterEach
+	void limpiarUsuariosCreadosPorLasPruebas() {
+		USERNAMES_DE_PRUEBA.stream()
+				.map(usuarioRepository::findByUsername)
+				.flatMap(Optional::stream)
+				.forEach(usuario -> {
+					bitacoraSeguridadRepository.deleteByUsuarioId(usuario.getId());
+					usuarioRepository.delete(usuario);
+				});
 	}
 
 	@Test
