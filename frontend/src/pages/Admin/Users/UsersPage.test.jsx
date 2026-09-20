@@ -136,6 +136,39 @@ describe('UsersPage', () => {
         ).toBeInTheDocument()
     })
 
+    it('muestra Reactivar en vez de Inactivar para un usuario inactivo', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+
+        renderUsersPage()
+
+        await screen.findByText('Andrey Meléndez Ovares')
+
+        expect(screen.getAllByRole('button', { name: 'Reactivar' })).toHaveLength(1)
+        expect(screen.getAllByRole('button', { name: 'Inactivar' })).toHaveLength(1)
+    })
+
+    it('reactiva un usuario y actualiza el estado en la tabla', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        vi.spyOn(usuarioService, 'reactivarUsuario').mockResolvedValue({
+            ...usuarios[1],
+            estado: 'ACTIVO',
+        })
+
+        renderUsersPage()
+
+        await screen.findByText('Adrián Arce Soto')
+        fireEvent.click(screen.getByRole('button', { name: 'Reactivar' }))
+
+        await waitFor(() => {
+            expect(usuarioService.reactivarUsuario).toHaveBeenCalledWith(
+                TOKEN_DE_PRUEBA,
+                2,
+            )
+        })
+
+        expect(screen.getAllByText('ACTIVO')).toHaveLength(2)
+    })
+
     it('permite desbloquear una cuenta bloqueada desde el panel', async () => {
         const usuarioBloqueado = {...usuarios[0], bloqueado: true, bloqueadoHasta: '2026-09-16T21:00:00Z',
         }

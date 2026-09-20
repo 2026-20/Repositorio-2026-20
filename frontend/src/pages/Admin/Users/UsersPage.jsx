@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import ConfirmDialog from '../../../components/feedback/ConfirmDialog'
 import { useAuth } from '../../../context/useAuth'
-import { crearUsuario, desbloquearUsuario, inactivarUsuario, listarRoles, listarUsuarios } from '../../../services/usuarioService'
+import {
+    crearUsuario,
+    desbloquearUsuario,
+    inactivarUsuario,
+    listarRoles,
+    listarUsuarios,
+    reactivarUsuario,
+} from '../../../services/usuarioService'
 import { obtenerEmpresas } from '../../../services/authService'
 import styles from './UsersPage.module.css'
 
@@ -19,6 +26,7 @@ export default function UsersPage() {
     const [motivo, setMotivo] = useState('')
     const [inactivando, setInactivando] = useState(false)
     const [desbloqueandoId, setDesbloqueandoId] = useState(null)
+    const [reactivandoId, setReactivandoId] = useState(null)
 
     const [mostrarCrear, setMostrarCrear] = useState(false)
     const [creando, setCreando] = useState(false)
@@ -175,6 +183,32 @@ export default function UsersPage() {
         }
     }
 
+    async function reactivar(usuario) {
+        try {
+            setReactivandoId(usuario.id)
+            setError('')
+
+            const actualizado = await reactivarUsuario(
+                token,
+                usuario.id,
+            )
+
+            setUsuarios((actual) =>
+                actual.map((item) =>
+                    item.id === actualizado.id
+                        ? actualizado
+                        : item,
+                ),
+            )
+        } catch {
+            setError(
+                'No fue posible reactivar al usuario. Intente nuevamente.',
+            )
+        } finally {
+            setReactivandoId(null)
+        }
+    }
+
     async function desbloquear(usuario) {
         try {
             setDesbloqueandoId(usuario.id)
@@ -244,10 +278,10 @@ export default function UsersPage() {
                     <tbody>
                         {usuarios.map((usuario) => (
                             <tr key={usuario.id}>
-                                <td>{usuario.nombreCompleto}</td>
-                                <td>{usuario.username}</td>
-                                <td>{usuario.rol}</td>
-                                <td>
+                                <td data-label="Nombre">{usuario.nombreCompleto}</td>
+                                <td data-label="Usuario">{usuario.username}</td>
+                                <td data-label="Rol">{usuario.rol}</td>
+                                <td data-label="Estado">
                                     <span
                                         className={
                                             usuario.estado === 'INACTIVO'
@@ -260,7 +294,7 @@ export default function UsersPage() {
                                             : usuario.estado}
                                     </span>
                                 </td>
-                                <td>
+                                <td className={styles.celdaAcciones}>
                                     {usuario.bloqueado
                                         && usuario.estado !== 'INACTIVO' && (
                                             <button
@@ -275,7 +309,18 @@ export default function UsersPage() {
                                             </button>
                                         )}
 
-                                    {usuario.estado !== 'INACTIVO' && (
+                                    {usuario.estado === 'INACTIVO' ? (
+                                        <button
+                                            type="button"
+                                            className={styles.botonReactivar}
+                                            onClick={() => reactivar(usuario)}
+                                            disabled={reactivandoId === usuario.id}
+                                        >
+                                            {reactivandoId === usuario.id
+                                                ? 'Reactivando...'
+                                                : 'Reactivar'}
+                                        </button>
+                                    ) : (
                                         <button
                                             type="button"
                                             className={styles.botonInactivar}

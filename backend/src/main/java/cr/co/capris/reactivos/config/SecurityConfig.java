@@ -74,6 +74,7 @@ public class SecurityConfig {
 								HttpMethod.POST,
 								"/api/usuarios",
 								"/api/usuarios/*/inactivar",
+								"/api/usuarios/*/reactivar",
 								"/api/usuarios/*/desbloquear"
 						).hasRole("Administrador")
 						.anyRequest().authenticated()

@@ -1,21 +1,21 @@
 .pagina {
     max-width: 960px;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: var(--space-6) var(--space-4);
 }
 
 .pagina h1 {
-    color: #0f426e;
-    margin-bottom: 24px;
+    color: var(--color-primary);
+    margin-bottom: var(--space-4);
 }
 
 .error {
-    padding: 12px;
-    border: 1px solid #b3261e;
-    border-radius: 6px;
-    background: #fff4f3;
-    color: #8c1d18;
-    margin-bottom: 20px;
+    padding: var(--space-3);
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    margin-bottom: var(--space-4);
 }
 
 .tabla {
@@ -26,60 +26,65 @@
 .tabla th,
 .tabla td {
     text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid #e3e7eb;
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .estadoActivo {
-    color: #1e7a3d;
+    color: var(--color-success);
     font-weight: 600;
 }
 
 .estadoInactivo {
-    color: #6b7280;
+    color: var(--color-text-muted);
     font-weight: 600;
 }
 
+.celdaAcciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
 .botonInactivar {
-    min-height: 44px;
-    padding: 8px 14px;
-    border: 1px solid #b3261e;
-    border-radius: 6px;
-    background: #ffffff;
-    color: #b3261e;
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-danger);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
 }
 
 .botonInactivar:hover {
-    background: #fff4f3;
+    background: rgba(179, 38, 30, 0.08);
 }
 
 .motivo {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #aab2bb;
-    border-radius: 6px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     font: inherit;
     resize: vertical;
 }
 
 .botonDesbloquear {
-    min-height: 44px;
-    padding: 8px 14px;
-    margin-right: 8px;
-    border: 1px solid #1e7a3d;
-    border-radius: 6px;
-    background: #ffffff;
-    color: #1e7a3d;
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-success);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
 }
 
 .botonDesbloquear:hover {
-    background: #f0f9f3;
+    background: rgba(26, 127, 75, 0.08);
 }
 
 .botonDesbloquear:disabled {
@@ -90,23 +95,23 @@
 .acciones {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
 }
 
 .botonCrear {
-    min-height: 44px;
-    padding: 8px 18px;
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
     border: none;
-    border-radius: 10px;
-    background: #0f426e;
-    color: #ffffff;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-surface);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
 }
 
-.botonCrear:hover {
-    background: #0c3457;
+.botonCrear:hover:not(:disabled) {
+    filter: brightness(1.1);
 }
 
 .botonCrear:disabled {
@@ -114,37 +119,110 @@
     opacity: 0.6;
 }
 
+.botonReactivar {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: var(--color-success);
+    color: var(--color-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonReactivar:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.botonReactivar:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .exito {
-    padding: 12px;
-    border: 1px solid #1e7a3d;
-    border-radius: 6px;
-    background: #f0f9f3;
-    color: #1e7a3d;
-    margin-bottom: 20px;
+    padding: var(--space-3);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: rgba(26, 127, 75, 0.08);
+    color: var(--color-success);
+    margin-bottom: var(--space-4);
 }
 
 .grupo {
-    margin-bottom: 14px;
+    margin-bottom: var(--space-4);
 }
 
 .grupo label {
     display: block;
-    margin-bottom: 4px;
-    font-size: 13px;
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-sm);
     font-weight: 600;
 }
 
 .campo {
     width: 100%;
-    min-height: 44px;
-    padding: 8px 10px;
-    border: 1px solid #aab2bb;
-    border-radius: 6px;
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     font: inherit;
 }
 
 .campo:focus {
     outline: none;
-    border-color: #1558b0;
+    border-color: var(--color-info);
     box-shadow: 0 0 0 3px rgba(21, 88, 176, 0.15);
+}
+
+/* Tabla -> tarjetas apiladas por debajo de 640px. Se mantiene el mismo
+   <table> semantico (no un layout distinto en JS): solo cambia como se
+   presenta, ocultando el encabezado visualmente (sigue disponible para
+   lectores de pantalla) y usando data-label para rotular cada celda. */
+@media (max-width: 640px) {
+    .tabla thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .tabla,
+    .tabla tbody,
+    .tabla tr,
+    .tabla td {
+        display: block;
+        width: 100%;
+    }
+
+    .tabla tr {
+        margin-bottom: var(--space-3);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: var(--space-2) var(--space-3);
+        box-shadow: var(--shadow-low);
+    }
+
+    .tabla td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        border-bottom: none;
+        padding: var(--space-2) 0;
+    }
+
+    .tabla td[data-label]::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+    }
+
+    .celdaAcciones {
+        justify-content: flex-end;
+        padding-top: var(--space-2);
+    }
 }

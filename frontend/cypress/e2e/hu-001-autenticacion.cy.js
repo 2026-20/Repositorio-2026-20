@@ -54,10 +54,10 @@ describe('HU-001 - Autenticarse en el sistema', () => {
         cy.url()
             .should('include', '/dashboard')
 
-        cy.contains('Sesión iniciada correctamente.')
+        cy.contains('Hola, William')
             .should('be.visible')
 
-        cy.contains('William A. Molina Quirós')
+        cy.contains('Rol: Administrador')
             .should('be.visible')
     })
 

@@ -103,6 +103,33 @@ public class UsuarioController {
 		return UsuarioResumenDTO.from(usuario);
 	}
 
+	/**
+	 * Reactiva un usuario dado de baja logicamente. No es un criterio de aceptacion
+	 * de HU-048 (esa historia solo pide la baja), pero sin esta ruta una baja logica
+	 * quedaba sin forma de deshacerse -- inconsistente con que la baja sea "logica"
+	 * y no un borrado. Idempotente igual que inactivar: si ya esta en otro estado
+	 * (ACTIVO o PENDIENTE_PRIMER_INGRESO) no cambia nada ni genera bitacora.
+	 */
+	@PostMapping("/{id}/reactivar")
+	public UsuarioResumenDTO reactivar(@PathVariable Long id) {
+		Long empresaId = exigirEmpresaId();
+		Usuario usuario = buscarOFallar(id, empresaId);
+
+		if (usuario.getEstado() != EstadoUsuario.INACTIVO) {
+			return UsuarioResumenDTO.from(usuario);
+		}
+
+		usuario.setEstado(EstadoUsuario.ACTIVO);
+		usuarioRepository.save(usuario);
+
+		String adminId = String.valueOf(contextoUsuarioActual.getUsuarioId());
+		String detalle = "Reactivado por usuario id=%s".formatted(adminId);
+
+		bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(), TipoEventoSeguridad.USUARIO_REACTIVADO, detalle);
+
+		return UsuarioResumenDTO.from(usuario);
+	}
+
 	@PostMapping("/{id}/desbloquear")
 	public UsuarioResumenDTO desbloquear(@PathVariable Long id) {
 		Long empresaId = exigirEmpresaId();
