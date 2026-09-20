@@ -60,6 +60,18 @@ Queda disponible en `http://localhost:8080`. Endpoints de prueba: `GET http://lo
 
 El secreto para firmar los JWT (`app.jwt.secret` en `application.yml`) es **solo de desarrollo local** — en producción se sobreescribe con la variable de entorno `APP_JWT_SECRET`, nunca se comitea el secreto real.
 
+## Correo en desarrollo (HU-047)
+
+El alta de usuarios (HU-047) envía un correo con las credenciales iniciales. En desarrollo local, `application.yml` apunta a **MailHog** — un servidor SMTP de prueba que atrapa los correos en vez de entregarlos a una bandeja real, y los muestra en una interfaz web. Levantarlo con:
+
+```bash
+docker run --name capris-mailhog -p 1025:1025 -p 8025:8025 -d mailhog/mailhog
+```
+
+Los correos "enviados" se ven en **http://localhost:8025**. El backend arranca normalmente sin MailHog corriendo (no valida la conexión SMTP al iniciar, solo al momento real de enviar un correo) — si MailHog no está levantado, el alta de usuario igual se completa, solo que el correo no llega a ningún lado y queda registrado el fallo en la bitácora de seguridad.
+
+Usar un SMTP real (para que el correo llegue a una bandeja de verdad) queda pendiente como decisión de equipo — ver `spring.mail.*` en `application.yml`.
+
 ## Cómo levantar el frontend
 
 ```bash
