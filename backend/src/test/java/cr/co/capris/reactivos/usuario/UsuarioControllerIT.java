@@ -1,6 +1,9 @@
 package cr.co.capris.reactivos.usuario;
 
+import cr.co.capris.reactivos.auth.CorreoService;
 import cr.co.capris.reactivos.auth.JwtService;
+import cr.co.capris.reactivos.seguridad.BitacoraSeguridadRepository;
+import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
@@ -10,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -17,7 +21,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -58,7 +66,14 @@ class UsuarioControllerIT {
 	@Autowired
 	private JwtService jwtService;
 
+	@Autowired
+	private BitacoraSeguridadRepository bitacoraSeguridadRepository;
+
+	@MockitoBean
+	private CorreoService correoService;
+
 	private String tokenUsuarioCapris;
+	private String tokenUsuarioDeCampoCapris;
 	private Long usuarioDiagnostikaId;
 
 	@BeforeAll
@@ -66,6 +81,10 @@ class UsuarioControllerIT {
 		Usuario wmolina = usuarioRepository.findByUsername("wmolina").orElseThrow();
 		tokenUsuarioCapris = jwtService.generar(
 				wmolina.getId(), wmolina.getEmpresa().getId(), wmolina.getRol().getNombre());
+
+		Usuario amelendez = usuarioRepository.findByUsername("amelendez").orElseThrow();
+		tokenUsuarioDeCampoCapris = jwtService.generar(
+				amelendez.getId(), amelendez.getEmpresa().getId(), amelendez.getRol().getNombre());
 
 		usuarioDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
 	}
@@ -119,5 +138,166 @@ class UsuarioControllerIT {
 		mockMvc.perform(get("/api/usuarios"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.codigo").value("SESION_NO_VALIDA"));
+	}
+
+	@Test
+	void altaDeUsuarioConDatosValidosYTokenDeAdministradorDevuelve201YQuedaPendienteDePrimerIngreso() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Persona Nueva Prueba",
+				"PENDIENTE-100",
+				"persona.nueva@capris.co.cr",
+				"persona.nueva",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		String respuesta = mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.estado").value("PENDIENTE_PRIMER_INGRESO"))
+				.andExpect(jsonPath("$.username").value("persona.nueva"))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		// La respuesta nunca debe filtrar la contraseña temporal ni su hash, sin
+		// importar el nombre exacto que tome el campo.
+		assertThat(respuesta).doesNotContainIgnoringCase("password");
+		assertThat(respuesta).doesNotContainIgnoringCase("contrasena");
+		assertThat(respuesta).doesNotContainIgnoringCase("contraseña");
+
+		Usuario creado = usuarioRepository.findByUsername("persona.nueva").orElseThrow();
+		assertThat(creado.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
+		assertThat(creado.getPasswordTemporalExpiraEn()).isNotNull();
+
+		boolean seRegistroEnBitacora = bitacoraSeguridadRepository.findAll().stream()
+				.anyMatch(registro -> registro.getUsuarioId().equals(creado.getId())
+						&& registro.getTipoEvento() == TipoEventoSeguridad.USUARIO_CREADO);
+		assertThat(seRegistroEnBitacora).isTrue();
+
+		verify(correoService).enviarCredencialesIniciales(any(Usuario.class), anyString());
+	}
+
+	@Test
+	void altaDeUsuarioConCorreoDuplicadoDevuelve409UsuarioDuplicado() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Otra Persona",
+				"PENDIENTE-101",
+				"wmolina@capris.cr", // correo ya usado por el admin semilla
+				"otra.persona",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.codigo").value("USUARIO_DUPLICADO"));
+
+		assertThat(usuarioRepository.existsByUsername("otra.persona")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioComoUsuarioDeCampoDevuelve403YNoCreaElUsuario() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Intento No Autorizado",
+				"PENDIENTE-102",
+				"intento.no.autorizado@capris.co.cr",
+				"intento.no.autorizado",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioDeCampoCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
+
+		assertThat(usuarioRepository.existsByUsername("intento.no.autorizado")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioConRolInexistenteDevuelve404UsuarioNoEncontrado() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Rol Inexistente",
+				"PENDIENTE-103",
+				"rol.inexistente@capris.co.cr",
+				"rol.inexistente",
+				ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.codigo").value("USUARIO_NO_ENCONTRADO"));
+
+		assertThat(usuarioRepository.existsByUsername("rol.inexistente")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioParaOtraEmpresaDevuelve201YQuedaAsociadoAEsaEmpresa() throws Exception {
+		// Un administrador puede dar de alta usuarios tanto en su propia empresa
+		// como en otras -- HU-047 solo exige que el usuario nuevo quede asociado
+		// exclusivamente a la empresa seleccionada, no que el administrador este
+		// limitado a la suya.
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+		Long empresaDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow()
+				.getEmpresa().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Persona De Otra Empresa",
+				"PENDIENTE-104",
+				"persona.otra.empresa@diagnostika.test",
+				"persona.otra.empresa",
+				rolUsuarioDeCampoId,
+				empresaDiagnostikaId);
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.empresa").value("Diagnostika"));
+
+		Usuario creado = usuarioRepository.findByUsername("persona.otra.empresa").orElseThrow();
+		assertThat(creado.getEmpresa().getId()).isEqualTo(empresaDiagnostikaId);
+	}
+
+	@Test
+	void altaDeUsuarioConEmpresaInexistenteDevuelve404UsuarioNoEncontrado() throws Exception {
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Empresa Inexistente",
+				"PENDIENTE-105",
+				"empresa.inexistente@capris.co.cr",
+				"empresa.inexistente",
+				rolUsuarioDeCampoId,
+				ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA);
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.codigo").value("USUARIO_NO_ENCONTRADO"));
+
+		assertThat(usuarioRepository.existsByUsername("empresa.inexistente")).isFalse();
 	}
 }

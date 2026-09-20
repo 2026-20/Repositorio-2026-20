@@ -72,6 +72,7 @@ public class SecurityConfig {
 						).permitAll()
 						.requestMatchers(
 								HttpMethod.POST,
+								"/api/usuarios",
 								"/api/usuarios/*/inactivar",
 								"/api/usuarios/*/desbloquear"
 						).hasRole("Administrador")

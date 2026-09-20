@@ -72,6 +72,27 @@ public class Usuario {
 		// requerido por JPA
 	}
 
+	public Usuario(
+			String nombreCompleto,
+			String cedula,
+			String correo,
+			String username,
+			String passwordHash,
+			EstadoUsuario estado,
+			Rol rol,
+			Empresa empresa,
+			OffsetDateTime passwordTemporalExpiraEn) {
+		this.nombreCompleto = nombreCompleto;
+		this.cedula = cedula;
+		this.correo = correo;
+		this.username = username;
+		this.passwordHash = passwordHash;
+		this.estado = estado;
+		this.rol = rol;
+		this.empresa = empresa;
+		this.passwordTemporalExpiraEn = passwordTemporalExpiraEn;
+	}
+
 	public Long getId() {
 		return id;
 	}
