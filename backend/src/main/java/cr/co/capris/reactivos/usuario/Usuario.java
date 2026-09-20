@@ -89,6 +89,8 @@ public class Usuario {
 		return passwordHash;
 	}
 
+	public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
 	public EstadoUsuario getEstado() {
 		return estado;
 	}
@@ -108,6 +110,8 @@ public class Usuario {
 	public OffsetDateTime getPasswordTemporalExpiraEn() {
 		return passwordTemporalExpiraEn;
 	}
+
+	public void setPasswordTemporalExpiraEn(OffsetDateTime passwordTemporalExpiraEn) { this.passwordTemporalExpiraEn = passwordTemporalExpiraEn; }
 
 	public int getIntentosFallidos() {
 		return intentosFallidos;
