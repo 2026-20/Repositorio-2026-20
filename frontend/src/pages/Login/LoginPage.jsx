@@ -85,7 +85,7 @@ export default function LoginPage() {
     }
 
     if (estaAutenticado) {
-        return <Navigate to="/dashboard" replace />
+        return <Navigate to={paths.dashboard} replace />
     }
 
     return (

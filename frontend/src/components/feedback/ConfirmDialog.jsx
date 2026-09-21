@@ -6,9 +6,15 @@ export default function ConfirmDialog({
     confirmando,
     textoConfirmar = 'Confirmar',
     textoCancelar = 'Cancelar',
+    variante = 'peligro',
     onConfirmar,
     onCancelar,
 }) {
+    // D05: la variante de peligro (rojo) es exclusiva de acciones destructivas
+    // -- confirmaciones normales (ej. crear) usan la variante primaria (azul).
+    const claseBotonConfirmar =
+        variante === 'primaria' ? styles.botonConfirmarPrimario : styles.botonConfirmarPeligro
+
     return (
         <div className={styles.fondo} role="presentation" onClick={onCancelar}>
             <div
@@ -34,7 +40,7 @@ export default function ConfirmDialog({
 
                     <button
                         type="button"
-                        className={styles.botonConfirmar}
+                        className={claseBotonConfirmar}
                         onClick={onConfirmar}
                         disabled={confirmando}
                     >

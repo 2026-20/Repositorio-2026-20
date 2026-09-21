@@ -92,6 +92,33 @@
     opacity: 0.6;
 }
 
+.acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--space-4);
+}
+
+.botonCrear {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonCrear:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.botonCrear:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .botonReactivar {
     min-height: var(--touch-target-min);
     padding: var(--space-2) var(--space-4);
@@ -111,6 +138,41 @@
 .botonReactivar:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+.exito {
+    padding: var(--space-3);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    background: rgba(26, 127, 75, 0.08);
+    color: var(--color-success);
+    margin-bottom: var(--space-4);
+}
+
+.grupo {
+    margin-bottom: var(--space-4);
+}
+
+.grupo label {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.campo {
+    width: 100%;
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
+.campo:focus {
+    outline: none;
+    border-color: var(--color-info);
+    box-shadow: 0 0 0 3px rgba(21, 88, 176, 0.15);
 }
 
 /* Tabla -> tarjetas apiladas por debajo de 640px. Se mantiene el mismo

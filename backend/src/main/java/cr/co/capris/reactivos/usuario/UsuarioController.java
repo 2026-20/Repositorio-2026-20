@@ -6,6 +6,9 @@ import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import cr.co.capris.reactivos.seguridad.ContextoUsuarioActual;
 import cr.co.capris.reactivos.seguridad.SesionNoValidaException;
 import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,8 +20,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * Listado/detalle de solo lectura, mas la baja logica de HU-048. El alta real
- * (HU-047, con envio de OTP por correo) se agrega cuando se aborde esa HU.
+ * Listado/detalle de solo lectura, el alta de HU-047 y la baja logica de HU-048.
  */
 @RestController
 @RequestMapping("/api/usuarios")
@@ -28,16 +30,25 @@ public class UsuarioController {
 	private final BitacoraSeguridadService bitacoraSeguridadService;
 	private final ContextoUsuarioActual contextoUsuarioActual;
 	private final BloqueoCuentaService bloqueoCuentaService;
+	private final AltaUsuarioService altaUsuarioService;
 
 	public UsuarioController(
 			UsuarioRepository usuarioRepository,
 			BitacoraSeguridadService bitacoraSeguridadService,
 			ContextoUsuarioActual contextoUsuarioActual,
-			BloqueoCuentaService bloqueoCuentaService) {
+			BloqueoCuentaService bloqueoCuentaService,
+			AltaUsuarioService altaUsuarioService) {
 		this.usuarioRepository = usuarioRepository;
 		this.bitacoraSeguridadService = bitacoraSeguridadService;
 		this.contextoUsuarioActual = contextoUsuarioActual;
 		this.bloqueoCuentaService = bloqueoCuentaService;
+		this.altaUsuarioService = altaUsuarioService;
+	}
+
+	@PostMapping
+	public ResponseEntity<UsuarioResumenDTO> crear(@Valid @RequestBody CrearUsuarioRequest request) {
+		Usuario usuario = altaUsuarioService.crear(request);
+		return ResponseEntity.status(HttpStatus.CREATED).body(UsuarioResumenDTO.from(usuario));
 	}
 
 	@GetMapping

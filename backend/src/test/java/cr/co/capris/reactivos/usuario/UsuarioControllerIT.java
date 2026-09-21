@@ -1,8 +1,12 @@
 package cr.co.capris.reactivos.usuario;
 
 import cr.co.capris.reactivos.auth.JwtService;
+import cr.co.capris.reactivos.seguridad.BitacoraSeguridadRepository;
+import cr.co.capris.reactivos.seguridad.EmailService;
+import cr.co.capris.reactivos.seguridad.TipoEventoSeguridad;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -10,14 +14,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.List;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,6 +56,21 @@ class UsuarioControllerIT {
 	/** Muy por encima de cualquier id que la secuencia BIGSERIAL pueda haber alcanzado. */
 	private static final long ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA = 999_999_999L;
 
+	// Usernames que los tests de alta intentan crear -- se limpian en @AfterEach para
+	// que un usuario creado por un test no contamine las aserciones de otro (ej. el
+	// listado de usuarioDeCaprisSoloVeUsuariosDeCaprisEnElListado, que exige que la
+	// semilla sea exactamente wmolina/amelendez/arcea). Algunos de estos nunca llegan
+	// a crearse de verdad (los que prueban un camino de error) -- limpiar un username
+	// que no existe es un no-op, no hace falta distinguir los casos aqui.
+	private static final List<String> USERNAMES_DE_PRUEBA = List.of(
+			"persona.nueva",
+			"otra.persona",
+			"intento.no.autorizado",
+			"rol.inexistente",
+			"persona.otra.empresa",
+			"empresa.inexistente",
+			"persona.sin.empresa");
+
 	@Container
 	@ServiceConnection
 	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -58,16 +87,52 @@ class UsuarioControllerIT {
 	@Autowired
 	private JwtService jwtService;
 
+	@Autowired
+	private BitacoraSeguridadRepository bitacoraSeguridadRepository;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
+	@MockitoBean
+	private EmailService emailService;
+
 	private String tokenUsuarioCapris;
+	private String tokenUsuarioDeCampoCapris;
 	private Long usuarioDiagnostikaId;
+	private TransactionTemplate transactionTemplate;
 
 	@BeforeAll
 	void prepararTokens() {
+		transactionTemplate = new TransactionTemplate(transactionManager);
+
 		Usuario wmolina = usuarioRepository.findByUsername("wmolina").orElseThrow();
 		tokenUsuarioCapris = jwtService.generar(
 				wmolina.getId(), wmolina.getEmpresa().getId(), wmolina.getRol().getNombre());
 
+		Usuario amelendez = usuarioRepository.findByUsername("amelendez").orElseThrow();
+		tokenUsuarioDeCampoCapris = jwtService.generar(
+				amelendez.getId(), amelendez.getEmpresa().getId(), amelendez.getRol().getNombre());
+
 		usuarioDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
+	}
+
+	// La limpieza necesita una transaccion propia y explicita: deleteByUsuarioId es
+	// un metodo derivado (no uno de los CRUD estandar de JpaRepository), y esta clase
+	// no es @Transactional (no podria serlo -- MockMvc ejerce la app completa via
+	// SecurityFilterChain/JwtAuthenticationFilter, cuyas propias transacciones no
+	// deben compartir conexion con la del test). Sin este TransactionTemplate,
+	// Hibernate falla con "No EntityManager with actual transaction available".
+	@AfterEach
+	void limpiarUsuariosCreadosPorLasPruebas() {
+		transactionTemplate.executeWithoutResult(status -> {
+			USERNAMES_DE_PRUEBA.stream()
+					.map(usuarioRepository::findByUsername)
+					.flatMap(Optional::stream)
+					.forEach(usuario -> {
+						bitacoraSeguridadRepository.deleteByUsuarioId(usuario.getId());
+						usuarioRepository.deleteById(usuario.getId());
+					});
+		});
 	}
 
 	@Test
@@ -119,5 +184,193 @@ class UsuarioControllerIT {
 		mockMvc.perform(get("/api/usuarios"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.codigo").value("SESION_NO_VALIDA"));
+	}
+
+	@Test
+	void altaDeUsuarioConDatosValidosYTokenDeAdministradorDevuelve201YQuedaPendienteDePrimerIngreso() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Persona Nueva Prueba",
+				"PENDIENTE-100",
+				"persona.nueva@capris.co.cr",
+				"persona.nueva",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		String respuesta = mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.estado").value("PENDIENTE_PRIMER_INGRESO"))
+				.andExpect(jsonPath("$.username").value("persona.nueva"))
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+
+		// La respuesta nunca debe filtrar la contraseña temporal ni su hash, sin
+		// importar el nombre exacto que tome el campo.
+		assertThat(respuesta).doesNotContainIgnoringCase("password");
+		assertThat(respuesta).doesNotContainIgnoringCase("contrasena");
+		assertThat(respuesta).doesNotContainIgnoringCase("contraseña");
+
+		Usuario creado = usuarioRepository.findByUsername("persona.nueva").orElseThrow();
+		assertThat(creado.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
+		assertThat(creado.getPasswordTemporalExpiraEn()).isNotNull();
+
+		boolean seRegistroEnBitacora = bitacoraSeguridadRepository.findAll().stream()
+				.anyMatch(registro -> registro.getUsuarioId().equals(creado.getId())
+						&& registro.getTipoEvento() == TipoEventoSeguridad.USUARIO_CREADO);
+		assertThat(seRegistroEnBitacora).isTrue();
+
+		verify(emailService).enviarCredencialesIniciales(
+				eq("persona.nueva@capris.co.cr"), anyString(), eq("persona.nueva"), anyString());
+	}
+
+	@Test
+	void altaDeUsuarioConCorreoDuplicadoDevuelve409UsuarioDuplicado() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Otra Persona",
+				"PENDIENTE-101",
+				"wmolina@capris.cr", // correo ya usado por el admin semilla
+				"otra.persona",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.codigo").value("USUARIO_DUPLICADO"));
+
+		assertThat(usuarioRepository.existsByUsername("otra.persona")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioComoUsuarioDeCampoDevuelve403YNoCreaElUsuario() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Intento No Autorizado",
+				"PENDIENTE-102",
+				"intento.no.autorizado@capris.co.cr",
+				"intento.no.autorizado",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioDeCampoCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
+
+		assertThat(usuarioRepository.existsByUsername("intento.no.autorizado")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioConRolInexistenteDevuelve404UsuarioNoEncontrado() throws Exception {
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Rol Inexistente",
+				"PENDIENTE-103",
+				"rol.inexistente@capris.co.cr",
+				"rol.inexistente",
+				ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.codigo").value("USUARIO_NO_ENCONTRADO"));
+
+		assertThat(usuarioRepository.existsByUsername("rol.inexistente")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioConEmpresaIdDeOtraEmpresaOInexistenteDevuelveExactamenteElMismoError() throws Exception {
+		// HU-023: el alta tiene el mismo aislamiento multiempresa que detalle()/
+		// inactivar() -- un administrador no puede crear usuarios fuera de su propia
+		// empresa, y el 403 no debe distinguir si la empresa enviada existe o no.
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+		Long empresaDiagnostikaId = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow()
+				.getEmpresa().getId();
+
+		CrearUsuarioRequest requestOtraEmpresa = new CrearUsuarioRequest(
+				"Persona De Otra Empresa",
+				"PENDIENTE-104",
+				"persona.otra.empresa@diagnostika.test",
+				"persona.otra.empresa",
+				rolUsuarioDeCampoId,
+				empresaDiagnostikaId);
+
+		CrearUsuarioRequest requestEmpresaInexistente = new CrearUsuarioRequest(
+				"Empresa Inexistente",
+				"PENDIENTE-105",
+				"empresa.inexistente@capris.co.cr",
+				"empresa.inexistente",
+				rolUsuarioDeCampoId,
+				ID_QUE_NO_EXISTE_EN_NINGUNA_EMPRESA);
+
+		MvcResult respuestaOtraEmpresa = mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(requestOtraEmpresa)))
+				.andExpect(status().isForbidden())
+				.andReturn();
+
+		MvcResult respuestaEmpresaInexistente = mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(requestEmpresaInexistente)))
+				.andExpect(status().isForbidden())
+				.andReturn();
+
+		JsonNode errorOtraEmpresa = objectMapper.readTree(respuestaOtraEmpresa.getResponse().getContentAsString());
+		JsonNode errorEmpresaInexistente = objectMapper.readTree(
+				respuestaEmpresaInexistente.getResponse().getContentAsString());
+
+		assertThat(errorOtraEmpresa.get("codigo").asText()).isEqualTo("ACCESO_NO_AUTORIZADO");
+		assertThat(errorOtraEmpresa.get("codigo").asText()).isEqualTo(errorEmpresaInexistente.get("codigo").asText());
+		assertThat(errorOtraEmpresa.get("mensaje").asText()).isEqualTo(errorEmpresaInexistente.get("mensaje").asText());
+
+		assertThat(usuarioRepository.existsByUsername("persona.otra.empresa")).isFalse();
+		assertThat(usuarioRepository.existsByUsername("empresa.inexistente")).isFalse();
+	}
+
+	@Test
+	void altaDeUsuarioSinEmpresaIdEnElRequestQuedaAsociadoALaEmpresaDelAdministrador() throws Exception {
+		// El frontend ya no pide elegir empresa -- el request llega sin empresaId y
+		// el alta debe usar automaticamente la empresa del administrador autenticado.
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Persona Sin Empresa En El Request",
+				"PENDIENTE-106",
+				"persona.sin.empresa@capris.co.cr",
+				"persona.sin.empresa",
+				rolUsuarioDeCampoId,
+				null);
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.empresa").value("CAPRIS Médica"));
+
+		Usuario creado = usuarioRepository.findByUsername("persona.sin.empresa").orElseThrow();
+		assertThat(creado.getEmpresa().getId()).isEqualTo(admin.getEmpresa().getId());
 	}
 }

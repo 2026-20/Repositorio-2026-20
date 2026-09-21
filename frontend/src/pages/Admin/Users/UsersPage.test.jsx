@@ -6,6 +6,11 @@ import UsersPage from './UsersPage'
 
 const TOKEN_DE_PRUEBA = 'token-de-prueba'
 
+const roles = [
+    { id: 10, nombre: 'Usuario de Campo' },
+    { id: 20, nombre: 'Administrador' },
+]
+
 function renderUsersPage() {
     return render(
         <AuthContext.Provider value={{ token: TOKEN_DE_PRUEBA }}>
@@ -178,4 +183,119 @@ describe('UsersPage', () => {
         expect(screen.queryByText('BLOQUEADO'),).not.toBeInTheDocument()
     })
 
+    it('abre el formulario de creacion y carga roles sin pedir empresa', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
+
+        renderUsersPage()
+
+        await screen.findByText('Andrey Meléndez Ovares')
+        fireEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+        const dialogo = await screen.findByRole('alertdialog')
+        expect(within(dialogo).getByRole('heading', { name: 'Crear usuario' })).toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(within(dialogo).getByRole('option', { name: 'Administrador' })).toBeInTheDocument()
+        })
+        expect(within(dialogo).queryByLabelText('Empresa')).not.toBeInTheDocument()
+    })
+
+    it('no llama a crearUsuario si el formulario esta incompleto', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
+        const crearSpy = vi.spyOn(usuarioService, 'crearUsuario')
+
+        renderUsersPage()
+
+        await screen.findByText('Andrey Meléndez Ovares')
+        fireEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+        const dialogo = await screen.findByRole('alertdialog')
+        await waitFor(() => {
+            expect(within(dialogo).getByRole('option', { name: 'Administrador' })).toBeInTheDocument()
+        })
+
+        fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }))
+
+        expect(await within(dialogo).findByText('Debe completar todos los campos.')).toBeInTheDocument()
+        expect(crearSpy).not.toHaveBeenCalled()
+    })
+
+    it('crea el usuario y lo agrega a la tabla sin recargar el listado', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
+
+        const usuarioCreado = {
+            id: 3,
+            nombreCompleto: 'Persona Nueva',
+            correo: 'persona.nueva@capris.co.cr',
+            username: 'persona.nueva',
+            rol: 'Usuario de Campo',
+            empresa: 'CAPRIS Médica',
+            estado: 'PENDIENTE_PRIMER_INGRESO',
+        }
+        vi.spyOn(usuarioService, 'crearUsuario').mockResolvedValue(usuarioCreado)
+
+        renderUsersPage()
+
+        await screen.findByText('Andrey Meléndez Ovares')
+        fireEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+        const dialogo = await screen.findByRole('alertdialog')
+        await waitFor(() => {
+            expect(within(dialogo).getByRole('option', { name: 'Administrador' })).toBeInTheDocument()
+        })
+
+        fireEvent.change(within(dialogo).getByLabelText('Nombre completo'), { target: { value: 'Persona Nueva' } })
+        fireEvent.change(within(dialogo).getByLabelText('Cédula'), { target: { value: '1-2345-6789' } })
+        fireEvent.change(within(dialogo).getByLabelText('Correo electrónico'), { target: { value: 'persona.nueva@capris.co.cr' } })
+        fireEvent.change(within(dialogo).getByLabelText('Username'), { target: { value: 'persona.nueva' } })
+        fireEvent.change(within(dialogo).getByLabelText('Rol'), { target: { value: '10' } })
+
+        fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }))
+
+        await waitFor(() => {
+            expect(usuarioService.crearUsuario).toHaveBeenCalledWith(TOKEN_DE_PRUEBA, {
+                nombreCompleto: 'Persona Nueva',
+                cedula: '1-2345-6789',
+                correo: 'persona.nueva@capris.co.cr',
+                username: 'persona.nueva',
+                rolId: 10,
+            })
+        })
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(screen.getByText('Persona Nueva')).toBeInTheDocument()
+    })
+
+    it('muestra el error de duplicado dentro del modal sin cerrarlo', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
+
+        const errorDuplicado = new Error('Ya existe un usuario con ese correo')
+        errorDuplicado.codigo = 'USUARIO_DUPLICADO'
+        vi.spyOn(usuarioService, 'crearUsuario').mockRejectedValue(errorDuplicado)
+
+        renderUsersPage()
+
+        await screen.findByText('Andrey Meléndez Ovares')
+        fireEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+        const dialogo = await screen.findByRole('alertdialog')
+        await waitFor(() => {
+            expect(within(dialogo).getByRole('option', { name: 'Administrador' })).toBeInTheDocument()
+        })
+
+        fireEvent.change(within(dialogo).getByLabelText('Nombre completo'), { target: { value: 'Persona Duplicada' } })
+        fireEvent.change(within(dialogo).getByLabelText('Cédula'), { target: { value: '1-1111-1111' } })
+        fireEvent.change(within(dialogo).getByLabelText('Correo electrónico'), { target: { value: 'wmolina@capris.cr' } })
+        fireEvent.change(within(dialogo).getByLabelText('Username'), { target: { value: 'otra.persona' } })
+        fireEvent.change(within(dialogo).getByLabelText('Rol'), { target: { value: '10' } })
+
+        fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }))
+
+        expect(await within(dialogo).findByText('Ya existe un usuario con ese correo')).toBeInTheDocument()
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    })
 })
