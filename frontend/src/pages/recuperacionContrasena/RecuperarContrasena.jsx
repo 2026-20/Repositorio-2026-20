@@ -55,6 +55,7 @@ function RecuperarContrasena() {
       setTokenSesionTemporal(respuesta.tokenSesionTemporal)
       setMensaje(null)
       setPaso(PASO.NUEVA_CONTRASENA)
+
     } catch (err) {
       setError(err.message)
     } finally {

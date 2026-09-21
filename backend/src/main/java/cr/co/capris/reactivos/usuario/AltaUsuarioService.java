@@ -27,7 +27,7 @@ import java.time.OffsetDateTime;
 public class AltaUsuarioService {
 
 	private static final Logger log = LoggerFactory.getLogger(AltaUsuarioService.class);
-	private static final int VIGENCIA_PASSWORD_TEMPORAL_HORAS = 24;
+	private static final int VIGENCIA_PASSWORD_TEMPORAL_HORAS = 42;
 
 	private final UsuarioRepository usuarioRepository;
 	private final RolRepository rolRepository;

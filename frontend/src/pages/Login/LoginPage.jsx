@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { obtenerEmpresas } from '../../services/authService'
 import { useAuth } from '../../context/useAuth'
-import { paths } from '../../routes/paths'
 import { LOGOS_POR_EMPRESA } from '../../assets/logos'
 import GradientWaves from '../../components/effects/GradientWaves'
 import PasswordField from '../../components/ui/PasswordField'
@@ -94,7 +93,6 @@ export default function LoginPage() {
                 replace
             />
         )
-        return <Navigate to={paths.dashboard} replace />
     }
 
     return (
