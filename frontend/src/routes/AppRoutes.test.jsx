@@ -1,4 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import {
+    fireEvent,
+    render,
+    screen,
+} from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -48,6 +52,35 @@ describe('AppRoutes', () => {
 
         expect(
             await screen.findByRole('heading', { name: 'Accesos' }),
+        ).toBeInTheDocument()
+    })
+
+    it('el enlace del login navega a /recuperar-contrasena y monta la pantalla de HU-046', async () => {
+        render(
+            <AuthContext.Provider
+                value={{
+                    estaAutenticado: false,
+                    login: vi.fn(),
+                }}
+            >
+                <MemoryRouter
+                    initialEntries={['/login']}
+                >
+                    <AppRoutes />
+                </MemoryRouter>
+            </AuthContext.Provider>,
+        )
+
+        fireEvent.click(
+            screen.getByRole('link', {
+                name: '¿Olvidaste tu contraseña?',
+            }),
+        )
+
+        expect(
+            await screen.findByRole('heading', {
+                name: 'Recuperar contraseña',
+            }),
         ).toBeInTheDocument()
     })
 })

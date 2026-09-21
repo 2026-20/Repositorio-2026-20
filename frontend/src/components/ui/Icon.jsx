@@ -27,6 +27,7 @@ const ICONOS = {
     usuario: User,
     chevronDerecha: ChevronRight,
     proximamente: Lock,
+    cerradura: Lock,
     temaClaro: Sun,
     temaOscuro: Moon,
     ajustes: Settings,

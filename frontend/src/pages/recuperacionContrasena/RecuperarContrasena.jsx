@@ -6,6 +6,10 @@ import {
   MENSAJE_SIN_CONEXION,
 } from '../../services/recuperacionService'
 import { useConectividad } from '../../hooks/useConectividad'
+import GradientWaves from '../../components/effects/GradientWaves'
+import Icon from '../../components/ui/Icon'
+import { usePrefiereMenosMovimiento } from '../../hooks/usePrefiereMenosMovimiento'
+import styles from './RecuperarContrasena.module.css'
 
 // Un solo componente para los 3 pasos de HU-046 en vez de 3 páginas/rutas --
 // más simple de integrar mientras el equipo no defina todavía cómo va a
@@ -16,6 +20,7 @@ const PASO = { CORREO: 'correo', OTP: 'otp', NUEVA_CONTRASENA: 'nueva-contrasena
 
 function RecuperarContrasena() {
   const enLinea = useConectividad()
+  const prefiereMenosMovimiento = usePrefiereMenosMovimiento()
   const [paso, setPaso] = useState(PASO.CORREO)
   const [correo, setCorreo] = useState('')
   const [otp, setOtp] = useState('')
@@ -74,62 +79,133 @@ function RecuperarContrasena() {
   // Criterio 1: bloqueo total e inmediato de la pantalla si no hay conexión --
   // ni siquiera se muestra el formulario.
   if (!enLinea) {
-    return <p role="alert">{MENSAJE_SIN_CONEXION}</p>
+    return (
+      <main className={styles.pagina}>
+        <section className={styles.tarjeta}>
+          <p role="alert">{MENSAJE_SIN_CONEXION}</p>
+        </section>
+      </main>
+    )
   }
 
   return (
-    <div>
-      <h1>Recuperar contraseña</h1>
-      {error && <p role="alert">{error}</p>}
-
-      {paso === PASO.CORREO && (
-        <form onSubmit={manejarEnvioCorreo}>
-          <label htmlFor="correo">Correo registrado</label>
-          <input
-            id="correo"
-            type="email"
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            required
+    <main className={styles.pagina}>
+      {!prefiereMenosMovimiento && (
+        <div className={styles.fondo} aria-hidden="true">
+          <GradientWaves
+            horizonColor="#bfd6ec"
+            waveColor="#0f426e"
+            crestColor="#ffffff"
+            speed={0.4}
+            amplitude={2.5}
+            waveScale={0.6}
+            waveRatio={0.9}
+            swell={35}
+            turbulence={20}
+            tilt={1.11}
+            zoom={1}
+            height={5.5}
+            fogDepth={30}
+            detail="medium"
+            brightness={1}
+            opacity={1}
+            grain
+            grainIntensity={0.05}
+            mouseInteraction
+            parallaxStrength={0.5}
           />
-          <button type="submit" disabled={cargando}>Enviar código</button>
-        </form>
+        </div>
       )}
 
-      {paso === PASO.OTP && (
-        <form onSubmit={manejarValidacionOtp}>
-          {mensaje && <p>{mensaje}</p>}
-          <label htmlFor="otp">Código de 6 dígitos</label>
-          <input
-            id="otp"
-            inputMode="numeric"
-            pattern="\d{6}"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            required
+      <section className={styles.tarjeta}>
+        <div className={styles.encabezado}>
+          <Icon
+            name="cerradura"
+            size={40}
+            className={styles.icono}
           />
-          <p>El código vence 15 minutos después de haberlo solicitado.</p>
-          <button type="submit" disabled={cargando}>Validar código</button>
-        </form>
-      )}
 
-      {paso === PASO.NUEVA_CONTRASENA && (
-        <form onSubmit={manejarNuevaContrasena}>
-          <label htmlFor="nuevaContrasena">Nueva contraseña</label>
-          <input
-            id="nuevaContrasena"
-            type="password"
-            value={nuevaContrasena}
-            onChange={(e) => setNuevaContrasena(e.target.value)}
-            required
-          />
-          <button type="submit" disabled={cargando}>Guardar nueva contraseña</button>
-        </form>
-      )}
+          <h1>Recuperar contraseña</h1>
 
-      {paso === PASO.LISTO && <p>{mensaje}</p>}
-    </div>
+          <p>Sistema de gestión y control de reactivos</p>
+        </div>
+
+        {error && (
+          <div
+            className={styles.error}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        {paso === PASO.CORREO && (
+          <form
+            className={styles.formulario}
+            onSubmit={manejarEnvioCorreo}
+          >
+            <div className={styles.grupo}>
+              <label htmlFor="correo">Correo registrado</label>
+              <input
+                id="correo"
+                type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+            <button type="submit" disabled={cargando}>Enviar código</button>
+          </form>
+        )}
+
+        {paso === PASO.OTP && (
+          <form
+            className={styles.formulario}
+            onSubmit={manejarValidacionOtp}
+          >
+            {mensaje && <p className={styles.info}>{mensaje}</p>}
+            <div className={styles.grupo}>
+              <label htmlFor="otp">Código de 6 dígitos</label>
+              <input
+                id="otp"
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                autoComplete="one-time-code"
+                required
+              />
+            </div>
+            <p className={styles.info}>El código vence 15 minutos después de haberlo solicitado.</p>
+            <button type="submit" disabled={cargando}>Validar código</button>
+          </form>
+        )}
+
+        {paso === PASO.NUEVA_CONTRASENA && (
+          <form
+            className={styles.formulario}
+            onSubmit={manejarNuevaContrasena}
+          >
+            <div className={styles.grupo}>
+              <label htmlFor="nuevaContrasena">Nueva contraseña</label>
+              <input
+                id="nuevaContrasena"
+                type="password"
+                value={nuevaContrasena}
+                onChange={(e) => setNuevaContrasena(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+            <button type="submit" disabled={cargando}>Guardar nueva contraseña</button>
+          </form>
+        )}
+
+        {paso === PASO.LISTO && <p className={styles.exito}>{mensaje}</p>}
+      </section>
+    </main>
   )
 }
 
