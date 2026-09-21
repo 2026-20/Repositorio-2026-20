@@ -8,6 +8,7 @@ import AppLayout from '../components/layout/AppLayout'
 import AjustesPage from '../pages/Settings/AjustesPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
+import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
@@ -21,6 +22,14 @@ export default function AppRoutes() {
                 element={<LoginPage />}
             />
 
+            <Route
+                path={paths.primerIngreso}
+                element={
+                    <ProtectedRoute>
+                        <PrimerIngresoPage />
+                    </ProtectedRoute>
+                }
+            />
             <Route
                 path={paths.recuperarContrasena}
                 element={<RecuperarContrasena />}

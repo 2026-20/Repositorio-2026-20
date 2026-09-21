@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+    cambiarContrasena,
+    cambiarContrasenaPrimerIngreso,
     cerrarSesion,
     iniciarSesion,
     obtenerEmpresas,
@@ -122,6 +124,77 @@ describe('authService', () => {
         ).rejects.toMatchObject({
             message: 'No fue posible cerrar la sesión',
             status: 500,
+        })
+    })
+
+    it('envia el cambio obligatorio de primer ingreso con el token', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            status: 204,
+            json: async () => {
+                throw new Error('sin cuerpo')
+            },
+        })
+
+        await cambiarContrasenaPrimerIngreso('jwt-prueba', 'Nueva123!')
+
+        expect(fetch).toHaveBeenCalledWith(
+            'http://localhost:8080/api/auth/primer-ingreso/cambiar-password',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer jwt-prueba',
+                },
+                body: JSON.stringify({ contrasenaNueva: 'Nueva123!' }),
+            },
+        )
+    })
+
+    it('envia el cambio voluntario con la contraseña actual y la nueva', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            status: 204,
+            json: async () => {
+                throw new Error('sin cuerpo')
+            },
+        })
+
+        await cambiarContrasena('jwt-prueba', 'Actual123!', 'Nueva123!')
+
+        expect(fetch).toHaveBeenCalledWith(
+            'http://localhost:8080/api/auth/cambiar-password',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer jwt-prueba',
+                },
+                body: JSON.stringify({
+                    contrasenaActual: 'Actual123!',
+                    contrasenaNueva: 'Nueva123!',
+                }),
+            },
+        )
+    })
+
+    it('expone los detalles de la politica de contraseña cuando el backend los rechaza', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: false,
+            status: 400,
+            json: async () => ({
+                codigo: 'CONTRASENA_NO_VALIDA',
+                mensaje: 'La contraseña no cumple la política de seguridad',
+                detalles: ['La contraseña debe tener al menos 8 caracteres'],
+            }),
+        })
+
+        await expect(
+            cambiarContrasena('jwt-prueba', 'Actual123!', 'corta'),
+        ).rejects.toMatchObject({
+            codigo: 'CONTRASENA_NO_VALIDA',
+            status: 400,
+            detalles: ['La contraseña debe tener al menos 8 caracteres'],
         })
     })
 })

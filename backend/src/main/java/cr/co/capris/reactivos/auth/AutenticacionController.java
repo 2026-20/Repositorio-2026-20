@@ -1,6 +1,7 @@
 package cr.co.capris.reactivos.auth;
 
 import cr.co.capris.reactivos.seguridad.CredencialesInvalidasException;
+import cr.co.capris.reactivos.seguridad.PasswordTemporalVencidaException;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
@@ -10,8 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.OffsetDateTime;
 
@@ -28,6 +27,8 @@ import java.time.OffsetDateTime;
 public class AutenticacionController {
 
 	private static final String MENSAJE_CREDENCIALES_INVALIDAS = "Usuario, contraseña o empresa no válidos";
+	private static final String MENSAJE_PASSWORD_TEMPORAL_VENCIDA =
+			"La contraseña temporal ha vencido. Debe contactar al administrador para que le genere una nueva";
 
 	// Hash BCrypt de una cadena que no es contraseña de nadie -- se usa para que
 	// passwordEncoder.matches(...) tarde lo mismo cuando el usuario no existe que
@@ -58,7 +59,7 @@ public class AutenticacionController {
 		boolean contrasenaCorrecta = passwordEncoder.matches(request.contrasena(), hashParaComparar);
 
 		if (usuario == null) {
-			bloqueoCuentaService.registrarIntentoUsuarioInexistente(request.username(), obtenerIdentificadorCliente());
+			bloqueoCuentaService.registrarIntentoUsuarioInexistente(request.username(), IdentificadorCliente.deLaPeticionActual());
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
@@ -73,15 +74,16 @@ public class AutenticacionController {
 		}
 
 		if (!contrasenaCorrecta) {
-			bloqueoCuentaService.registrarIntentoFallido(usuario, obtenerIdentificadorCliente());
+			bloqueoCuentaService.registrarIntentoFallido(usuario, IdentificadorCliente.deLaPeticionActual());
 			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
 		}
 
 		if (usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO
 				&& usuario.getPasswordTemporalExpiraEn() != null
 				&& usuario.getPasswordTemporalExpiraEn().isBefore(OffsetDateTime.now())) {
-			// TODO (HU-044): mensaje especifico de clave temporal vencida en vez del generico.
-			throw new CredencialesInvalidasException(MENSAJE_CREDENCIALES_INVALIDAS);
+			// Solo se llega aqui con la contraseña ya verificada, asi que el mensaje especifico
+			// no le revela nada a quien no la conozca.
+			throw new PasswordTemporalVencidaException(MENSAJE_PASSWORD_TEMPORAL_VENCIDA);
 		}
 
 		bloqueoCuentaService.reiniciarIntentosTrasLoginExitoso(usuario);
@@ -94,16 +96,5 @@ public class AutenticacionController {
 				usuario.getNombreCompleto(),
 				usuario.getRol().getNombre(),
 				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
-	}
-
-	private String obtenerIdentificadorCliente() {
-		var atributos = RequestContextHolder.getRequestAttributes();
-
-		if (atributos instanceof ServletRequestAttributes servletAttributes) {
-			String ip = servletAttributes.getRequest().getRemoteAddr();
-			return "ip:" + ip;
-		}
-
-		return "ip:no-disponible";
 	}
 }

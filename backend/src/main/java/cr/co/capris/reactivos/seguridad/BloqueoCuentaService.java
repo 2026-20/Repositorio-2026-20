@@ -52,6 +52,15 @@ public class BloqueoCuentaService {
 
 
     public void registrarIntentoFallido(Usuario usuario, String identificadorCliente) {
+        registrarIntentoFallido(usuario, identificadorCliente, TipoEventoSeguridad.LOGIN_FALLIDO);
+    }
+
+    /**
+     * Mismo conteo y bloqueo que un login fallido, pero la bitacora queda con el evento
+     * del flujo de origen (p. ej. cambio de contraseña con la actual incorrecta).
+     */
+    public void registrarIntentoFallido(Usuario usuario, String identificadorCliente,
+            TipoEventoSeguridad tipoEventoFallo) {
         int numeroIntento = usuario.getIntentosFallidos() + 1;
 
         boolean bloqueoActivado = numeroIntento >= MAX_INTENTOS_FALLIDOS;
@@ -70,7 +79,7 @@ public class BloqueoCuentaService {
         String detalle = "numeroIntento=%d; identificadorCliente=%s; bloqueoActivado=%s"
                         .formatted(numeroIntento, identificadorCliente, bloqueoActivado);
 
-        bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(), TipoEventoSeguridad.LOGIN_FALLIDO, detalle);
+        bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(), tipoEventoFallo, detalle);
 
         if (bloqueoActivado) {
 

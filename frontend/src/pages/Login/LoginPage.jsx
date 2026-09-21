@@ -13,7 +13,7 @@ import styles from './LoginPage.module.css'
 // components/effects/GradientWaves). Se omite con prefers-reduced-motion,
 // igual que el resto de las animaciones del proyecto.
 export default function LoginPage() {
-    const { login, estaAutenticado } = useAuth()
+    const { login, estaAutenticado, usuario } = useAuth()
     const prefiereMenosMovimiento = usePrefiereMenosMovimiento()
 
     const [username, setUsername] = useState('')
@@ -85,7 +85,14 @@ export default function LoginPage() {
     }
 
     if (estaAutenticado) {
-        return <Navigate to={paths.dashboard} replace />
+        // HU-044: con contraseña temporal, el primer destino es el cambio
+        // obligatorio, no el dashboard.
+        return (
+            <Navigate
+                to={usuario?.debeCambiarContrasena ? paths.primerIngreso : paths.dashboard}
+                replace
+            />
+        )
     }
 
     return (

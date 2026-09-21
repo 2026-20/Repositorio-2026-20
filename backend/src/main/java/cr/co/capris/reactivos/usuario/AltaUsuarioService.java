@@ -28,7 +28,6 @@ public class AltaUsuarioService {
 
 	private static final Logger log = LoggerFactory.getLogger(AltaUsuarioService.class);
 	private static final int VIGENCIA_PASSWORD_TEMPORAL_HORAS = 24;
-
 	private final UsuarioRepository usuarioRepository;
 	private final RolRepository rolRepository;
 	private final EmpresaRepository empresaRepository;

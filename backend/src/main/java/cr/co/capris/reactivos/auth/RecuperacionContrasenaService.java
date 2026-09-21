@@ -194,6 +194,10 @@ public class RecuperacionContrasenaService {
 		usuario.setPasswordHash(passwordEncoder.encode(nuevaContrasena));
 		usuario.setIntentosFallidos(0);
 		usuario.setBloqueadoHasta(null);
+		if (usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO) {
+			usuario.setEstado(EstadoUsuario.ACTIVO);
+			usuario.setPasswordTemporalExpiraEn(null);
+		}
 		usuarioRepository.save(usuario);
 
 		// Criterio 4: la sesión temporal es de UN solo uso -- al completar el

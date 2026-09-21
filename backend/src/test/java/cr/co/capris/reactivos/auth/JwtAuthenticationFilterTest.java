@@ -43,4 +43,42 @@ class JwtAuthenticationFilterTest {
 
 		assertThat(filtro.sesionSigueValida(EstadoUsuario.ACTIVO, revocadoEn, emitidoDespues)).isTrue();
 	}
+
+	// HU-044: un usuario PENDIENTE_PRIMER_INGRESO solo puede cambiar la contraseña o cerrar sesion.
+
+	@Test
+	void primerIngresoPendientePermiteElCambioDeContrasenaObligatorio() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/primer-ingreso/cambiar-password")).isFalse();
+	}
+
+	@Test
+	void primerIngresoPendientePermiteCerrarSesion() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/logout")).isFalse();
+	}
+
+	@Test
+	void primerIngresoPendienteBloqueaCualquierOtraRuta() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/cambiar-password")).isTrue();
+	}
+
+	@Test
+	void primerIngresoPendienteBloqueaLasVariantesDeLasRutasPermitidas() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/auth/primer-ingreso/cambiar-password")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/logout/")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/logout/../usuarios")).isTrue();
+	}
+
+	@Test
+	void unUsuarioActivoNoQuedaRestringidoPorLaReglaDePrimerIngreso() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.ACTIVO, "GET", "/api/usuarios")).isFalse();
+	}
 }

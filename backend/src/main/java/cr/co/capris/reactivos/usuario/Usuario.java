@@ -141,6 +141,10 @@ public class Usuario {
 		return passwordTemporalExpiraEn;
 	}
 
+	public void setPasswordTemporalExpiraEn(OffsetDateTime passwordTemporalExpiraEn) {
+		this.passwordTemporalExpiraEn = passwordTemporalExpiraEn;
+	}
+
 	public int getIntentosFallidos() {
 		return intentosFallidos;
 	}
