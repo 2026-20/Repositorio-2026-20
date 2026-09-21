@@ -44,6 +44,24 @@ public class GlobalExceptionHandler {
 				.body(ErrorResponse.de("USUARIO_NO_ENCONTRADO", ex.getMessage()));
 	}
 
+	@ExceptionHandler(TokenRecuperacionInvalidoException.class)
+	public ResponseEntity<ErrorResponse> manejar(TokenRecuperacionInvalidoException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ErrorResponse.de("TOKEN_RECUPERACION_INVALIDO", ex.getMessage()));
+	}
+
+	@ExceptionHandler(TokenRecuperacionExpiradoException.class)
+	public ResponseEntity<ErrorResponse> manejar(TokenRecuperacionExpiradoException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ErrorResponse.de("TOKEN_RECUPERACION_EXPIRADO", ex.getMessage()));
+	}
+
+	@ExceptionHandler(TokenRecuperacionBloqueadoException.class)
+	public ResponseEntity<ErrorResponse> manejar(TokenRecuperacionBloqueadoException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(ErrorResponse.de("TOKEN_RECUPERACION_BLOQUEADO", ex.getMessage()));
+	}
+
 	@ExceptionHandler(SesionNoValidaException.class)
 	public ResponseEntity<ErrorResponse> manejar(SesionNoValidaException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

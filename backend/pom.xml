@@ -67,6 +67,20 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- SendGrid para correos (proveedor "sendgrid") -->
+		<dependency>
+			<groupId>com.sendgrid</groupId>
+			<artifactId>sendgrid-java</artifactId>
+			<version>4.10.3</version>
+		</dependency>
+		<!-- JavaMail del propio Spring (proveedor "smtp"; MailHog en desarrollo,
+		     SMTP corporativo el día que exista). El mismo EmailService que usa
+		     SendGrid para el OTP sirve para cualquier correo de la app. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>

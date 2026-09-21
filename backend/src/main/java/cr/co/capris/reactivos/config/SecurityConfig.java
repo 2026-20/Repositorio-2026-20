@@ -66,10 +66,15 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						// El preflight CORS (OPTIONS) no lleva el JWT, hay que dejarlo pasar.
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						// El dispatch a /error ocurre cuando algo falla ANTES del controller
+						// (p. ej. un body inválido). Si /error queda protegido, ese fallo se
+						// camufla como un 401 SESION_NO_VALIDA en vez del 400 real.
+						.requestMatchers("/error").permitAll()
 						.requestMatchers(
 								"/api/auth/login",
 								"/api/empresas"
 						).permitAll()
+.requestMatchers("/api/auth/recuperacion/**").permitAll()
 						.requestMatchers(
 								HttpMethod.POST,
 								"/api/usuarios/*/inactivar",
