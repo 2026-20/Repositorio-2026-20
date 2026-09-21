@@ -1,35 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { obtenerEmpresas } from '../../services/authService'
 import { useAuth } from '../../context/useAuth'
 import { paths } from '../../routes/paths'
 import { LOGOS_POR_EMPRESA } from '../../assets/logos'
 import GradientWaves from '../../components/effects/GradientWaves'
+import PasswordField from '../../components/ui/PasswordField'
+import { usePrefiereMenosMovimiento } from '../../hooks/usePrefiereMenosMovimiento'
+import { paths } from '../../routes/paths'
 import styles from './LoginPage.module.css'
 
 // Experimental: fondo animado detras de la tarjeta de acceso (ver
 // components/effects/GradientWaves). Se omite con prefers-reduced-motion,
 // igual que el resto de las animaciones del proyecto.
-function usePrefiereMenosMovimiento() {
-    const [prefiere, setPrefiere] = useState(
-        () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
-    )
-
-    useEffect(() => {
-        const medioConsulta = window.matchMedia?.('(prefers-reduced-motion: reduce)')
-        if (!medioConsulta) return undefined
-
-        function manejarCambio(evento) {
-            setPrefiere(evento.matches)
-        }
-
-        medioConsulta.addEventListener('change', manejarCambio)
-        return () => medioConsulta.removeEventListener('change', manejarCambio)
-    }, [])
-
-    return prefiere
-}
-
 export default function LoginPage() {
     const { login, estaAutenticado, usuario } = useAuth()
     const prefiereMenosMovimiento = usePrefiereMenosMovimiento()
@@ -214,9 +197,8 @@ export default function LoginPage() {
                             Contraseña
                         </label>
 
-                        <input
+                        <PasswordField
                             id="contrasena"
-                            type="password"
                             value={contrasena}
                             onChange={(event) =>
                                 setContrasena(event.target.value)
@@ -247,6 +229,13 @@ export default function LoginPage() {
                             ? 'Iniciando sesión...'
                             : 'Iniciar sesión'}
                     </button>
+
+                    <Link
+                        className={styles.enlaceRecuperacion}
+                        to={paths.recuperarContrasena}
+                    >
+                        ¿Olvidaste tu contraseña?
+                    </Link>
                 </form>
             </section>
         </main>

@@ -9,6 +9,7 @@ import AjustesPage from '../pages/Settings/AjustesPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
 import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
+import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
 import { paths } from './paths'
@@ -28,6 +29,8 @@ export default function AppRoutes() {
                         <PrimerIngresoPage />
                     </ProtectedRoute>
                 }
+                path={paths.recuperarContrasena}
+                element={<RecuperarContrasena />}
             />
 
             <Route

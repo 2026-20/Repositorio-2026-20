@@ -18,7 +18,9 @@ function renderLoginPage() {
                 estaAutenticado: false,
             }}
         >
-            <LoginPage />
+            <MemoryRouter>
+                <LoginPage />
+            </MemoryRouter>
         </AuthContext.Provider>,
     )
 }

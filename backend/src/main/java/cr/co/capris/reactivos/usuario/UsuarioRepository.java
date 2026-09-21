@@ -9,6 +9,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
 	Optional<Usuario> findByUsername(String username);
 
+	Optional<Usuario> findByCorreo(String correo);
+
 	// Firmas usadas por HU-047 para validar duplicados antes de crear un usuario.
 	boolean existsByCedula(String cedula);
 

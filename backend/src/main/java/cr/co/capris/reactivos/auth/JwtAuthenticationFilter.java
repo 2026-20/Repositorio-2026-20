@@ -60,6 +60,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 								header.substring(7)
 						);
 
+				String proposito =
+						claims.get("proposito", String.class);
+
+				// Token de recuperación: no autentica una sesión normal, el
+				// controlador valida su validez/revocación por su cuenta.
+				if ("recuperacion_password".equals(proposito)) {
+					chain.doFilter(request, response);
+					return;
+				}
+
 				String jti = claims.getId();
 
 				if (jti == null ||
