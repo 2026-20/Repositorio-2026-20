@@ -77,6 +77,7 @@ public class SecurityConfig {
 .requestMatchers("/api/auth/recuperacion/**").permitAll()
 						.requestMatchers(
 								HttpMethod.POST,
+								"/api/usuarios",
 								"/api/usuarios/*/inactivar",
 								"/api/usuarios/*/reactivar",
 								"/api/usuarios/*/desbloquear"

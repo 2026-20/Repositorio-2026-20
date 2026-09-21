@@ -94,6 +94,7 @@ export default function LoginPage() {
                 replace
             />
         )
+        return <Navigate to={paths.dashboard} replace />
     }
 
     return (

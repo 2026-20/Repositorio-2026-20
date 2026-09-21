@@ -27,8 +27,8 @@ app:
   jwt:
     secret: PeE4XuHYQWqj6XZI1sS8DtZHT0nIesSkkDK-EK4QFivi_52Hpnu0A95Rxr7P6uks
     expiracion-minutos: 480
-    recuperacion:
-      expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
+  recuperacion:
+    expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
 
   # HU-046: envío del correo con el OTP de recuperación. HU-047 (credenciales
   # iniciales) usa EL MISMO EmailService -- ver /seguridad/EmailService.java.

@@ -46,6 +46,29 @@ export async function inactivarUsuario(token, id, motivo) {
     return procesarRespuesta(response)
 }
 
+export async function listarRoles(token) {
+    const response = await fetch(`${API_URL}/roles`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}
+
+export async function crearUsuario(token, datos) {
+    const response = await fetch(`${API_URL}/usuarios`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(datos),
+    })
+
+    return procesarRespuesta(response)
+}
+
 export async function reactivarUsuario(token, id) {
     const response = await fetch(`${API_URL}/usuarios/${id}/reactivar`, {
         method: 'POST',

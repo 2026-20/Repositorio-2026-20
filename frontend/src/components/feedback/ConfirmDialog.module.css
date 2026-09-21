@@ -4,7 +4,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
+    padding: var(--space-4);
     background: rgba(15, 23, 30, 0.5);
     z-index: 100;
 }
@@ -12,55 +12,66 @@
 .dialogo {
     width: 100%;
     max-width: 420px;
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 28px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-high);
+    font-family: var(--font-family);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-base);
 }
 
 .dialogo h2 {
-    margin: 0 0 12px;
-    color: #20262e;
-    font-size: 20px;
+    margin: 0 0 var(--space-3);
+    color: var(--color-text);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-heading);
 }
 
 .contenido {
-    color: #3a4149;
-    line-height: 1.5;
-    margin-bottom: 24px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-6);
 }
 
 .acciones {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: var(--space-3);
 }
 
 .botonCancelar,
-.botonConfirmar {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 10px 18px;
-    border-radius: 6px;
+.botonConfirmarPeligro,
+.botonConfirmarPrimario {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
 }
 
 .botonCancelar {
-    border: 1px solid #aab2bb;
-    background: #ffffff;
-    color: #20262e;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
 }
 
-.botonConfirmar {
+.botonConfirmarPeligro {
     border: none;
-    background: #b3261e;
-    color: #ffffff;
+    background: var(--color-danger);
+    color: var(--color-surface);
+}
+
+.botonConfirmarPrimario {
+    border: none;
+    background: var(--color-primary);
+    color: var(--color-surface);
 }
 
 .botonCancelar:disabled,
-.botonConfirmar:disabled {
+.botonConfirmarPeligro:disabled,
+.botonConfirmarPrimario:disabled {
     opacity: 0.65;
     cursor: not-allowed;
 }
