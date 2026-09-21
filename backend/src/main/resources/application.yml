@@ -4,6 +4,10 @@ spring:
 
   # Base de datos local de desarrollo -- ver README.md para levantarla con Docker.
   # En produccion esto se sobreescribe con variables de entorno (OCI Database, no local).
+  # El contenedor "capris-postgres" publica el 5432 tal como documenta el README.
+  # Si tienes un Postgres nativo ocupando el 5432, arranca el contenedor con
+  # "-p 5433:5432" y sobreescribe el datasource con SPRING_DATASOURCE_URL (o con
+  # un application-local.yml que no se comitee).
   datasource:
     url: jdbc:postgresql://localhost:5432/capris_reactivos
     username: capris
@@ -33,3 +37,40 @@ app:
     expiracion-minutos: 480
   mail:
     remitente: no-responder@capris-reactivos.local
+  recuperacion:
+    expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
+
+  # HU-046: envío del correo con el OTP de recuperación. HU-047 (credenciales
+  # iniciales) usa EL MISMO EmailService -- ver /seguridad/EmailService.java.
+  email:
+    # "log" (por defecto): no envía nada real, solo escribe el correo en el log --
+    # así "mvn test" / "mvn verify" y el arranque en local no necesitan una API
+    # key. "sendgrid": envía de verdad -- SOLO activarlo explícitamente, en la
+    # práctica vía la variable de entorno APP_EMAIL_PROVEEDOR=sendgrid en el
+    # servidor real (nunca en este archivo). "smtp": envía vía JavaMailSender
+    # (MailHog en desarrollo: localhost:1025 sin credenciales), útil mientras no
+    # haya un dominio propio verificado en SendGrid.
+    proveedor: log
+    remitente: ${APP_EMAIL_REMITENTE:recuperacioncapris@hotmail.com}
+    remitente-nombre: "CAPRIS Médica - Reactivos"
+    # HU-046 criterio 2: enviar el OTP en segundo plano (fire-and-forget) para
+    # que la respuesta a /solicitar no tarde según exista o no el correo (eso
+    # filtraría por temporización). false solo en las IT, que capturan el OTP
+    # del mock de forma síncrona.
+    asincrono: true
+    sendgrid:
+      # NUNCA la contraseña del buzón de correo -- esto es la API Key que se
+      # genera dentro de SendGrid (Settings > API Keys, permiso restringido a
+      # "Mail Send"). No se comitea un valor real acá, solo la referencia a la
+      # variable de entorno.
+      api-key: ${APP_SENDGRID_API_KEY:}
+    smtp:
+      # SMTP vía JavaMailSender (MailHog por defecto: localhost:1025, sin
+      # autenticación). Ver SmtpEmailService.
+      host: ${APP_EMAIL_SMTP_HOST:localhost}
+      port: ${APP_EMAIL_SMTP_PORT:1025}
+      username: ${APP_EMAIL_SMTP_USERNAME:}
+      password: ${APP_EMAIL_SMTP_PASSWORD:}
+    otp:
+      expiracion-minutos: 15 # criterio de aceptación 3
+      intentos-maximos: 3    # criterio de aceptación 5

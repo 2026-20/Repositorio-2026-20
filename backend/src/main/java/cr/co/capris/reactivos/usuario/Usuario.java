@@ -117,6 +117,10 @@ public class Usuario {
 		return passwordHash;
 	}
 
+	public void setPasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
 	public EstadoUsuario getEstado() {
 		return estado;
 	}
