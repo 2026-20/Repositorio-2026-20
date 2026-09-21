@@ -5,6 +5,7 @@ import cr.co.capris.reactivos.seguridad.UsuarioNoEncontradoException;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,7 +41,7 @@ public class CambioContrasenaController {
     /** HU-044: solo valido mientras el usuario sigue PENDIENTE_PRIMER_INGRESO. */
     @PostMapping("/primer-ingreso/cambiar-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cambiarEnPrimerIngreso(@RequestBody CambioPasswordPrimerIngresoRequest request) {
+    public void cambiarEnPrimerIngreso(@Valid @RequestBody CambioPasswordPrimerIngresoRequest request) {
         Usuario usuario = usuarioActual();
 
         if (usuario.getEstado() != EstadoUsuario.PENDIENTE_PRIMER_INGRESO) {
@@ -54,7 +55,7 @@ public class CambioContrasenaController {
     /** HU-045: exige la contraseña actual; solo para usuarios ACTIVO. */
     @PostMapping("/cambiar-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cambiarVoluntariamente(@RequestBody CambioPasswordVoluntarioRequest request) {
+    public void cambiarVoluntariamente(@Valid @RequestBody CambioPasswordVoluntarioRequest request) {
         Usuario usuario = usuarioActual();
 
         if (usuario.getEstado() != EstadoUsuario.ACTIVO) {
@@ -62,7 +63,8 @@ public class CambioContrasenaController {
                     "Solo un usuario activo puede cambiar su contraseña voluntariamente");
         }
 
-        cambioContrasenaService.cambiarVoluntariamente(usuario, request.contrasenaActual(), request.contrasenaNueva());
+        cambioContrasenaService.cambiarVoluntariamente(usuario, request.contrasenaActual(), request.contrasenaNueva(),
+                IdentificadorCliente.deLaPeticionActual());
     }
 
     private Usuario usuarioActual() {

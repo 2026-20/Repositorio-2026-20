@@ -43,6 +43,24 @@ class BloqueoCuentaServiceTest {
         bloqueoCuentaService = new BloqueoCuentaService(usuarioRepository, bitacoraSeguridadService, clock);
     }
 
+    // HU-045: la contraseña actual incorrecta en el cambio de contraseña cuenta igual,
+    // pero la bitacora lleva el evento del flujo que fallo, no LOGIN_FALLIDO.
+    @Test
+    void intentoFallidoConTipoDeEventoPropioRegistraEseEventoEnLaBitacora() {
+
+        when(usuario.getIntentosFallidos()).thenReturn(0);
+        when(usuario.getUsername()).thenReturn("wmolina");
+        when(usuario.getId()).thenReturn(10L);
+
+        bloqueoCuentaService.registrarIntentoFallido(
+                usuario, "ip:127.0.0.1", TipoEventoSeguridad.CAMBIO_CONTRASENA_FALLIDO);
+
+        verify(usuario).setIntentosFallidos(1);
+        verify(usuarioRepository).save(usuario);
+        verify(bitacoraSeguridadService).registrar("wmolina", 10L, TipoEventoSeguridad.CAMBIO_CONTRASENA_FALLIDO,
+                "numeroIntento=1; identificadorCliente=ip:127.0.0.1; bloqueoActivado=false");
+    }
+
     @Test
     void primerIntentoFallidoIncrementaContadorAUno() {
 

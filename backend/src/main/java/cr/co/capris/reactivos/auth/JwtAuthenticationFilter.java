@@ -24,6 +24,9 @@ import java.util.Optional;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+	private static final String RUTA_CAMBIO_PRIMER_INGRESO = "/api/auth/primer-ingreso/cambiar-password";
+	private static final String RUTA_LOGOUT = "/api/auth/logout";
+
 	private final JwtService jwtService;
 	private final ContextoUsuarioActualImpl contextoUsuarioActual;
 	private final UsuarioRepository usuarioRepository;
@@ -84,6 +87,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 								usuario.get().getEstado(),
 								usuario.get().getSesionesInvalidadasDesde(),
 								emitidoEn
+						)
+								&& !primerIngresoPendienteFueraDeRutaPermitida(
+								usuario.get().getEstado(),
+								request.getMethod(),
+								rutaSinContexto(request)
 						);
 
 				if (valida) {
@@ -135,5 +143,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		return invalidadasDesde == null
 				|| tokenEmitidoEn.isAfter(invalidadasDesde);
+	}
+
+	/**
+	 * HU-044: mientras el usuario siga PENDIENTE_PRIMER_INGRESO su token solo sirve para
+	 * cambiar la contraseña o cerrar sesion, sin importar el rol. El frontend ya lo lleva
+	 * a esa pantalla, pero el limite real es este: sin esto bastaria llamar a la API
+	 * directamente para seguir usando la contraseña temporal indefinidamente.
+	 * Cualquier variante de la ruta que no coincida exacta queda rechazada (falla cerrado).
+	 */
+	boolean primerIngresoPendienteFueraDeRutaPermitida(EstadoUsuario estado, String metodo, String ruta) {
+		if (estado != EstadoUsuario.PENDIENTE_PRIMER_INGRESO) {
+			return false;
+		}
+
+		boolean permitida = "POST".equals(metodo)
+				&& (RUTA_CAMBIO_PRIMER_INGRESO.equals(ruta) || RUTA_LOGOUT.equals(ruta));
+
+		return !permitida;
+	}
+
+	private String rutaSinContexto(HttpServletRequest request) {
+		return request.getRequestURI().substring(request.getContextPath().length());
 	}
 }

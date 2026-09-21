@@ -2,6 +2,7 @@ package cr.co.capris.reactivos.auth;
 
 import cr.co.capris.reactivos.seguridad.CredencialesInvalidasException;
 import cr.co.capris.reactivos.seguridad.CuentaBloqueadaException;
+import cr.co.capris.reactivos.seguridad.PasswordTemporalVencidaException;
 import cr.co.capris.reactivos.usuario.Empresa;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Rol;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -237,7 +239,7 @@ class AutenticacionControllerTest {
 
     //Prueba contraseña temporal vencida
     @Test
-    void loginConContrasenaTemporalVencidaLanzaCredencialesInvalidas() {
+    void loginConContrasenaTemporalVencidaLanzaPasswordTemporalVencida() {
 
         LoginRequest request =
                 new LoginRequest("nuevo", "Temporal123!", 1L);
@@ -256,7 +258,9 @@ class AutenticacionControllerTest {
         when(usuario.getPasswordTemporalExpiraEn())
                 .thenReturn(OffsetDateTime.now().minusHours(1));
         assertThatThrownBy(() -> controller.login(request))
-                .isInstanceOf(CredencialesInvalidasException.class);
+                .isInstanceOf(PasswordTemporalVencidaException.class)
+                .hasMessageContaining("contactar al administrador");
+        verify(bloqueoCuentaService, never()).reiniciarIntentosTrasLoginExitoso(usuario);
     }
 
     //Prueba primer ingreso valido

@@ -1,4 +1,8 @@
 package cr.co.capris.reactivos.auth;
 
-public record CambioPasswordVoluntarioRequest(String contrasenaActual, String contrasenaNueva) {
+import jakarta.validation.constraints.NotBlank;
+
+public record CambioPasswordVoluntarioRequest(
+        @NotBlank(message = "La contraseña actual es obligatoria") String contrasenaActual,
+        @NotBlank(message = "La contraseña nueva es obligatoria") String contrasenaNueva) {
 }

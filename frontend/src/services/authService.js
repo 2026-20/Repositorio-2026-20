@@ -15,6 +15,7 @@ async function procesarRespuesta(response) {
 
         const error = new Error(mensaje)
         error.codigo = datos?.codigo
+        error.detalles = datos?.detalles ?? []
         error.status = response.status
 
         throw error
@@ -57,4 +58,36 @@ export async function cerrarSesion(token) {
         error.status = response.status
         throw error
     }
+}
+
+// HU-044: unica llamada permitida, ademas del cierre de sesion, mientras la
+// cuenta sigue en primer ingreso (el backend rechaza cualquier otra ruta).
+export async function cambiarContrasenaPrimerIngreso(token, contrasenaNueva) {
+    const response = await fetch(
+        `${API_URL}/auth/primer-ingreso/cambiar-password`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ contrasenaNueva }),
+        },
+    )
+
+    return procesarRespuesta(response)
+}
+
+// HU-045: cambio voluntario desde Ajustes; exige la contraseña actual.
+export async function cambiarContrasena(token, contrasenaActual, contrasenaNueva) {
+    const response = await fetch(`${API_URL}/auth/cambiar-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ contrasenaActual, contrasenaNueva }),
+    })
+
+    return procesarRespuesta(response)
 }

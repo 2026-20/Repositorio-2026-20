@@ -1,5 +1,8 @@
+import FormularioCambioContrasena from '../../components/auth/FormularioCambioContrasena'
 import Icon from '../../components/ui/Icon'
+import { useAuth } from '../../context/useAuth'
 import { useTheme } from '../../hooks/useTheme'
+import { cambiarContrasena } from '../../services/authService'
 import styles from './AjustesPage.module.css'
 
 const OPCIONES_APARIENCIA = [
@@ -13,8 +16,13 @@ const OPCIONES_APARIENCIA = [
 // valor solo se usa internamente antes de la primera eleccion (AC3). AC4 y
 // AC6 (persistencia local, sin sincronizar con el backend) los cubre
 // useTheme via localStorage, sin acciones adicionales en esta pantalla.
+//
+// HU-045 AC1: seccion para cambiar la contraseña voluntariamente (actual +
+// nueva + confirmar). Las reglas de bloqueo por intentos fallidos y la
+// bitacora (AC2/AC5) las aplica el backend.
 export default function AjustesPage() {
     const { temaEfectivo, setTema } = useTheme()
+    const { token } = useAuth()
 
     return (
         <main>
@@ -50,6 +58,23 @@ export default function AjustesPage() {
                         </button>
                     ))}
                 </div>
+            </section>
+
+            <section className={styles.seccion}>
+                <h2 className={styles.tituloSeccion}>Contraseña</h2>
+
+                <p className={styles.descripcion}>
+                    Para cambiarla necesitás ingresar tu contraseña actual.
+                </p>
+
+                <FormularioCambioContrasena
+                    requiereContrasenaActual
+                    etiquetaEnvio="Cambiar contraseña"
+                    mensajeExito="La contraseña se cambió correctamente."
+                    onEnviar={({ contrasenaActual, contrasenaNueva }) =>
+                        cambiarContrasena(token, contrasenaActual, contrasenaNueva)
+                    }
+                />
             </section>
         </main>
     )

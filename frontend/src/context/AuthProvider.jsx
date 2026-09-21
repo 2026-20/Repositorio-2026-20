@@ -55,6 +55,24 @@ export function AuthProvider({ children }) {
 
         return respuesta
     }
+
+    // HU-044: el token no cambia al completar el cambio obligatorio (el backend
+    // vuelve a leer el estado del usuario en cada peticion); solo hay que bajar
+    // la bandera para que ProtectedRoute deje de mandarlo a esa pantalla.
+    function marcarContrasenaCambiada() {
+        const usuarioActualizado = {
+            ...usuario,
+            debeCambiarContrasena: false,
+        }
+
+        setUsuario(usuarioActualizado)
+
+        sessionStorage.setItem(
+            'capris_usuario',
+            JSON.stringify(usuarioActualizado),
+        )
+    }
+
     async function logout() {
         try {
             if (token) {
@@ -75,6 +93,7 @@ export function AuthProvider({ children }) {
                 token,
                 login,
                 logout,
+                marcarContrasenaCambiada,
                 estaAutenticado: Boolean(token),
                 mostrarBienvenida,
                 ocultarBienvenida: () => setMostrarBienvenida(false),

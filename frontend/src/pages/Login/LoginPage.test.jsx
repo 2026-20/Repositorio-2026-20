@@ -3,6 +3,7 @@ import {
     render,
     screen,
 } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { AuthContext } from '../../context/AuthContext'
@@ -68,5 +69,42 @@ describe('LoginPage - logo por empresa', () => {
         expect(
             await screen.findByAltText('Logo de Diagnostika'),
         ).toBeInTheDocument()
+    })
+})
+
+// HU-044: quien entra con contraseña temporal aterriza en el cambio obligatorio,
+// no en el dashboard.
+describe('LoginPage - destino tras autenticarse', () => {
+    function renderAutenticado(usuario) {
+        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue([])
+
+        render(
+            <AuthContext.Provider
+                value={{ login: vi.fn(), estaAutenticado: true, usuario }}
+            >
+                <MemoryRouter initialEntries={['/login']}>
+                    <Routes>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/dashboard" element={<p>Dashboard</p>} />
+                        <Route
+                            path="/primer-ingreso/cambiar-password"
+                            element={<p>Cambio obligatorio</p>}
+                        />
+                    </Routes>
+                </MemoryRouter>
+            </AuthContext.Provider>,
+        )
+    }
+
+    it('lleva al cambio obligatorio cuando la contraseña es temporal', () => {
+        renderAutenticado({ debeCambiarContrasena: true })
+
+        expect(screen.getByText('Cambio obligatorio')).toBeInTheDocument()
+    })
+
+    it('lleva al dashboard cuando la contraseña ya es propia', () => {
+        renderAutenticado({ debeCambiarContrasena: false })
+
+        expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
 })

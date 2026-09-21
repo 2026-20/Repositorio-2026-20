@@ -7,17 +7,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
-
 
 /**
  * Logica compartida entre HU-044 (cambio obligatorio en primer ingreso) y HU-045
  * (cambio voluntario): validar politica de contraseña, guardar el hash y registrar
  * en la bitacora. Se centraliza aqui para que ninguna de las dos reimplemente lo mismo.
  *
- * ValidadorPoliticaContrasena (HU-042) todavia no tiene implementacion real -- se
- * inyecta como Optional a proposito para no bloquear HU-044/045 mientras esa HU avanza
- * en paralelo. Mientras no exista un bean real, la validacion de complejidad se omite.
+ * Deliberadamente sin @Transactional: cuando un intento fallido dispara el bloqueo de la
+ * cuenta, BloqueoCuentaService lanza CuentaBloqueadaException despues de guardar el
+ * contador; una transaccion aqui revertiria ese guardado y el bloqueo nunca se aplicaria.
  */
 @Service
 public class CambioContrasenaService {
@@ -25,22 +23,23 @@ public class CambioContrasenaService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final BitacoraSeguridadService bitacoraSeguridadService;
-    private final Optional<ValidadorPoliticaContrasena> validadorPoliticaContrasena;
-
+    private final ValidadorPoliticaContrasena validadorPoliticaContrasena;
+    private final BloqueoCuentaService bloqueoCuentaService;
 
     public CambioContrasenaService(
             UsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
             BitacoraSeguridadService bitacoraSeguridadService,
-            Optional<ValidadorPoliticaContrasena> validadorPoliticaContrasena) {
+            ValidadorPoliticaContrasena validadorPoliticaContrasena,
+            BloqueoCuentaService bloqueoCuentaService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.bitacoraSeguridadService = bitacoraSeguridadService;
         this.validadorPoliticaContrasena = validadorPoliticaContrasena;
+        this.bloqueoCuentaService = bloqueoCuentaService;
     }
 
     /** HU-044: pasa el usuario a ACTIVO y limpia la clave temporal. */
-    // faltaria por ver la logica de la contraseña temporal
     public void cambiarEnPrimerIngreso(Usuario usuario, String contrasenaNueva) {
         validarPolitica(contrasenaNueva);
         usuario.setPasswordHash(passwordEncoder.encode(contrasenaNueva));
@@ -52,15 +51,39 @@ public class CambioContrasenaService {
                 TipoEventoSeguridad.CONTRASENA_CAMBIADA, "Cambio obligatorio de primer ingreso (HU-044)");
     }
 
-    /** HU-045: exige y valida la contraseña actual antes de aplicar la nueva. */
-    public void cambiarVoluntariamente(Usuario usuario, String contrasenaActual, String contrasenaNueva) {
+    /**
+     * HU-045: exige y valida la contraseña actual antes de aplicar la nueva. Una contraseña
+     * actual incorrecta cuenta para el bloqueo de cuenta (HU-043) igual que en el login, y
+     * todo fallo queda en la bitacora.
+     */
+    public void cambiarVoluntariamente(Usuario usuario, String contrasenaActual, String contrasenaNueva,
+            String identificadorCliente) {
+        bloqueoCuentaService.verificarBloqueo(usuario);
+
         if (!passwordEncoder.matches(contrasenaActual, usuario.getPasswordHash())) {
+            // Registra el fallo en la bitacora y, al llegar al maximo de intentos, bloquea
+            // la cuenta y lanza CuentaBloqueadaException (que gana sobre la de abajo).
+            bloqueoCuentaService.registrarIntentoFallido(
+                    usuario, identificadorCliente, TipoEventoSeguridad.CAMBIO_CONTRASENA_FALLIDO);
             throw new CredencialesInvalidasException("La contraseña actual no es correcta");
         }
-        if(passwordEncoder.matches(contrasenaNueva, usuario.getPasswordHash())) {
+
+        // La contraseña actual ya quedo demostrada: los intentos fallidos previos dejan de
+        // contar como consecutivos, igual que tras un login exitoso.
+        bloqueoCuentaService.reiniciarIntentosTrasLoginExitoso(usuario);
+
+        if (passwordEncoder.matches(contrasenaNueva, usuario.getPasswordHash())) {
+            registrarFallo(usuario, "La contraseña nueva es igual a la actual");
             throw new ContrasenaNoValidaException(List.of("La contraseña nueva no puede ser igual a la actual"));
         }
-        validarPolitica(contrasenaNueva);
+
+        try {
+            validarPolitica(contrasenaNueva);
+        } catch (ContrasenaNoValidaException ex) {
+            registrarFallo(usuario, "La contraseña nueva no cumple la política: " + String.join("; ", ex.getViolaciones()));
+            throw ex;
+        }
+
         usuario.setPasswordHash(passwordEncoder.encode(contrasenaNueva));
         usuarioRepository.save(usuario);
 
@@ -69,13 +92,14 @@ public class CambioContrasenaService {
     }
 
     private void validarPolitica(String contrasenaNueva) {
-        // TODO (HU-042): en cuanto exista un bean real de ValidadorPoliticaContrasena,
-        // este metodo empieza a validar solo; no hay que tocar nada mas aqui.
-        validadorPoliticaContrasena.ifPresent(validador -> {
-            List<String> violaciones = validador.validar(contrasenaNueva);
-            if (!violaciones.isEmpty()) {
-                throw new ContrasenaNoValidaException(violaciones);
-            }
-        });
+        List<String> violaciones = validadorPoliticaContrasena.validar(contrasenaNueva);
+        if (!violaciones.isEmpty()) {
+            throw new ContrasenaNoValidaException(violaciones);
+        }
+    }
+
+    private void registrarFallo(Usuario usuario, String detalle) {
+        bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(),
+                TipoEventoSeguridad.CAMBIO_CONTRASENA_FALLIDO, "Cambio voluntario de contraseña (HU-045): " + detalle);
     }
 }
