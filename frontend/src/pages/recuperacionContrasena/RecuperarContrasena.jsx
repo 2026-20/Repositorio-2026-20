@@ -8,6 +8,7 @@ import {
 import { useConectividad } from '../../hooks/useConectividad'
 import GradientWaves from '../../components/effects/GradientWaves'
 import Icon from '../../components/ui/Icon'
+import PasswordField from '../../components/ui/PasswordField'
 import { usePrefiereMenosMovimiento } from '../../hooks/usePrefiereMenosMovimiento'
 import styles from './RecuperarContrasena.module.css'
 
@@ -190,9 +191,8 @@ function RecuperarContrasena() {
           >
             <div className={styles.grupo}>
               <label htmlFor="nuevaContrasena">Nueva contraseña</label>
-              <input
+              <PasswordField
                 id="nuevaContrasena"
-                type="password"
                 value={nuevaContrasena}
                 onChange={(e) => setNuevaContrasena(e.target.value)}
                 autoComplete="new-password"

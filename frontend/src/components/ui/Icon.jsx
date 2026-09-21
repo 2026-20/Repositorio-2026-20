@@ -2,6 +2,8 @@ import {
     Bell,
     ChevronRight,
     ClipboardList,
+    Eye,
+    EyeOff,
     FileText,
     Home,
     Lock,
@@ -31,6 +33,8 @@ const ICONOS = {
     temaClaro: Sun,
     temaOscuro: Moon,
     ajustes: Settings,
+    ojo: Eye,
+    ojoOculto: EyeOff,
 }
 
 export default function Icon({ name, size = 20, className }) {

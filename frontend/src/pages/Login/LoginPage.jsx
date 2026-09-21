@@ -4,6 +4,7 @@ import { obtenerEmpresas } from '../../services/authService'
 import { useAuth } from '../../context/useAuth'
 import { LOGOS_POR_EMPRESA } from '../../assets/logos'
 import GradientWaves from '../../components/effects/GradientWaves'
+import PasswordField from '../../components/ui/PasswordField'
 import { usePrefiereMenosMovimiento } from '../../hooks/usePrefiereMenosMovimiento'
 import { paths } from '../../routes/paths'
 import styles from './LoginPage.module.css'
@@ -188,9 +189,8 @@ export default function LoginPage() {
                             Contraseña
                         </label>
 
-                        <input
+                        <PasswordField
                             id="contrasena"
-                            type="password"
                             value={contrasena}
                             onChange={(event) =>
                                 setContrasena(event.target.value)
