@@ -4,8 +4,11 @@ spring:
 
   # Base de datos local de desarrollo -- ver README.md para levantarla con Docker.
   # En produccion esto se sobreescribe con variables de entorno (OCI Database, no local).
+  # Local: el contenedor "capris-postgres" publica en el 5433 y es el que tiene las
+  # credenciales del repo (capris/capris_dev). Si corres tu propio Postgres en el 5432,
+  # sobreescribelo con SPRING_DATASOURCE_URL.
   datasource:
-    url: jdbc:postgresql://localhost:5432/capris_reactivos
+    url: jdbc:postgresql://localhost:5433/capris_reactivos
     username: capris
     password: capris_dev
 
