@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../../context/AuthContext'
-import * as authService from '../../../services/authService'
 import * as usuarioService from '../../../services/usuarioService'
 import UsersPage from './UsersPage'
 
@@ -10,11 +9,6 @@ const TOKEN_DE_PRUEBA = 'token-de-prueba'
 const roles = [
     { id: 10, nombre: 'Usuario de Campo' },
     { id: 20, nombre: 'Administrador' },
-]
-
-const empresasDisponibles = [
-    { id: 1, nombre: 'CAPRIS Médica' },
-    { id: 2, nombre: 'Diagnostika' },
 ]
 
 function renderUsersPage() {
@@ -189,10 +183,9 @@ describe('UsersPage', () => {
         expect(screen.queryByText('BLOQUEADO'),).not.toBeInTheDocument()
     })
 
-    it('abre el formulario de creacion y carga roles y empresas', async () => {
+    it('abre el formulario de creacion y carga roles sin pedir empresa', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
-        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue(empresasDisponibles)
 
         renderUsersPage()
 
@@ -205,13 +198,12 @@ describe('UsersPage', () => {
         await waitFor(() => {
             expect(within(dialogo).getByRole('option', { name: 'Administrador' })).toBeInTheDocument()
         })
-        expect(within(dialogo).getByRole('option', { name: 'Diagnostika' })).toBeInTheDocument()
+        expect(within(dialogo).queryByLabelText('Empresa')).not.toBeInTheDocument()
     })
 
     it('no llama a crearUsuario si el formulario esta incompleto', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
-        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue(empresasDisponibles)
         const crearSpy = vi.spyOn(usuarioService, 'crearUsuario')
 
         renderUsersPage()
@@ -233,7 +225,6 @@ describe('UsersPage', () => {
     it('crea el usuario y lo agrega a la tabla sin recargar el listado', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
-        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue(empresasDisponibles)
 
         const usuarioCreado = {
             id: 3,
@@ -261,7 +252,6 @@ describe('UsersPage', () => {
         fireEvent.change(within(dialogo).getByLabelText('Correo electrónico'), { target: { value: 'persona.nueva@capris.co.cr' } })
         fireEvent.change(within(dialogo).getByLabelText('Username'), { target: { value: 'persona.nueva' } })
         fireEvent.change(within(dialogo).getByLabelText('Rol'), { target: { value: '10' } })
-        fireEvent.change(within(dialogo).getByLabelText('Empresa'), { target: { value: '1' } })
 
         fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }))
 
@@ -272,7 +262,6 @@ describe('UsersPage', () => {
                 correo: 'persona.nueva@capris.co.cr',
                 username: 'persona.nueva',
                 rolId: 10,
-                empresaId: 1,
             })
         })
 
@@ -283,7 +272,6 @@ describe('UsersPage', () => {
     it('muestra el error de duplicado dentro del modal sin cerrarlo', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         vi.spyOn(usuarioService, 'listarRoles').mockResolvedValue(roles)
-        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue(empresasDisponibles)
 
         const errorDuplicado = new Error('Ya existe un usuario con ese correo')
         errorDuplicado.codigo = 'USUARIO_DUPLICADO'
@@ -304,7 +292,6 @@ describe('UsersPage', () => {
         fireEvent.change(within(dialogo).getByLabelText('Correo electrónico'), { target: { value: 'wmolina@capris.cr' } })
         fireEvent.change(within(dialogo).getByLabelText('Username'), { target: { value: 'otra.persona' } })
         fireEvent.change(within(dialogo).getByLabelText('Rol'), { target: { value: '10' } })
-        fireEvent.change(within(dialogo).getByLabelText('Empresa'), { target: { value: '1' } })
 
         fireEvent.click(within(dialogo).getByRole('button', { name: 'Crear usuario' }))
 

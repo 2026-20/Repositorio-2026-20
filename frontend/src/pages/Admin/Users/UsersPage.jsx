@@ -9,7 +9,6 @@ import {
     listarUsuarios,
     reactivarUsuario,
 } from '../../../services/usuarioService'
-import { obtenerEmpresas } from '../../../services/authService'
 import styles from './UsersPage.module.css'
 
 const EXPRESION_CORREO_BASICA = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -33,13 +32,11 @@ export default function UsersPage() {
     const [errorCrear, setErrorCrear] = useState('')
     const [cargandoOpciones, setCargandoOpciones] = useState(false)
     const [roles, setRoles] = useState([])
-    const [empresas, setEmpresas] = useState([])
     const [nombreCompleto, setNombreCompleto] = useState('')
     const [cedula, setCedula] = useState('')
     const [correo, setCorreo] = useState('')
     const [username, setUsername] = useState('')
     const [rolId, setRolId] = useState('')
-    const [empresaId, setEmpresaId] = useState('')
 
     const cargarUsuarios = useCallback(async () => {
         try {
@@ -67,18 +64,13 @@ export default function UsersPage() {
         setCorreo('')
         setUsername('')
         setRolId('')
-        setEmpresaId('')
 
         try {
             setCargandoOpciones(true)
-            const [rolesDatos, empresasDatos] = await Promise.all([
-                listarRoles(token),
-                obtenerEmpresas(),
-            ])
+            const rolesDatos = await listarRoles(token)
             setRoles(rolesDatos)
-            setEmpresas(empresasDatos)
         } catch {
-            setErrorCrear('No fue posible cargar los roles y empresas disponibles.')
+            setErrorCrear('No fue posible cargar los roles disponibles.')
         } finally {
             setCargandoOpciones(false)
         }
@@ -97,8 +89,7 @@ export default function UsersPage() {
             !cedula.trim() ||
             !correo.trim() ||
             !username.trim() ||
-            !rolId ||
-            !empresaId
+            !rolId
         ) {
             setErrorCrear('Debe completar todos los campos.')
             return
@@ -118,7 +109,6 @@ export default function UsersPage() {
                 correo: correo.trim(),
                 username: username.trim(),
                 rolId: Number(rolId),
-                empresaId: Number(empresaId),
             })
 
             setUsuarios((actual) => [...actual, usuarioCreado])
@@ -438,27 +428,6 @@ export default function UsersPage() {
                             {roles.map((rol) => (
                                 <option key={rol.id} value={rol.id}>
                                     {rol.nombre}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className={styles.grupo}>
-                        <label htmlFor="crear-empresa">Empresa</label>
-                        <select
-                            id="crear-empresa"
-                            className={styles.campo}
-                            value={empresaId}
-                            onChange={(event) => setEmpresaId(event.target.value)}
-                            disabled={creando || cargandoOpciones}
-                        >
-                            <option value="">
-                                {cargandoOpciones ? 'Cargando empresas...' : 'Seleccione una empresa'}
-                            </option>
-
-                            {empresas.map((empresa) => (
-                                <option key={empresa.id} value={empresa.id}>
-                                    {empresa.nombre}
                                 </option>
                             ))}
                         </select>

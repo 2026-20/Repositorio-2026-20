@@ -69,15 +69,15 @@ El secreto para firmar los JWT (`app.jwt.secret` en `application.yml`) es **solo
 
 ## Correo en desarrollo (HU-047)
 
-El alta de usuarios (HU-047) envía un correo con las credenciales iniciales. En desarrollo local, `application.yml` apunta a **MailHog** — un servidor SMTP de prueba que atrapa los correos en vez de entregarlos a una bandeja real, y los muestra en una interfaz web. Levantarlo con:
+El alta de usuarios (HU-047) envía un correo con las credenciales iniciales a través de `EmailService` (ver sección "HU-046 — Recuperación de contraseña por OTP" más abajo para el detalle completo de las tres implementaciones). Por defecto (`app.email.proveedor=log`) no hace falta nada más: el correo se escribe en la consola del backend, no se abre ninguna conexión SMTP real, y ni `mvn test`/`mvn verify` ni levantar el proyecto en una laptop nueva dependen de MailHog.
+
+Si querés ver el correo real en una bandeja de prueba, activá `app.email.proveedor=smtp` (variable de entorno `APP_EMAIL_PROVEEDOR=smtp`) y levantá **MailHog**:
 
 ```bash
 docker run --name capris-mailhog -p 1025:1025 -p 8025:8025 -d mailhog/mailhog
 ```
 
 Los correos "enviados" se ven en **http://localhost:8025**. El backend arranca normalmente sin MailHog corriendo (no valida la conexión SMTP al iniciar, solo al momento real de enviar un correo) — si MailHog no está levantado, el alta de usuario igual se completa, solo que el correo no llega a ningún lado y queda registrado el fallo en la bitácora de seguridad.
-
-Usar un SMTP real (para que el correo llegue a una bandeja de verdad) queda pendiente como decisión de equipo — ver `spring.mail.*` en `application.yml`.
 
 ## Cómo levantar el frontend
 

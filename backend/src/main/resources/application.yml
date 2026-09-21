@@ -21,22 +21,12 @@ spring:
   flyway:
     enabled: true
 
-  # MailHog local de desarrollo -- ver README.md, seccion "Correo en desarrollo", para
-  # el comando de Docker. En produccion esto se sobreescribe con las variables de entorno
-  # SPRING_MAIL_HOST / SPRING_MAIL_PORT / SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD
-  # (mismo patron que app.jwt.secret).
-  mail:
-    host: localhost
-    port: 1025
-
 # Secreto de desarrollo local UNICAMENTE -- en produccion se sobreescribe con la
 # variable de entorno APP_JWT_SECRET (nunca commitear el secreto real).
 app:
   jwt:
     secret: PeE4XuHYQWqj6XZI1sS8DtZHT0nIesSkkDK-EK4QFivi_52Hpnu0A95Rxr7P6uks
     expiracion-minutos: 480
-  mail:
-    remitente: no-responder@capris-reactivos.local
   recuperacion:
     expiracion-minutos: 10 # HU-046: vida de la sesión temporal tras validar el OTP
 
