@@ -29,6 +29,8 @@ export default function AppRoutes() {
                         <PrimerIngresoPage />
                     </ProtectedRoute>
                 }
+            />
+            <Route
                 path={paths.recuperarContrasena}
                 element={<RecuperarContrasena />}
             />
