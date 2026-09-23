@@ -12,7 +12,7 @@ Este README cubre cómo levantar y trabajar en el repo. Para un mapa rápido de 
 | Frontend | React + Vite, JavaScript puro (sin TypeScript) |
 | Base de datos | PostgreSQL, migraciones con Flyway |
 | Pruebas backend | JUnit 5, Mockito, AssertJ, Testcontainers |
-| Pruebas frontend | Vitest, React Testing Library, Playwright |
+| Pruebas frontend | Vitest, React Testing Library, Playwright (OPFS), Cypress (E2E) |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) |
 
 ## Estructura del repositorio
@@ -114,7 +114,8 @@ mvn verify    # + integración con Testcontainers (requiere Docker) + reporte de
 npm test              # unitarias/componente (Vitest + React Testing Library)
 npm run test:browser  # almacenamiento local (OPFS) en Chromium real vía Playwright
 npm run test:coverage # cobertura
-npm run test:e2e      # end-to-end (Playwright)
+npm run cypress:run   # end-to-end (Cypress, headless)
+npm run cypress:open  # end-to-end (Cypress, interfaz interactiva)
 ```
 
 ## Sprint 1 — base compartida para las HUs de seguridad/usuarios
@@ -124,19 +125,29 @@ El Sprint 1 (Sep 07 - Sep 25) son 10 HUs de un mismo grupo trabajadas por 5 pers
 | Qué hay | Para qué HU | Quién implementa la lógica real |
 |---|---|---|
 | `ContextoUsuarioActual` — **ya tiene implementación real** (`auth/ContextoUsuarioActualImpl`) | HU-023, HU-044, HU-045 necesitan saber "quién es el usuario actual" | HU-001 dejó lo mínimo funcionando (ver abajo); glorimojica completa el resto |
-| `ValidadorPoliticaContrasena` (interfaz, todavía sin implementación) | HU-044, HU-045, HU-046 necesitan validar la contraseña nueva | HU-042 |
+| `ValidadorPoliticaContrasena` — **ya tiene implementación real** (`seguridad/ValidadorPoliticaContrasenaImpl`) | HU-044, HU-045, HU-046 validan la contraseña nueva con esto | HU-042 completo |
 | `TokenRecuperacion` + su repositorio | Tabla de apoyo para el token OTP de 15 min | HU-046 (generarlo, enviarlo, validar el límite de 3 intentos) |
 | `BitacoraSeguridad` + `BitacoraSeguridadService.registrar(...)` | HU-043, HU-047 y HU-048 piden explícitamente auditar el evento | Cada HU decide cuándo llamarlo, con qué `TipoEventoSeguridad` |
-| `usuario.intentos_fallidos` / `usuario.bloqueado_hasta` (columnas nuevas) | HU-043 | HU-043 (la lógica de cuándo incrementar/bloquear) — el login minimo ya *respeta* `bloqueado_hasta` si está fijado, pero no lo fija |
+| `usuario.intentos_fallidos` / `usuario.bloqueado_hasta` | HU-043 | **Ya implementado** — `BloqueoCuentaService` (4 intentos, bloqueo de 7 min), lo reutilizan el login y el cambio voluntario de contraseña (HU-045) |
 | Excepciones de dominio + `GlobalExceptionHandler` | Todas — un solo formato de error para toda la API | Ya está completo, solo hay que lanzar la excepción que corresponda |
 
-### HU-001 — quedó avanzada, no terminada
+### HU-001 — login funcional y protegido
 
-Para que el resto de las HUs de este sprint no tuvieran que esperar a que HU-001 estuviera 100% lista, se dejó un **login mínimo pero real** en `backend/.../auth/`: `POST /api/auth/login` valida usuario/contraseña/empresa contra la base, respeta `bloqueado_hasta` si ya está fijado, y emite un JWT (`JwtService`) que `JwtAuthenticationFilter` lee en cada petición para rellenar `ContextoUsuarioActual`. Con esto, HU-023/044/045 ya pueden trabajar contra un login que funciona de verdad.
+`POST /api/auth/login` valida usuario/contraseña/empresa/estado contra la base, aplica el bloqueo de cuenta de HU-043 (`BloqueoCuentaService`), y emite un JWT (`JwtService`) que `JwtAuthenticationFilter` lee en cada petición para rellenar `ContextoUsuarioActual`. El mensaje de error es el mismo para usuario inexistente, contraseña incorrecta, empresa incorrecta y cuenta inactiva **a propósito** — evita que alguien enumere qué usernames existen en el sistema probando al azar (incluso el tiempo de respuesta está igualado entre usuario existente e inexistente).
 
-**Lo que falta para cerrar HU-001** : mensajes de error específicos por cada criterio de aceptación (hoy todos devuelven el mismo genérico), el endpoint para listar las empresas del selector de login, integración con HU-036/037/038, y decidir qué endpoints deben exigir sesión válida (hoy todo sigue abierto, `SecurityConfig` tiene el `TODO`). Hay comentarios `TODO (HU-043)` en `AutenticacionController` marcando dónde conectar el contador de intentos fallidos.
+`SecurityConfig` ya exige JWT válido en toda la API salvo `/api/auth/login`, `/api/empresas` y `/api/auth/recuperacion/**`; crear, inactivar, reactivar y desbloquear usuarios exige además el rol Administrador.
+
+**Lo que falta para cerrar HU-001 por completo**: integración con HU-036/037/038 (validar activo en el ERP, cargar rutas, iniciar jornada).
 
 Usuario de prueba para el login: `wmolina` / `Capris2026!` / `empresaId: 1`.
+
+### El resto del Sprint 1
+
+- **HU-023** (aislamiento multiempresa) — el alta de usuarios usa siempre la empresa del administrador autenticado (`ContextoUsuarioActual`), nunca la que mande el cliente en el request; una empresa distinta se rechaza con 403 genérico, sin distinguir si esa empresa existe o no.
+- **HU-029** (modo claro/oscuro) — elección explícita desde Ajustes, persiste solo en ese dispositivo (`localStorage`), aplicación inmediata sin recargar.
+- **HU-044 / HU-045** (cambio de contraseña obligatorio y voluntario) — mientras la cuenta siga con contraseña temporal (`PENDIENTE_PRIMER_INGRESO`), `JwtAuthenticationFilter` la restringe a solo cambiar su contraseña o cerrar sesión, sin importar el rol; desde Ajustes cualquier usuario activo puede cambiarla voluntariamente (exige la actual, cuenta para el bloqueo de HU-043 si falla).
+- **HU-048** (baja lógica y reactivación) — inactivar/reactivar usuario exigen rol Administrador, quedan en la bitácora de seguridad, e inactivar revoca de inmediato las sesiones activas.
+- **Frontend** — layout unificado (barra lateral, barra superior, navegación inferior), Dashboard, gestión de usuarios responsiva, todo detrás de `ProtectedRoute` (esa protección es solo UX, el límite real lo sigue aplicando el backend).
 
 ### HU-046 — Recuperación de contraseña por OTP
 
@@ -199,9 +210,9 @@ cd backend
 mvn spring-boot:run        # correo en modo "log": el OTP sale en la consola
 ```
 Docker: hay `backend/Dockerfile` listo (compila en Java 17, imagen final solo
-JRE+jar, corre como usuario no-root). Detalle de despliegue y comparativa
-Railway / Render / OCI para decidir en la reunión con la empresa: ver
-**[`docs/GUIA_HU-046.md`](docs/GUIA_HU-046.md)** y la sección 10 de la guía.
+JRE+jar, corre como usuario no-root). La comparativa de plataforma de
+despliegue (Railway / Render / OCI) todavía está pendiente de decidir con
+la empresa.
 
 Convenciones para trabajar en paralelo sin chocar:
 - Una rama por HU (ej. `feature/HU-042-validacion-password`).
@@ -214,7 +225,6 @@ Cada push o PR contra `main` corre automáticamente ambos conjuntos de pruebas e
 ## Documentación
 
 - [`.github/ESTRUCTURA.md`](.github/ESTRUCTURA.md) — mapa de qué hay en cada carpeta del código y las convenciones de nombres.
-- [`docs/GUIA_HU-046.md`](docs/GUIA_HU-046.md) — decisiones de implementación, configuración de SendGrid y despliegue de la recuperación de contraseña (HU-046).
 
 ---
 
