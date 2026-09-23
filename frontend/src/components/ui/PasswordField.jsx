@@ -28,10 +28,15 @@ export default function PasswordField({ className, ...props }) {
                 aria-pressed={visible}
                 title={etiqueta}
             >
-                <Icon
-                    name={visible ? 'ojoOculto' : 'ojo'}
-                    size={18}
-                />
+                {/* key={visible} remonta el span en cada click, para que la
+                    animacion de parpadeo se reinicie desde cero cada vez en
+                    vez de quedarse pegada la primera vez que corre. */}
+                <span className={styles.icono} key={visible}>
+                    <Icon
+                        name={visible ? 'ojoOculto' : 'ojo'}
+                        size={18}
+                    />
+                </span>
             </button>
         </span>
     )
