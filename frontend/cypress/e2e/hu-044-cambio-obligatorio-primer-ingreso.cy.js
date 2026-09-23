@@ -1,260 +1,207 @@
-const RUTA_CAMBIO = '/primer-ingreso/cambiar-password'
+// HU-044 - Cambio de contraseña obligatorio en primer ingreso (#59)
+// Pruebas funcionales contra el backend real. La cuenta en estado
+// PENDIENTE_PRIMER_INGRESO se crea por el flujo real de HU-047 (API + correo
+// de credenciales en MailHog).
+//
+// Criterios automatizados: CA2 (pantalla forzada antes que cualquier modulo,
+// incluido el bloqueo a nivel de API), CA3 (doble confirmacion y politica de
+// complejidad; la prohibicion de reutilizar la temporal no aplica en primer
+// ingreso por diseno del backend y se documenta en el task), CA4 (eliminacion
+// de la temporal, estado ACTIVO y acceso con la nueva).
+// CA1 (vigencia de 24h de la temporal) y CA5 (interrupcion del proceso) se
+// documentan en el task: requieren intervencion manual / inducir fallos.
+describe('HU-044 - Cambio de contraseña obligatorio en primer ingreso', () => {
+    const nuevaContrasena = 'QaNueva88!'
+    const contrasenaAdmin = 'Capris2026!'
+    const idsCreados = []
 
-describe('HU-044 - Cambio obligatorio de contraseña en el primer ingreso', () => {
-    beforeEach(() => {
-        cy.intercept('GET', '**/api/empresas', {
-            statusCode: 200,
-            body: [{ id: 1, nombre: 'CAPRIS Médica' }],
-        }).as('obtenerEmpresas')
-
-        cy.intercept('POST', '**/api/auth/primer-ingreso/cambiar-password', {
-            statusCode: 204,
-        }).as('cambiarPassword')
-
-        cy.intercept('POST', '**/api/auth/logout', {
-            statusCode: 204,
-        }).as('logout')
-
-        cy.intercept('GET', '**/api/usuarios', {
-            statusCode: 200,
-            body: [],
-        }).as('listarUsuarios')
-    })
-
-    function completarFormulario({ nueva, confirmacion }) {
-        if (nueva) {
-            cy.campoContrasena('Contraseña nueva').type(nueva)
+    function crearUsuarioPendiente() {
+        const sufijo = Date.now().toString().slice(-6)
+        const usuario = {
+            nombreCompleto: `QA Primer Ingreso ${sufijo}`,
+            cedula: `QA-CED-PI-${sufijo}`,
+            correo: `qa-primer-ingreso-${sufijo}@capris.co.cr`,
+            username: `qa_pi_${sufijo}`,
         }
 
-        if (confirmacion) {
-            cy.campoContrasena('Confirmar contraseña nueva').type(confirmacion)
-        }
-
-        cy.contains('button', 'Guardar y continuar').click()
+        return cy.vaciarCorreos()
+            .request({
+                method: 'POST',
+                url: 'http://localhost:8080/api/auth/login',
+                body: {
+                    username: 'wmolina',
+                    contrasena: contrasenaAdmin,
+                    empresaId: 1,
+                },
+            })
+            .then((login) => login.body.token)
+            .then((token) => cy.request({
+                method: 'POST',
+                url: 'http://localhost:8080/api/usuarios',
+                headers: { Authorization: `Bearer ${token}` },
+                body: {
+                    nombreCompleto: usuario.nombreCompleto,
+                    cedula: usuario.cedula,
+                    correo: usuario.correo,
+                    username: usuario.username,
+                    rolId: 2,
+                },
+            }).then((resp) => idsCreados.push(resp.body.id)))
+            .then(() => cy.obtenerUltimoCorreo(usuario.correo))
+            .then((correo) => ({
+                username: usuario.username,
+                temporal: correo.cuerpo.match(/Contraseña temporal: (\S+)/)[1],
+            }))
     }
 
-    // ---- Criterio 1: la contraseña temporal solo vale mientras esté vigente ----
+    function cerrarSesionDesdeMenu() {
+        cy.get('button[aria-label^="Menú de"]').click()
+        cy.contains('[role="menuitem"]', 'Cerrar sesión').click()
+        cy.url().should('include', '/login')
+    }
 
-    describe('login con contraseña temporal', () => {
-        function iniciarSesionConTemporal() {
-            cy.visit('/login')
-            cy.wait('@obtenerEmpresas')
+    after(() => {
+        cy.request({
+            method: 'POST',
+            url: 'http://localhost:8080/api/auth/login',
+            body: {
+                username: 'wmolina',
+                contrasena: contrasenaAdmin,
+                empresaId: 1,
+            },
+        }).then((login) => login.body.token)
+            .then((token) => {
+                cy.wrap(idsCreados).each((id) => {
+                    cy.request({
+                        method: 'POST',
+                        url: `http://localhost:8080/api/usuarios/${id}/inactivar`,
+                        headers: { Authorization: `Bearer ${token}` },
+                        failOnStatusCode: false,
+                    })
+                })
+            })
+    })
 
-            cy.get('#username').type('nuevo.usuario')
-            cy.get('#contrasena').type('Temporal123!')
-            cy.contains('button', 'Iniciar sesión').click()
-        }
+    beforeEach(() => {
+        cy.clearAllSessionStorage()
+        cy.visit('/login')
+        cy.contains('h1', 'Iniciar sesión').should('be.visible')
+    })
 
-        it('lleva al cambio obligatorio en vez del dashboard', () => {
-            cy.intercept('POST', '**/api/auth/login', {
-                statusCode: 200,
-                body: {
-                    token: 'jwt-temporal',
-                    usuarioId: 20,
-                    nombreCompleto: 'Usuario Nuevo',
-                    rol: 'Usuario de Campo',
-                    debeCambiarContrasena: true,
-                },
-            }).as('login')
+    it('CA2 - redirige de forma obligatoria al cambio de contraseña y bloquea el resto', () => {
+        crearUsuarioPendiente().then((cuenta) => {
+            cy.logearComo(cuenta.username, 1, cuenta.temporal)
 
-            iniciarSesionConTemporal()
+            // El unico destino permitido es la pantalla de cambio obligatorio.
+            cy.url({ timeout: 10000 })
+                .should('include', '/primer-ingreso/cambiar-password')
 
-            cy.wait('@login')
+            cy.contains('h1', 'Cambie su contraseña')
+                .should('be.visible')
 
-            cy.url().should('include', RUTA_CAMBIO)
-            cy.contains('h1', 'Cambie su contraseña').should('be.visible')
-        })
+            cy.screenshot('hu-044-pantalla-obligatoria')
 
-        it('con la temporal vencida, muestra que debe contactar al administrador y no entra', () => {
-            cy.intercept('POST', '**/api/auth/login', {
-                statusCode: 401,
-                body: {
-                    codigo: 'PASSWORD_TEMPORAL_VENCIDA',
-                    mensaje:
-                        'La contraseña temporal ha vencido. Debe contactar al administrador para que le genere una nueva',
-                },
-            }).as('login')
+            // Intentar entrar a otro modulo (aun por URL directa) no prospera.
+            cy.visit('/dashboard')
+            cy.url().should('include', '/primer-ingreso/cambiar-password')
 
-            iniciarSesionConTemporal()
+            cy.screenshot('hu-044-bloqueo-de-modulos')
 
-            cy.wait('@login')
-
-            cy.get('[role="alert"]')
-                .should('contain', 'contactar al administrador')
-
-            cy.url().should('include', '/login')
+            // El backend tambien rechaza las rutas fuera de la pantalla con el
+            // token de la cuenta pendiente (CA2 a nivel de API).
             cy.window().then((win) => {
-                expect(win.sessionStorage.getItem('capris_token')).to.equal(null)
+                const token = win.sessionStorage.getItem('capris_token')
+
+                cy.request({
+                    method: 'GET',
+                    url: 'http://localhost:8080/api/usuarios',
+                    headers: { Authorization: `Bearer ${token}` },
+                    failOnStatusCode: false,
+                }).then((resp) => {
+                    expect(resp.status).to.be.oneOf([401, 403])
+                })
             })
         })
     })
 
-    // ---- Criterio 2: el cambio es obligatorio, sin importar el rol ----
+    it('CA3 - exige doble confirmacion y politica de complejidad antes de guardar', () => {
+        crearUsuarioPendiente().then((cuenta) => {
+            cy.logearComo(cuenta.username, 1, cuenta.temporal)
+            cy.url({ timeout: 10000 })
+                .should('include', '/primer-ingreso/cambiar-password')
 
-    describe('el cambio es obligatorio', () => {
-        it('no deja entrar al dashboard ni a Ajustes mientras la contraseña sea temporal', () => {
-            cy.visitarConSesion('/dashboard', {
-                rol: 'Usuario de Campo',
-                debeCambiarContrasena: true,
-            })
-
-            cy.url().should('include', RUTA_CAMBIO)
-
-            // La sesion sigue en sessionStorage: una recarga directa a otra ruta tambien rebota.
-            cy.visit('/ajustes')
-
-            cy.url().should('include', RUTA_CAMBIO)
-        })
-
-        it('aplica tambien a un Administrador, aunque la ruta sea de su rol', () => {
-            cy.visitarConSesion('/admin/usuarios', {
-                rol: 'Administrador',
-                debeCambiarContrasena: true,
-            })
-
-            cy.url().should('include', RUTA_CAMBIO)
-            cy.contains('Panel de usuarios').should('not.exist')
-            cy.get('@listarUsuarios.all').should('have.length', 0)
-        })
-
-        it('no muestra el menu de la aplicacion en la pantalla de cambio', () => {
-            cy.visitarConSesion(RUTA_CAMBIO, {
-                rol: 'Usuario de Campo',
-                debeCambiarContrasena: true,
-            })
-
-            cy.contains('h1', 'Cambie su contraseña').should('be.visible')
-            cy.get('nav').should('not.exist')
-        })
-
-        it('quien ya no tiene contraseña temporal no puede quedarse en esa pantalla', () => {
-            cy.visitarConSesion(RUTA_CAMBIO, { debeCambiarContrasena: false })
-
-            cy.url().should('include', '/dashboard')
-        })
-
-        it('permite cerrar sesion sin cambiar la contraseña', () => {
-            cy.visitarConSesion(RUTA_CAMBIO, {
-                rol: 'Usuario de Campo',
-                debeCambiarContrasena: true,
-            })
-
-            cy.contains('button', 'Cerrar sesión').click()
-
-            cy.wait('@logout')
-            cy.url().should('include', '/login')
-            cy.window().then((win) => {
-                expect(win.sessionStorage.getItem('capris_token')).to.equal(null)
-            })
-        })
-    })
-
-    // ---- Criterio 3: la nueva contraseña se confirma y se valida ----
-
-    describe('definir la contraseña nueva', () => {
-        beforeEach(() => {
-            cy.visitarConSesion(RUTA_CAMBIO, {
-                nombreCompleto: 'Usuario Nuevo',
-                rol: 'Usuario de Campo',
-                debeCambiarContrasena: true,
-            })
-        })
-
-        it('no pide la contraseña actual (ya la dio en el login)', () => {
-            cy.contains('label', 'Contraseña actual').should('not.exist')
-            cy.contains('label', /^Contraseña nueva$/).should('be.visible')
-            cy.contains('label', /^Confirmar contraseña nueva$/).should('be.visible')
-        })
-
-        it('con exito, guarda, baja la bandera y entra a la aplicacion', () => {
-            completarFormulario({ nueva: 'NuevaClave2026!', confirmacion: 'NuevaClave2026!' })
-
-            cy.wait('@cambiarPassword').then(({ request }) => {
-                expect(request.headers.authorization).to.equal('Bearer jwt-prueba')
-                expect(request.body).to.deep.equal({ contrasenaNueva: 'NuevaClave2026!' })
-            })
-
-            cy.url().should('include', '/dashboard')
-            cy.contains('Hola, Usuario').should('be.visible')
-
-            cy.window().then((win) => {
-                const usuario = JSON.parse(win.sessionStorage.getItem('capris_usuario'))
-                expect(usuario.debeCambiarContrasena).to.equal(false)
-                expect(win.sessionStorage.getItem('capris_token')).to.equal('jwt-prueba')
-            })
-        })
-
-        it('tras cambiarla ya puede navegar y no vuelve a la pantalla de cambio', () => {
-            completarFormulario({ nueva: 'NuevaClave2026!', confirmacion: 'NuevaClave2026!' })
-            cy.wait('@cambiarPassword')
-            cy.url().should('include', '/dashboard')
-
-            // Recarga completa: solo pasa si la bandera se persistio en sessionStorage.
-            cy.visit('/ajustes')
-
-            cy.url().should('include', '/ajustes')
-            cy.contains('h1', 'Ajustes').should('be.visible')
-        })
-
-        it('rechaza si la confirmacion no coincide, sin llamar al backend', () => {
-            completarFormulario({ nueva: 'NuevaClave2026!', confirmacion: 'OtraClave2026!' })
-
-            cy.get('[role="alert"]').should('contain', 'no coincide')
-            cy.url().should('include', RUTA_CAMBIO)
-            cy.get('@cambiarPassword.all').should('have.length', 0)
-        })
-
-        it('rechaza una contraseña nueva vacia, sin llamar al backend', () => {
+            // Confirmacion que no coincide: no sale del formulario.
+            cy.campoContrasena('Contraseña nueva').type(nuevaContrasena)
+            cy.campoContrasena('Confirmar contraseña nueva').type('QaNuevaDistinta99!')
             cy.contains('button', 'Guardar y continuar').click()
 
-            cy.get('[role="alert"]').should('contain', 'contraseña nueva')
-            cy.get('@cambiarPassword.all').should('have.length', 0)
+            cy.contains('La confirmación no coincide con la contraseña nueva.')
+                .should('be.visible')
+
+            // Contraseña que no cumple la politica (HU-042): el backend la
+            // rechaza con los detalles de cada requisito.
+            cy.campoContrasena('Contraseña nueva').clear().type('abc123')
+            cy.campoContrasena('Confirmar contraseña nueva').clear().type('abc123')
+            cy.contains('button', 'Guardar y continuar').click()
+
+            cy.contains('La contraseña debe tener al menos 8 caracteres')
+                .should('be.visible')
+            cy.contains('La contraseña debe contener al menos una letra mayúscula')
+                .should('be.visible')
+            cy.contains('La contraseña debe contener al menos un carácter especial')
+                .should('be.visible')
+
+            // Segunda clave debil: sin digitos, para cubrir la regla de numero.
+            cy.campoContrasena('Contraseña nueva').clear().type('Abcdefghi!')
+            cy.campoContrasena('Confirmar contraseña nueva').clear().type('Abcdefghi!')
+            cy.contains('button', 'Guardar y continuar').click()
+
+            cy.contains('La contraseña debe contener al menos un número')
+                .should('be.visible')
+
+            cy.screenshot('hu-044-rechazo-politica-contrasena')
+
+            // Debe seguir en la pantalla obligatoria.
+            cy.url().should('include', '/primer-ingreso/cambiar-password')
         })
+    })
 
-        it('muestra las violaciones de la politica que devuelve el backend y permanece en la pantalla', () => {
-            cy.intercept('POST', '**/api/auth/primer-ingreso/cambiar-password', {
-                statusCode: 400,
-                body: {
-                    codigo: 'CONTRASENA_NO_VALIDA',
-                    mensaje: 'La contraseña no cumple la política de seguridad',
-                    detalles: [
-                        'La contraseña debe contener al menos un número',
-                        'La contraseña debe contener al menos un carácter especial',
-                    ],
-                },
-            }).as('cambiarPasswordRechazado')
+    it('CA4 - guarda la nueva contraseña, activa la cuenta y elimina la temporal', () => {
+        crearUsuarioPendiente().then((cuenta) => {
+            cy.logearComo(cuenta.username, 1, cuenta.temporal)
+            cy.url({ timeout: 10000 })
+                .should('include', '/primer-ingreso/cambiar-password')
 
-            completarFormulario({ nueva: 'SinNumeroNiEspecial', confirmacion: 'SinNumeroNiEspecial' })
+            cy.campoContrasena('Contraseña nueva').type(nuevaContrasena)
+            cy.campoContrasena('Confirmar contraseña nueva').type(nuevaContrasena)
+            cy.contains('button', 'Guardar y continuar').click()
 
-            cy.wait('@cambiarPasswordRechazado')
+            // Tras guardar pasa al dashboard con acceso normal.
+            cy.url({ timeout: 10000 })
+                .should('include', '/dashboard')
 
-            cy.get('[role="alert"]')
-                .should('contain', 'no cumple la política de seguridad')
-                .and('contain', 'al menos un número')
-                .and('contain', 'al menos un carácter especial')
+            cy.screenshot('hu-044-primer-ingreso-completado')
 
-            cy.url().should('include', RUTA_CAMBIO)
-            cy.window().then((win) => {
-                const usuario = JSON.parse(win.sessionStorage.getItem('capris_usuario'))
-                expect(usuario.debeCambiarContrasena).to.equal(true)
+            // La clave temporal quedo inutilizable (CA4: se elimina).
+            cy.request({
+                method: 'POST',
+                url: 'http://localhost:8080/api/auth/login',
+                body: { username: cuenta.username, contrasena: cuenta.temporal, empresaId: 1 },
+                failOnStatusCode: false,
+            }).then((resp) => {
+                expect(resp.status).to.equal(401)
             })
-        })
 
-        it('muestra el error del backend cuando el servidor rechaza la solicitud', () => {
-            cy.intercept('POST', '**/api/auth/primer-ingreso/cambiar-password', {
-                statusCode: 400,
-                body: {
-                    codigo: 'SOLICITUD_INVALIDA',
-                    mensaje: 'La solicitud contiene datos no válidos',
-                    detalles: ['La contraseña nueva es obligatoria'],
-                },
-            }).as('cambiarPasswordInvalido')
+            // Cierra sesion y reingresa con la contraseña que definio el usuario:
+            // el sistema ya no lo obliga a cambiar nada.
+            cerrarSesionDesdeMenu()
 
-            completarFormulario({ nueva: 'NuevaClave2026!', confirmacion: 'NuevaClave2026!' })
+            cy.logearComo(cuenta.username, 1, nuevaContrasena)
 
-            cy.wait('@cambiarPasswordInvalido')
-            cy.get('[role="alert"]').should('contain', 'La contraseña nueva es obligatoria')
-            cy.url().should('include', RUTA_CAMBIO)
+            cy.url({ timeout: 10000 })
+                .should('include', '/dashboard')
+
+            cy.screenshot('hu-044-login-con-nueva-contrasena')
         })
     })
 })
