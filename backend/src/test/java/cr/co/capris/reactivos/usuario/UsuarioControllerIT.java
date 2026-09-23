@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -69,7 +70,8 @@ class UsuarioControllerIT {
 			"rol.inexistente",
 			"persona.otra.empresa",
 			"empresa.inexistente",
-			"persona.sin.empresa");
+			"persona.sin.empresa",
+			"persona.correo.fallido");
 
 	@Container
 	@ServiceConnection
@@ -372,5 +374,43 @@ class UsuarioControllerIT {
 
 		Usuario creado = usuarioRepository.findByUsername("persona.sin.empresa").orElseThrow();
 		assertThat(creado.getEmpresa().getId()).isEqualTo(admin.getEmpresa().getId());
+	}
+
+	@Test
+	void altaDeUsuarioConEnvioDeCorreoFallidoIgualQuedaCreadoYElFalloQuedaEnBitacora() throws Exception {
+		// El correo es una notificacion, no la fuente de verdad del alta (ver comentario
+		// en AltaUsuarioService.crear()) -- si el proveedor falla, el usuario debe quedar
+		// creado igual y el fallo debe quedar registrado en bitacora, no filtrarse como
+		// un error 500 al administrador.
+		Usuario admin = usuarioRepository.findByUsername("wmolina").orElseThrow();
+		Long rolUsuarioDeCampoId = usuarioRepository.findByUsername("amelendez").orElseThrow().getRol().getId();
+
+		doThrow(new RuntimeException("SMTP no disponible"))
+				.when(emailService)
+				.enviarCredencialesIniciales(anyString(), anyString(), anyString(), anyString());
+
+		CrearUsuarioRequest request = new CrearUsuarioRequest(
+				"Persona Correo Fallido",
+				"PENDIENTE-107",
+				"persona.correo.fallido@capris.co.cr",
+				"persona.correo.fallido",
+				rolUsuarioDeCampoId,
+				admin.getEmpresa().getId());
+
+		mockMvc.perform(post("/api/usuarios")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.estado").value("PENDIENTE_PRIMER_INGRESO"));
+
+		Usuario creado = usuarioRepository.findByUsername("persona.correo.fallido").orElseThrow();
+		assertThat(creado.getEstado()).isEqualTo(EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
+
+		boolean seRegistroElFalloEnBitacora = bitacoraSeguridadRepository.findAll().stream()
+				.anyMatch(registro -> registro.getUsuarioId().equals(creado.getId())
+						&& registro.getTipoEvento() == TipoEventoSeguridad.USUARIO_CREADO
+						&& registro.getDetalle().contains("Fallo el envio del correo"));
+		assertThat(seRegistroElFalloEnBitacora).isTrue();
 	}
 }

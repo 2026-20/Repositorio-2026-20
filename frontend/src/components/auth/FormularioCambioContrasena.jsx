@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import PasswordField from '../ui/PasswordField'
 import styles from './FormularioCambioContrasena.module.css'
 
 // Formulario compartido por HU-044 (cambio obligatorio en primer ingreso) y
@@ -76,9 +77,8 @@ export default function FormularioCambioContrasena({
                 <div className={styles.grupo}>
                     <label htmlFor={`${idBase}-actual`}>Contraseña actual</label>
 
-                    <input
+                    <PasswordField
                         id={`${idBase}-actual`}
-                        type="password"
                         value={contrasenaActual}
                         onChange={(event) => setContrasenaActual(event.target.value)}
                         autoComplete="current-password"
@@ -90,9 +90,8 @@ export default function FormularioCambioContrasena({
             <div className={styles.grupo}>
                 <label htmlFor={`${idBase}-nueva`}>Contraseña nueva</label>
 
-                <input
+                <PasswordField
                     id={`${idBase}-nueva`}
-                    type="password"
                     value={contrasenaNueva}
                     onChange={(event) => setContrasenaNueva(event.target.value)}
                     autoComplete="new-password"
@@ -109,9 +108,8 @@ export default function FormularioCambioContrasena({
             <div className={styles.grupo}>
                 <label htmlFor={`${idBase}-confirmacion`}>Confirmar contraseña nueva</label>
 
-                <input
+                <PasswordField
                     id={`${idBase}-confirmacion`}
-                    type="password"
                     value={confirmacion}
                     onChange={(event) => setConfirmacion(event.target.value)}
                     autoComplete="new-password"

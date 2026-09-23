@@ -61,21 +61,45 @@ describe('AjustesPage - cambio de contraseña', () => {
         localStorage.clear()
     })
 
+    function abrirModal() {
+        fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+    }
+
     function completar({ actual = 'Actual123!', nueva = 'Nueva123!', confirmacion = 'Nueva123!' } = {}) {
+        abrirModal()
         fireEvent.change(screen.getByLabelText('Contraseña actual'), { target: { value: actual } })
         fireEvent.change(screen.getByLabelText('Contraseña nueva'), { target: { value: nueva } })
         fireEvent.change(screen.getByLabelText('Confirmar contraseña nueva'), {
             target: { value: confirmacion },
         })
-        fireEvent.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
     }
 
-    it('ofrece los tres campos: actual, nueva y confirmacion', () => {
+    it('no muestra los campos hasta que se abre la ventana de cambio de contraseña', () => {
         renderAjustes()
 
+        expect(screen.queryByLabelText('Contraseña actual')).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Cambiar contraseña' })).toBeInTheDocument()
+    })
+
+    it('al hacer clic en Cambiar contraseña, abre la ventana con los tres campos', () => {
+        renderAjustes()
+
+        abrirModal()
+
+        expect(screen.getByRole('dialog', { name: 'Cambiar contraseña' })).toBeInTheDocument()
         expect(screen.getByLabelText('Contraseña actual')).toBeInTheDocument()
         expect(screen.getByLabelText('Contraseña nueva')).toBeInTheDocument()
         expect(screen.getByLabelText('Confirmar contraseña nueva')).toBeInTheDocument()
+    })
+
+    it('cierra la ventana al hacer clic en el boton de cerrar', () => {
+        renderAjustes()
+
+        abrirModal()
+        fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
     it('llama al backend con el token, la actual y la nueva, y confirma el exito', async () => {
