@@ -67,9 +67,9 @@ Queda disponible en `http://localhost:8080`. Endpoints de prueba: `GET http://lo
 
 El secreto para firmar los JWT (`app.jwt.secret` en `application.yml`) es **solo de desarrollo local** — en producción se sobreescribe con la variable de entorno `APP_JWT_SECRET`, nunca se comitea el secreto real.
 
-## Correo en desarrollo (HU-047)
+## Correo en desarrollo
 
-El alta de usuarios (HU-047) envía un correo con las credenciales iniciales a través de `EmailService` (ver sección "HU-046 — Recuperación de contraseña por OTP" más abajo para el detalle completo de las tres implementaciones). Por defecto (`app.email.proveedor=log`) no hace falta nada más: el correo se escribe en la consola del backend, no se abre ninguna conexión SMTP real, y ni `mvn test`/`mvn verify` ni levantar el proyecto en una laptop nueva dependen de MailHog.
+El alta de usuarios y la recuperación de contraseña envían correo a través de `EmailService` (ver la sección "Recuperación de contraseña" más abajo para el detalle completo de las tres implementaciones). Por defecto (`app.email.proveedor=log`) no hace falta nada más: el correo se escribe en la consola del backend, no se abre ninguna conexión SMTP real, y ni `mvn test`/`mvn verify` ni levantar el proyecto en una laptop nueva dependen de MailHog.
 
 Si querés ver el correo real en una bandeja de prueba, activá `app.email.proveedor=smtp` (variable de entorno `APP_EMAIL_PROVEEDOR=smtp`) y levantá **MailHog**:
 
@@ -99,63 +99,29 @@ La migración `V2__seed_usuarios_iniciales.sql` crea 3 usuarios reales de CAPRIS
 | `arcea` | Adrián Arce Soto | Usuario de Campo | `Capris2026!` |
 | `wmolina` | William A. Molina Quirós | Administrador | `Capris2026!` |
 
-Esta contraseña compartida es **exclusiva de desarrollo local** — nunca se usa así en producción. El flujo real (HU-047) genera una contraseña provisional (OTP) y la envía por correo; nadie, ni el administrador, la ve en texto plano. Las cédulas de estos tres usuarios no fueron proporcionadas, así que quedaron marcadas como `PENDIENTE-00N` en la semilla — corregir cuando se tenga el dato real.
+Esta contraseña compartida es **exclusiva de desarrollo local** — nunca se usa así en producción. El flujo real de alta de usuarios genera una contraseña provisional (OTP) y la envía por correo; nadie, ni el administrador, la ve en texto plano. Las cédulas de estos tres usuarios no fueron proporcionadas, así que quedaron marcadas como `PENDIENTE-00N` en la semilla — corregir cuando se tenga el dato real.
 
-## Pruebas
+## Funcionalidades
 
-**Backend** (`cd backend`):
-```bash
-mvn test      # unitarias (JUnit + Mockito + AssertJ), sin Docker
-mvn verify    # + integración con Testcontainers (requiere Docker) + reporte de cobertura JaCoCo
-```
+### Autenticación y seguridad
 
-**Frontend** (`cd frontend`):
-```bash
-npm test              # unitarias/componente (Vitest + React Testing Library)
-npm run test:browser  # almacenamiento local (OPFS) en Chromium real vía Playwright
-npm run test:coverage # cobertura
-npm run cypress:run   # end-to-end (Cypress, headless)
-npm run cypress:open  # end-to-end (Cypress, interfaz interactiva)
-```
+`POST /api/auth/login` valida usuario/contraseña/empresa/estado contra la base y emite un JWT (`JwtService`) que `JwtAuthenticationFilter` lee en cada petición para rellenar `ContextoUsuarioActual` (quién es el usuario que hace la petición). El mensaje de error es el mismo para usuario inexistente, contraseña incorrecta, empresa incorrecta y cuenta inactiva **a propósito** — evita que alguien enumere qué usernames existen en el sistema probando al azar (incluso el tiempo de respuesta está igualado entre usuario existente e inexistente).
 
-## Sprint 1 — base compartida para las HUs de seguridad/usuarios
+`SecurityConfig` exige JWT válido en toda la API salvo `/api/auth/login`, `/api/empresas` y `/api/auth/recuperacion/**`; crear, inactivar, reactivar y desbloquear usuarios exige además el rol Administrador.
 
-El Sprint 1 (Sep 07 - Sep 25) son 10 HUs de un mismo grupo trabajadas por 5 personas en paralelo: HU-001, HU-002, HU-023, HU-042 a HU-048. Todas tocan la misma entidad `Usuario` y la misma noción de "usuario autenticado", así que antes de repartir el trabajo se dejó una base compartida en `backend/src/main/java/cr/co/capris/reactivos/seguridad/` para que nadie compita por los mismos archivos ni reinvente lo mismo. Esa carpeta **no implementa ninguna HU** — son contratos y piezas de infraestructura para que cada quien conecte su lógica:
+`BloqueoCuentaService` bloquea la cuenta por 7 minutos tras 4 intentos fallidos consecutivos (aplica tanto al login como al cambio voluntario de contraseña), y queda registrado en la bitácora de seguridad (`BitacoraSeguridad`).
 
-| Qué hay | Para qué HU | Quién implementa la lógica real |
-|---|---|---|
-| `ContextoUsuarioActual` — **ya tiene implementación real** (`auth/ContextoUsuarioActualImpl`) | HU-023, HU-044, HU-045 necesitan saber "quién es el usuario actual" | HU-001 dejó lo mínimo funcionando (ver abajo); glorimojica completa el resto |
-| `ValidadorPoliticaContrasena` — **ya tiene implementación real** (`seguridad/ValidadorPoliticaContrasenaImpl`) | HU-044, HU-045, HU-046 validan la contraseña nueva con esto | HU-042 completo |
-| `TokenRecuperacion` + su repositorio | Tabla de apoyo para el token OTP de 15 min | HU-046 (generarlo, enviarlo, validar el límite de 3 intentos) |
-| `BitacoraSeguridad` + `BitacoraSeguridadService.registrar(...)` | HU-043, HU-047 y HU-048 piden explícitamente auditar el evento | Cada HU decide cuándo llamarlo, con qué `TipoEventoSeguridad` |
-| `usuario.intentos_fallidos` / `usuario.bloqueado_hasta` | HU-043 | **Ya implementado** — `BloqueoCuentaService` (4 intentos, bloqueo de 7 min), lo reutilizan el login y el cambio voluntario de contraseña (HU-045) |
-| Excepciones de dominio + `GlobalExceptionHandler` | Todas — un solo formato de error para toda la API | Ya está completo, solo hay que lanzar la excepción que corresponda |
+Mientras una cuenta siga con contraseña temporal (`PENDIENTE_PRIMER_INGRESO`), `JwtAuthenticationFilter` la restringe a solo cambiar su contraseña o cerrar sesión, sin importar el rol.
 
-### HU-001 — login funcional y protegido
+**Pendiente**: integración con el ERP institucional (validar activo, cargar rutas, iniciar jornada).
 
-`POST /api/auth/login` valida usuario/contraseña/empresa/estado contra la base, aplica el bloqueo de cuenta de HU-043 (`BloqueoCuentaService`), y emite un JWT (`JwtService`) que `JwtAuthenticationFilter` lee en cada petición para rellenar `ContextoUsuarioActual`. El mensaje de error es el mismo para usuario inexistente, contraseña incorrecta, empresa incorrecta y cuenta inactiva **a propósito** — evita que alguien enumere qué usernames existen en el sistema probando al azar (incluso el tiempo de respuesta está igualado entre usuario existente e inexistente).
-
-`SecurityConfig` ya exige JWT válido en toda la API salvo `/api/auth/login`, `/api/empresas` y `/api/auth/recuperacion/**`; crear, inactivar, reactivar y desbloquear usuarios exige además el rol Administrador.
-
-**Lo que falta para cerrar HU-001 por completo**: integración con HU-036/037/038 (validar activo en el ERP, cargar rutas, iniciar jornada).
-
-Usuario de prueba para el login: `wmolina` / `Capris2026!` / `empresaId: 1`.
-
-### El resto del Sprint 1
-
-- **HU-023** (aislamiento multiempresa) — el alta de usuarios usa siempre la empresa del administrador autenticado (`ContextoUsuarioActual`), nunca la que mande el cliente en el request; una empresa distinta se rechaza con 403 genérico, sin distinguir si esa empresa existe o no.
-- **HU-029** (modo claro/oscuro) — elección explícita desde Ajustes, persiste solo en ese dispositivo (`localStorage`), aplicación inmediata sin recargar.
-- **HU-044 / HU-045** (cambio de contraseña obligatorio y voluntario) — mientras la cuenta siga con contraseña temporal (`PENDIENTE_PRIMER_INGRESO`), `JwtAuthenticationFilter` la restringe a solo cambiar su contraseña o cerrar sesión, sin importar el rol; desde Ajustes cualquier usuario activo puede cambiarla voluntariamente (exige la actual, cuenta para el bloqueo de HU-043 si falla).
-- **HU-048** (baja lógica y reactivación) — inactivar/reactivar usuario exigen rol Administrador, quedan en la bitácora de seguridad, e inactivar revoca de inmediato las sesiones activas.
-- **Frontend** — layout unificado (barra lateral, barra superior, navegación inferior), Dashboard, gestión de usuarios responsiva, todo detrás de `ProtectedRoute` (esa protección es solo UX, el límite real lo sigue aplicando el backend).
-
-### HU-046 — Recuperación de contraseña por OTP
+### Recuperación de contraseña (OTP)
 
 Flujo de 3 pasos: pedir un código (OTP) al correo, validarlo con una sesión
-temporal restringida, y fijar la contraseña nueva. Cumple los 5 criterios de
-aceptación (mensaje offline desde el frontend, mensaje genérico que no revela
-si el correo existe, OTP vence a los 15 min y es de un solo uso, sesión
-temporal que no sirve como sesión normal, y tope de 3 intentos).
+temporal restringida, y fijar la contraseña nueva. No revela si el correo
+existe (mensaje genérico siempre), el OTP vence a los 15 min y es de un solo
+uso, la sesión temporal no sirve como sesión normal, y hay un tope de 3
+intentos.
 
 **Endpoints públicos** (en `RecuperacionContrasenaController`):
 
@@ -166,8 +132,8 @@ temporal que no sirve como sesión normal, y tope de 3 intentos).
 | `POST` | `/api/auth/recuperacion/nueva-contrasena` | Cambia la contraseña usando la sesión temporal |
 
 **Correo por interfaz intercambiable** — `EmailService` con tres
-implementaciones vía `app.email.proveedor` (la misma interfaz la usan otras
-HU que mandan correo, p. ej. HU-047 credenciales iniciales):
+implementaciones vía `app.email.proveedor` (la misma interfaz la usa también
+el alta de usuarios, para las credenciales iniciales):
 - `log` (default): escribe el correo en la consola del backend. Así `mvn test`,
   `mvn verify` y levantar el proyecto en cualquier laptop **no necesitan API
   key**. CI nunca llama a ningún proveedor real.
@@ -199,10 +165,10 @@ para desarrollo):
 La sesión temporal es un JWT con claim `proposito=recuperacion_password`
 (10 min por defecto) que `JwtAuthenticationFilter` **nunca** trata como sesión
 normal, es **de un solo uso**: al completar `nueva-contrasena` se revoca su
-`jti` (misma tabla `token_sesion_revocado` de HU-002) y reutilizar el mismo
-JWT es rechazado. El historial de contraseñas (`historial_contrasena`, también
-V8) impide reutilizar una contraseña usada recientemente, y lo comparten
-HU-044/045.
+`jti` (misma tabla `token_sesion_revocado` del cierre de sesión) y reutilizar
+el mismo JWT es rechazado. El historial de contraseñas (`historial_contrasena`,
+también V8) impide reutilizar una contraseña usada recientemente, y lo
+comparte el cambio de contraseña (ver abajo).
 
 **Cómo probarlo:**
 ```bash
@@ -214,9 +180,64 @@ JRE+jar, corre como usuario no-root). La comparativa de plataforma de
 despliegue (Railway / Render / OCI) todavía está pendiente de decidir con
 la empresa.
 
-Convenciones para trabajar en paralelo sin chocar:
-- Una rama por HU (ej. `feature/HU-042-validacion-password`).
-- Cada HU que necesite cambiar el esquema agrega una migración Flyway **nueva** (`V4__...`, `V5__...`) — nunca editar `V1`/`V2`/`V3` que ya existen.
+### Cambio de contraseña
+
+- **Obligatorio en primer ingreso**: un usuario recién creado queda en estado
+  `PENDIENTE_PRIMER_INGRESO` con una contraseña temporal; la única acción
+  posible hasta que la cambie es esa o cerrar sesión (lo aplica
+  `JwtAuthenticationFilter`, no solo el frontend).
+- **Voluntario desde Ajustes**: cualquier usuario activo puede cambiar su
+  contraseña ahí — exige la contraseña actual, cuenta para el bloqueo de
+  cuenta si falla, y no permite repetir la contraseña actual ni una usada
+  recientemente.
+
+### Gestión de usuarios
+
+El alta de un usuario nuevo siempre queda en la empresa del administrador
+autenticado (`ContextoUsuarioActual`), nunca en la que mande el cliente en
+el request — una empresa distinta se rechaza con 403 genérico, sin distinguir
+si esa empresa existe o no. Genera una contraseña temporal y envía las
+credenciales por correo (ver `EmailService` arriba).
+
+Inactivar y reactivar un usuario exigen rol Administrador, quedan
+registrados en la bitácora de seguridad, e inactivar revoca de inmediato
+las sesiones activas de ese usuario.
+
+### Apariencia
+
+Modo claro/oscuro con elección explícita desde Ajustes; la preferencia
+persiste solo en ese dispositivo (`localStorage`) y se aplica de inmediato,
+sin recargar.
+
+### Frontend
+
+Layout unificado (barra lateral, barra superior, navegación inferior),
+Dashboard, gestión de usuarios responsiva — todo detrás de `ProtectedRoute`.
+Esa protección es solo UX (evita el parpadeo de una pantalla que de todas
+formas el backend va a rechazar); el límite real de seguridad siempre lo
+aplica el backend.
+
+## Convenciones para contribuir
+
+- Una rama por funcionalidad (ej. `feature/validacion-password`).
+- Cada cambio que necesite tocar el esquema agrega una migración Flyway **nueva** (`V9__...`, `V10__...`) — nunca editar una migración que ya existe.
+
+## Pruebas
+
+**Backend** (`cd backend`):
+```bash
+mvn test      # unitarias (JUnit + Mockito + AssertJ), sin Docker
+mvn verify    # + integración con Testcontainers (requiere Docker) + reporte de cobertura JaCoCo
+```
+
+**Frontend** (`cd frontend`):
+```bash
+npm test              # unitarias/componente (Vitest + React Testing Library)
+npm run test:browser  # almacenamiento local (OPFS) en Chromium real vía Playwright
+npm run test:coverage # cobertura
+npm run cypress:run   # end-to-end (Cypress, headless)
+npm run cypress:open  # end-to-end (Cypress, interfaz interactiva)
+```
 
 ## Integración continua
 
