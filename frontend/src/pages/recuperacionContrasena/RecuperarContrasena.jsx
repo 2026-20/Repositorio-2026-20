@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   solicitarRecuperacion,
   validarOtp,
@@ -10,6 +11,7 @@ import GradientWaves from '../../components/effects/GradientWaves'
 import Icon from '../../components/ui/Icon'
 import PasswordField from '../../components/ui/PasswordField'
 import { usePrefiereMenosMovimiento } from '../../hooks/usePrefiereMenosMovimiento'
+import { paths } from '../../routes/paths'
 import styles from './RecuperarContrasena.module.css'
 
 // Un solo componente para los 3 pasos de HU-046 en vez de 3 páginas/rutas --
@@ -31,9 +33,47 @@ function RecuperarContrasena() {
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(false)
 
+  // El navegador valida "required"/type="email" con su propio mensaje nativo,
+  // en el idioma del sistema operativo o del navegador -- no del sitio. Con
+  // "noValidate" en el <form> se apaga esa validacion nativa y se reemplaza
+  // por esta, siempre en español sin importar la maquina de quien la usa.
+  function validarCorreo() {
+    if (!correo.trim()) {
+      return 'Ingresá el correo registrado.'
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      return 'Ingresá un correo válido.'
+    }
+    return ''
+  }
+
+  function validarOtpLocal() {
+    if (!otp.trim()) {
+      return 'Ingresá el código de 6 dígitos.'
+    }
+    if (!/^\d{6}$/.test(otp)) {
+      return 'El código debe tener 6 dígitos.'
+    }
+    return ''
+  }
+
+  function validarNuevaContrasenaLocal() {
+    if (!nuevaContrasena) {
+      return 'Ingresá la contraseña nueva.'
+    }
+    return ''
+  }
+
   async function manejarEnvioCorreo(evento) {
     evento.preventDefault()
     setError(null)
+
+    const errorLocal = validarCorreo()
+    if (errorLocal) {
+      setError(errorLocal)
+      return
+    }
+
     setCargando(true)
     try {
       const respuesta = await solicitarRecuperacion(correo)
@@ -49,6 +89,13 @@ function RecuperarContrasena() {
   async function manejarValidacionOtp(evento) {
     evento.preventDefault()
     setError(null)
+
+    const errorLocal = validarOtpLocal()
+    if (errorLocal) {
+      setError(errorLocal)
+      return
+    }
+
     setCargando(true)
     try {
       const respuesta = await validarOtp(correo, otp)
@@ -66,6 +113,13 @@ function RecuperarContrasena() {
   async function manejarNuevaContrasena(evento) {
     evento.preventDefault()
     setError(null)
+
+    const errorLocal = validarNuevaContrasenaLocal()
+    if (errorLocal) {
+      setError(errorLocal)
+      return
+    }
+
     setCargando(true)
     try {
       const respuesta = await establecerNuevaContrasena(tokenSesionTemporal, nuevaContrasena)
@@ -145,6 +199,7 @@ function RecuperarContrasena() {
           <form
             className={styles.formulario}
             onSubmit={manejarEnvioCorreo}
+            noValidate
           >
             <div className={styles.grupo}>
               <label htmlFor="correo">Correo registrado</label>
@@ -154,10 +209,9 @@ function RecuperarContrasena() {
                 value={correo}
                 onChange={(e) => setCorreo(e.target.value)}
                 autoComplete="email"
-                required
               />
             </div>
-            <button type="submit" disabled={cargando}>Enviar código</button>
+            <button type="submit" className={styles.boton} disabled={cargando}>Enviar código</button>
           </form>
         )}
 
@@ -165,6 +219,7 @@ function RecuperarContrasena() {
           <form
             className={styles.formulario}
             onSubmit={manejarValidacionOtp}
+            noValidate
           >
             {mensaje && <p className={styles.info}>{mensaje}</p>}
             <div className={styles.grupo}>
@@ -172,16 +227,14 @@ function RecuperarContrasena() {
               <input
                 id="otp"
                 inputMode="numeric"
-                pattern="\d{6}"
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 autoComplete="one-time-code"
-                required
               />
             </div>
             <p className={styles.info}>El código vence 15 minutos después de haberlo solicitado.</p>
-            <button type="submit" disabled={cargando}>Validar código</button>
+            <button type="submit" className={styles.boton} disabled={cargando}>Validar código</button>
           </form>
         )}
 
@@ -189,6 +242,7 @@ function RecuperarContrasena() {
           <form
             className={styles.formulario}
             onSubmit={manejarNuevaContrasena}
+            noValidate
           >
             <div className={styles.grupo}>
               <label htmlFor="nuevaContrasena">Nueva contraseña</label>
@@ -197,14 +251,30 @@ function RecuperarContrasena() {
                 value={nuevaContrasena}
                 onChange={(e) => setNuevaContrasena(e.target.value)}
                 autoComplete="new-password"
-                required
+                aria-describedby="nuevaContrasena-ayuda"
               />
+              <p id="nuevaContrasena-ayuda" className={styles.ayuda}>
+                Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un carácter especial.
+              </p>
             </div>
-            <button type="submit" disabled={cargando}>Guardar nueva contraseña</button>
+            <button type="submit" className={styles.boton} disabled={cargando}>Guardar nueva contraseña</button>
           </form>
         )}
 
-        {paso === PASO.LISTO && <p className={styles.exito}>{mensaje}</p>}
+        {paso === PASO.LISTO && (
+          <>
+            <p className={styles.exito}>{mensaje}</p>
+            <Link to={paths.login} className={styles.boton}>
+              Ir a iniciar sesión
+            </Link>
+          </>
+        )}
+
+        {paso !== PASO.LISTO && (
+          <Link to={paths.login} className={styles.enlaceVolver}>
+            Volver al inicio de sesión
+          </Link>
+        )}
       </section>
     </main>
   )
