@@ -14,5 +14,9 @@ export default defineConfig({
     screenshotsFolder: 'cypress/screenshots',
     videosFolder: 'cypress/videos',
     downloadsFolder: 'cypress/downloads',
+    // Conserva las capturas entre runs: con el valor por defecto (true), cada
+    // ejecucion borra las screenshots de la anterior y las evidencias se
+    // pierden al correr una spec tras otra.
+    trashAssetsBeforeRuns: false,
   },
 })

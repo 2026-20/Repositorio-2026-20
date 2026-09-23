@@ -1,33 +1,14 @@
+// HU-002 - Cerrar sesión del sistema
+// Pruebas funcionales contra el backend real (localhost:8080).
+// Criterios cubiertos: CA1 (elimina tokens de sesión), CA2/CA3 (bloquea acceso y
+// datos locales hasta nueva autenticación), CA4 (cerrar sesión desde pantalla
+// principal), CA5 (pantalla de login tras cerrar sesión).
 describe('HU-002 - Cerrar sesión del sistema', () => {
-    beforeEach(() => {
-        cy.intercept('GET', '**/api/empresas', {
-            statusCode: 200,
-            body: [
-                {
-                    id: 1,
-                    nombre: 'CAPRIS Médica',
-                },
-            ],
-        }).as('obtenerEmpresas')
-
-        cy.intercept('POST', '**/api/auth/login', {
-            statusCode: 200,
-            body: {
-                token: 'jwt-prueba-hu002',
-                usuarioId: 3,
-                nombreCompleto: 'William A. Molina Quirós',
-                rol: 'Administrador',
-                debeCambiarContrasena: false,
-            },
-        }).as('login')
-
-        cy.intercept('POST', '**/api/auth/logout', {
-            statusCode: 204,
-        }).as('logout')
-    })
-
     function iniciarSesion() {
         cy.visit('/login')
+
+        cy.get('#empresa')
+            .select('1')
 
         cy.get('#username')
             .type('wmolina')
@@ -37,8 +18,6 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
 
         cy.contains('button', 'Iniciar sesión')
             .click()
-
-        cy.wait('@login')
 
         cy.url()
             .should('include', '/dashboard')
@@ -53,78 +32,80 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
             .click()
     }
 
-    it('permite cerrar sesion y vuelve al login', () => {
+    function obtenerToken() {
+        return cy.window()
+            .then((win) => win.sessionStorage.getItem('capris_token'))
+    }
+
+    it('CA5/CA4 - permite cerrar sesión desde la pantalla principal y vuelve al login', () => {
         iniciarSesion()
 
         cerrarSesion()
-
-        cy.wait('@logout')
 
         cy.url()
             .should('include', '/login')
+
+        cy.screenshot('hu-002-login-tras-cierre')
     })
 
-    it('elimina las credenciales de autenticacion al cerrar sesion', () => {
+    it('CA1 - elimina las credenciales de sesión del dispositivo', () => {
         iniciarSesion()
 
         cy.window().then((win) => {
-            expect(
-                win.sessionStorage.getItem('capris_token'),
-            ).to.equal('jwt-prueba-hu002')
-
-            expect(
-                win.sessionStorage.getItem('capris_usuario'),
-            ).not.to.equal(null)
+            expect(win.sessionStorage.getItem('capris_token')).not.to.equal(null)
+            expect(win.sessionStorage.getItem('capris_usuario')).not.to.equal(null)
         })
 
         cerrarSesion()
 
-        cy.wait('@logout')
+        cy.url()
+            .should('include', '/login')
 
         cy.window().then((win) => {
-            expect(
-                win.sessionStorage.getItem('capris_token'),
-            ).to.equal(null)
-
-            expect(
-                win.sessionStorage.getItem('capris_usuario'),
-            ).to.equal(null)
+            expect(win.sessionStorage.getItem('capris_token')).to.equal(null)
+            expect(win.sessionStorage.getItem('capris_usuario')).to.equal(null)
         })
     })
 
-    it('conserva datos locales que no pertenecen a la autenticacion', () => {
+    it('CA1/CA3 - el token cerrado queda revocado en el servidor', () => {
+        iniciarSesion()
+
+        obtenerToken()
+            .then((token) => {
+                cerrarSesion()
+
+                cy.url()
+                    .should('include', '/login')
+
+                cy.request({
+                    method: 'GET',
+                    url: 'http://localhost:8080/api/usuarios',
+                    headers: { Authorization: `Bearer ${token}` },
+                    failOnStatusCode: false,
+                }).then((resp) => {
+                    expect(resp.status).to.equal(401)
+                })
+            })
+
+        cy.screenshot('hu-002-token-revocado')
+    })
+
+    it('CA2/CA3 - impide acceder al dashboard o a datos locales tras cerrar sesión', () => {
         iniciarSesion()
 
         cy.window().then((win) => {
-            win.localStorage.setItem(
-                'capris_datos_offline_prueba',
-                'conteo-pendiente',
-            )
+            win.localStorage.setItem('capris_datos_offline_prueba', 'conteo-pendiente')
         })
 
         cerrarSesion()
 
-        cy.wait('@logout')
+        cy.url()
+            .should('include', '/login')
 
         cy.window().then((win) => {
-            expect(
-                win.localStorage.getItem(
-                    'capris_datos_offline_prueba',
-                ),
-            ).to.equal('conteo-pendiente')
-
-            expect(
-                win.sessionStorage.getItem('capris_token'),
-            ).to.equal(null)
+            expect(win.localStorage.getItem('capris_datos_offline_prueba')).to.equal('conteo-pendiente')
+            expect(win.sessionStorage.getItem('capris_token')).to.equal(null)
         })
-    })
-
-    it('impide regresar al dashboard despues de cerrar sesion', () => {
-        iniciarSesion()
-
-        cerrarSesion()
-
-        cy.wait('@logout')
 
         cy.visit('/dashboard')
 
@@ -132,12 +113,13 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
             .should('include', '/login')
     })
 
-    it('permite iniciar una nueva sesion despues del logout', () => {
+    it('CA5 - permite iniciar una nueva sesión después del cierre', () => {
         iniciarSesion()
 
         cerrarSesion()
 
-        cy.wait('@logout')
+        cy.get('#empresa')
+            .select('1')
 
         cy.get('#username')
             .type('wmolina')
@@ -148,9 +130,10 @@ describe('HU-002 - Cerrar sesión del sistema', () => {
         cy.contains('button', 'Iniciar sesión')
             .click()
 
-        cy.wait('@login')
-
         cy.url()
             .should('include', '/dashboard')
+
+        cy.contains('Rol: Administrador')
+            .should('be.visible')
     })
 })
