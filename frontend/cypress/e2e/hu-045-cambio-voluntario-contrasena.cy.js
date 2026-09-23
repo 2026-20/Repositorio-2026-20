@@ -11,7 +11,16 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
         cy.visitarConSesion('/ajustes', { debeCambiarContrasena: false })
     })
 
-    function completarFormulario({ actual, nueva, confirmacion }) {
+    function abrirVentanaCambioContrasena() {
+        cy.contains('button', 'Cambiar contraseña').click()
+        cy.get('[role="dialog"]').should('be.visible')
+    }
+
+    function completarFormulario({ actual, nueva, confirmacion, reabrirVentana = true }) {
+        if (reabrirVentana) {
+            abrirVentanaCambioContrasena()
+        }
+
         if (actual) {
             cy.campoContrasena('Contraseña actual').type(actual)
         }
@@ -24,7 +33,7 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
             cy.campoContrasena('Confirmar contraseña nueva').type(confirmacion)
         }
 
-        cy.contains('button', 'Cambiar contraseña').click()
+        cy.contains('button', 'Guardar').click()
     }
 
     function interceptarRechazo(statusCode, body) {
@@ -35,13 +44,27 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
     // ---- Criterio 1: existe la opción en Ajustes y pide la contraseña actual ----
 
     describe('seccion de contraseña en Ajustes', () => {
-        it('ofrece contraseña actual, nueva y confirmacion', () => {
+        it('muestra un boton para cambiar la contraseña, sin los campos a la vista', () => {
             cy.contains('h2', 'Contraseña').should('be.visible')
+            cy.contains('button', 'Cambiar contraseña').should('be.visible')
+            cy.get('[role="dialog"]').should('not.exist')
+        })
+
+        it('al hacer clic, abre una ventana con contraseña actual, nueva y confirmacion', () => {
+            abrirVentanaCambioContrasena()
 
             cy.campoContrasena('Contraseña actual').should('be.visible')
             cy.campoContrasena('Contraseña nueva').should('be.visible')
             cy.campoContrasena('Confirmar contraseña nueva').should('be.visible')
-            cy.contains('button', 'Cambiar contraseña').should('be.visible')
+            cy.contains('button', 'Guardar').should('be.visible')
+        })
+
+        it('la ventana se puede cerrar sin cambiar nada', () => {
+            abrirVentanaCambioContrasena()
+
+            cy.get('button[aria-label="Cerrar"]').click()
+
+            cy.get('[role="dialog"]').should('not.exist')
         })
 
         it('no pisa la seccion de Apariencia', () => {
@@ -225,7 +248,7 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
                 .as('cambiarPasswordCorregido')
 
             cy.campoContrasena('Contraseña actual').clear().type('Capris2026!')
-            cy.contains('button', 'Cambiar contraseña').click()
+            cy.contains('button', 'Guardar').click()
 
             cy.wait('@cambiarPasswordCorregido')
 

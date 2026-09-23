@@ -13,6 +13,7 @@ import {
     Sun,
     User,
     Users,
+    X,
 } from 'lucide-react'
 
 // Componente central de iconografia: los llamadores piden un nombre
@@ -35,6 +36,7 @@ const ICONOS = {
     ajustes: Settings,
     ojo: Eye,
     ojoOculto: EyeOff,
+    cerrar: X,
 }
 
 export default function Icon({ name, size = 20, className }) {

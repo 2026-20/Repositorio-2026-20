@@ -45,3 +45,19 @@
     background: var(--color-primary-bg);
     color: var(--color-primary);
 }
+
+.botonAbrirModal {
+    min-height: var(--touch-target-min);
+    padding: var(--space-3) var(--space-5);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonAbrirModal:hover {
+    filter: brightness(1.1);
+}

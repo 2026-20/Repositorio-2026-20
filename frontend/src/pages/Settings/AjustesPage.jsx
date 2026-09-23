@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import FormularioCambioContrasena from '../../components/auth/FormularioCambioContrasena'
+import Modal from '../../components/feedback/Modal'
 import Icon from '../../components/ui/Icon'
 import { useAuth } from '../../context/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { cambiarContrasena } from '../../services/authService'
 import styles from './AjustesPage.module.css'
+
+// Cuanto queda visible el mensaje de exito antes de cerrar la ventana sola.
+const MS_ANTES_DE_CERRAR_TRAS_EXITO = 1500
 
 const OPCIONES_APARIENCIA = [
     { valor: 'claro', etiqueta: 'Claro', icono: 'temaClaro' },
@@ -23,6 +28,14 @@ const OPCIONES_APARIENCIA = [
 export default function AjustesPage() {
     const { temaEfectivo, setTema } = useTheme()
     const { token } = useAuth()
+    const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false)
+
+    async function manejarCambioContrasena({ contrasenaActual, contrasenaNueva }) {
+        await cambiarContrasena(token, contrasenaActual, contrasenaNueva)
+
+        // Deja ver el mensaje de exito un momento antes de cerrar la ventana sola.
+        setTimeout(() => setMostrarCambioContrasena(false), MS_ANTES_DE_CERRAR_TRAS_EXITO)
+    }
 
     return (
         <main>
@@ -67,15 +80,28 @@ export default function AjustesPage() {
                     Para cambiarla necesitás ingresar tu contraseña actual.
                 </p>
 
-                <FormularioCambioContrasena
-                    requiereContrasenaActual
-                    etiquetaEnvio="Cambiar contraseña"
-                    mensajeExito="La contraseña se cambió correctamente."
-                    onEnviar={({ contrasenaActual, contrasenaNueva }) =>
-                        cambiarContrasena(token, contrasenaActual, contrasenaNueva)
-                    }
-                />
+                <button
+                    type="button"
+                    className={styles.botonAbrirModal}
+                    onClick={() => setMostrarCambioContrasena(true)}
+                >
+                    Cambiar contraseña
+                </button>
             </section>
+
+            {mostrarCambioContrasena && (
+                <Modal
+                    titulo="Cambiar contraseña"
+                    onCerrar={() => setMostrarCambioContrasena(false)}
+                >
+                    <FormularioCambioContrasena
+                        requiereContrasenaActual
+                        etiquetaEnvio="Guardar"
+                        mensajeExito="La contraseña se cambió correctamente."
+                        onEnviar={manejarCambioContrasena}
+                    />
+                </Modal>
+            )}
         </main>
     )
 }
