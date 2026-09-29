@@ -64,3 +64,4 @@ app:
     otp:
       expiracion-minutos: 15 # criterio de aceptación 3
       intentos-maximos: 3    # criterio de aceptación 5
+      reenvio-espera-segundos: 60 # botón "Reenviar código" en el paso del OTP

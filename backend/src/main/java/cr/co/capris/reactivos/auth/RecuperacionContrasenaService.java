@@ -4,11 +4,13 @@ import cr.co.capris.reactivos.seguridad.*;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +39,10 @@ public class RecuperacionContrasenaService {
 	private final int otpExpiracionMinutos;
 	private final int otpIntentosMaximos;
 	private final boolean emailAsincrono;
+	private final int otpReenvioEsperaSegundos;
+	private final Clock clock;
 
+	@Autowired
 	public RecuperacionContrasenaService(
 			UsuarioRepository usuarioRepository,
 			TokenRecuperacionRepository tokenRecuperacionRepository,
@@ -49,7 +54,27 @@ public class RecuperacionContrasenaService {
 			ValidadorPoliticaContrasena validadorPoliticaContrasena,
 			@Value("${app.email.otp.expiracion-minutos:15}") int otpExpiracionMinutos,
 			@Value("${app.email.otp.intentos-maximos:3}") int otpIntentosMaximos,
-			@Value("${app.email.asincrono:true}") boolean emailAsincrono) {
+			@Value("${app.email.asincrono:true}") boolean emailAsincrono,
+			@Value("${app.email.otp.reenvio-espera-segundos:60}") int otpReenvioEsperaSegundos) {
+		this(usuarioRepository, tokenRecuperacionRepository, historialContrasenaService, bitacoraSeguridadService,
+				emailService, passwordEncoder, jwtService, validadorPoliticaContrasena, otpExpiracionMinutos,
+				otpIntentosMaximos, emailAsincrono, otpReenvioEsperaSegundos, Clock.systemUTC());
+	}
+
+	RecuperacionContrasenaService(
+			UsuarioRepository usuarioRepository,
+			TokenRecuperacionRepository tokenRecuperacionRepository,
+			HistorialContrasenaService historialContrasenaService,
+			BitacoraSeguridadService bitacoraSeguridadService,
+			EmailService emailService,
+			PasswordEncoder passwordEncoder,
+			JwtService jwtService,
+			ValidadorPoliticaContrasena validadorPoliticaContrasena,
+			int otpExpiracionMinutos,
+			int otpIntentosMaximos,
+			boolean emailAsincrono,
+			int otpReenvioEsperaSegundos,
+			Clock clock) {
 		this.usuarioRepository = usuarioRepository;
 		this.tokenRecuperacionRepository = tokenRecuperacionRepository;
 		this.historialContrasenaService = historialContrasenaService;
@@ -61,6 +86,8 @@ public class RecuperacionContrasenaService {
 		this.otpExpiracionMinutos = otpExpiracionMinutos;
 		this.otpIntentosMaximos = otpIntentosMaximos;
 		this.emailAsincrono = emailAsincrono;
+		this.otpReenvioEsperaSegundos = otpReenvioEsperaSegundos;
+		this.clock = clock;
 	}
 
 	/**
@@ -70,20 +97,37 @@ public class RecuperacionContrasenaService {
 	 * Tampoco se genera OTP para una cuenta INACTIVO -- mismo argumento: no
 	 * revelar por temporización ni por efecto observable si una cuenta existe,
 	 * está inactiva, o no existe.
+	 * <p>
+	 * Reenvío ("olvidé el código"): esta es la misma llamada que el primer
+	 * envío -- el frontend la reutiliza con un botón "Reenviar código" en el
+	 * paso del OTP. Si el último token vigente se generó hace menos de
+	 * {@code otpReenvioEsperaSegundos}, no se invalida ni se genera uno nuevo
+	 * -- se ignora en silencio. La respuesta del controller sigue siendo el
+	 * mismo mensaje genérico en cualquier caso, así que un reintento
+	 * demasiado pronto tampoco delata nada por sí mismo.
 	 */
 	@Transactional
 	public void solicitar(String correo) {
+		OffsetDateTime ahora = OffsetDateTime.now(clock);
 		usuarioRepository.findByCorreo(correo)
 				.filter(usuario -> usuario.getEstado() != EstadoUsuario.INACTIVO)
 				.ifPresent(usuario -> {
 					// Que exista un solo OTP vigente por usuario a la vez.
 					List<TokenRecuperacion> anteriores = tokenRecuperacionRepository
 							.findByUsuarioIdAndUsadoFalse(usuario.getId());
+
+					OffsetDateTime limiteDeEspera = ahora.minusSeconds(otpReenvioEsperaSegundos);
+					boolean enEsperaDeReenvio = anteriores.stream()
+							.map(TokenRecuperacion::getCreadoEn)
+							.anyMatch(creadoEn -> creadoEn.isAfter(limiteDeEspera));
+					if (enEsperaDeReenvio) {
+						return;
+					}
+
 					anteriores.forEach(t -> t.setUsado(true));
 					tokenRecuperacionRepository.saveAll(anteriores);
 
 					String otp = GeneradorOtp.generarSeisDigitos();
-					OffsetDateTime ahora = OffsetDateTime.now();
 					TokenRecuperacion token = new TokenRecuperacion(
 							usuario,
 							passwordEncoder.encode(otp), // el OTP nunca se guarda en texto plano
@@ -148,7 +192,7 @@ public class RecuperacionContrasenaService {
 				.findFirstByUsuarioIdAndUsadoFalseOrderByCreadoEnDesc(usuario.getId())
 				.orElseThrow(() -> new TokenRecuperacionInvalidoException("Código incorrecto o vencido"));
 
-		if (token.getExpiraEn().isBefore(OffsetDateTime.now())) {
+		if (token.getExpiraEn().isBefore(OffsetDateTime.now(clock))) {
 			token.setUsado(true);
 			tokenRecuperacionRepository.save(token);
 			throw new TokenRecuperacionExpiradoException("El código venció -- solicitá uno nuevo");
