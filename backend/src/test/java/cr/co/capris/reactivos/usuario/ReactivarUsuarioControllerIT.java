@@ -67,14 +67,16 @@ class ReactivarUsuarioControllerIT {
 	}
 
 	@Test
-	void reactivarUnUsuarioInactivoLoMarcaActivo() throws Exception {
+	void reactivarUnUsuarioInactivoConMotivoLoMarcaActivoYRegistraLaBitacora() throws Exception {
 		Long id = usuarioRepository.findByUsername("amelendez").orElseThrow().getId();
 		String token = tokenAdministrador();
 		inactivar(id, token);
 		long registrosBitacoraAntes = bitacoraSeguridadRepository.count();
 
 		mockMvc.perform(post("/api/usuarios/{id}/reactivar", id)
-						.header("Authorization", "Bearer " + token))
+						.header("Authorization", "Bearer " + token)
+						.contentType("application/json")
+						.content(objectMapper.writeValueAsString(new ReactivarUsuarioRequest("Se reincorpora a la empresa"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.estado").value("ACTIVO"));
 
@@ -90,7 +92,8 @@ class ReactivarUsuarioControllerIT {
 		long registrosBitacoraAntes = bitacoraSeguridadRepository.count();
 
 		mockMvc.perform(post("/api/usuarios/{id}/reactivar", id)
-						.header("Authorization", "Bearer " + token))
+						.header("Authorization", "Bearer " + token)
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.estado").value("ACTIVO"));
 
@@ -100,7 +103,8 @@ class ReactivarUsuarioControllerIT {
 	@Test
 	void reactivarUnUsuarioInexistenteDevuelve403AccesoNoAutorizado() throws Exception {
 		mockMvc.perform(post("/api/usuarios/{id}/reactivar", 999_999)
-						.header("Authorization", "Bearer " + tokenAdministrador()))
+						.header("Authorization", "Bearer " + tokenAdministrador())
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
 	}
@@ -110,7 +114,8 @@ class ReactivarUsuarioControllerIT {
 		Long idDiagnostika = usuarioRepository.findByUsername("pruebadiagnostika").orElseThrow().getId();
 
 		mockMvc.perform(post("/api/usuarios/{id}/reactivar", idDiagnostika)
-						.header("Authorization", "Bearer " + tokenAdministrador()))
+						.header("Authorization", "Bearer " + tokenAdministrador())
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
 	}
@@ -120,7 +125,8 @@ class ReactivarUsuarioControllerIT {
 		Long idAdmin = usuarioRepository.findByUsername("wmolina").orElseThrow().getId();
 
 		mockMvc.perform(post("/api/usuarios/{id}/reactivar", idAdmin)
-						.header("Authorization", "Bearer " + tokenUsuarioDeCampo()))
+						.header("Authorization", "Bearer " + tokenUsuarioDeCampo())
+						.contentType("application/json").content("{}"))
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.codigo").value("ACCESO_NO_AUTORIZADO"));
 	}

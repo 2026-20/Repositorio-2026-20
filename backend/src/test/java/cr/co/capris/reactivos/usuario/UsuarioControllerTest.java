@@ -187,18 +187,34 @@ class UsuarioControllerTest {
     // --- reactivar ---
 
     @Test
-    void reactivarUnUsuarioInactivoLoPasaAActivoYRegistraBitacora() {
+    void reactivarUnUsuarioInactivoSinMotivoLoPasaAActivoYRegistraBitacora() {
         when(contextoUsuarioActual.getEmpresaId()).thenReturn(EMPRESA_ID);
         when(contextoUsuarioActual.getUsuarioId()).thenReturn(ADMIN_ID);
         Usuario usuario = usuarioDePrueba(1L, EstadoUsuario.INACTIVO);
         when(usuarioRepository.findByIdAndEmpresaId(1L, EMPRESA_ID)).thenReturn(Optional.of(usuario));
 
-        UsuarioResumenDTO resultado = controller.reactivar(1L);
+        UsuarioResumenDTO resultado = controller.reactivar(1L, null);
 
         assertThat(resultado.estado()).isEqualTo("ACTIVO");
         verify(usuarioRepository).save(usuario);
         verify(bitacoraSeguridadService).registrar(
-                "afernandez", 1L, TipoEventoSeguridad.USUARIO_REACTIVADO, "Reactivado por usuario id=99");
+                "afernandez", 1L, TipoEventoSeguridad.USUARIO_REACTIVADO,
+                "Reactivado por usuario id=99. Motivo: no indicado");
+    }
+
+    @Test
+    void reactivarUnUsuarioInactivoConMotivoLoRegistraEnLaBitacora() {
+        when(contextoUsuarioActual.getEmpresaId()).thenReturn(EMPRESA_ID);
+        when(contextoUsuarioActual.getUsuarioId()).thenReturn(ADMIN_ID);
+        Usuario usuario = usuarioDePrueba(1L, EstadoUsuario.INACTIVO);
+        when(usuarioRepository.findByIdAndEmpresaId(1L, EMPRESA_ID)).thenReturn(Optional.of(usuario));
+
+        UsuarioResumenDTO resultado = controller.reactivar(1L, new ReactivarUsuarioRequest("Se reincorpora"));
+
+        assertThat(resultado.estado()).isEqualTo("ACTIVO");
+        verify(bitacoraSeguridadService).registrar(
+                "afernandez", 1L, TipoEventoSeguridad.USUARIO_REACTIVADO,
+                "Reactivado por usuario id=99. Motivo: Se reincorpora");
     }
 
     @Test
@@ -207,7 +223,7 @@ class UsuarioControllerTest {
         Usuario usuario = usuarioDePrueba(1L, EstadoUsuario.ACTIVO);
         when(usuarioRepository.findByIdAndEmpresaId(1L, EMPRESA_ID)).thenReturn(Optional.of(usuario));
 
-        controller.reactivar(1L);
+        controller.reactivar(1L, null);
 
         verify(usuarioRepository, never()).save(any());
         verify(bitacoraSeguridadService, never()).registrar(any(), any(), any(), any());
