@@ -72,13 +72,12 @@ export default function LoginPage() {
                 empresaId,
             )
         } catch (err) {
-            if (err.codigo === 'CUENTA_BLOQUEADA') {
-                setError('La cuenta se encuentra temporalmente bloqueada.')
-            } else {
-                setError(
-                    err.message || 'Usuario, contraseña o empresa incorrectos.',
-                )
-            }
+            // El backend siempre manda un mensaje ya listo para mostrar (incluye
+            // el caso de cuenta bloqueada, con el tiempo real restante) -- no
+            // hay que reescribirlo aca por codigo, o se pierde ese detalle.
+            setError(
+                err.message || 'Usuario, contraseña o empresa incorrectos.',
+            )
         } finally {
             setEnviando(false)
         }

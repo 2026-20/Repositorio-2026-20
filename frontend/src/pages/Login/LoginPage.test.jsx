@@ -110,3 +110,38 @@ describe('LoginPage - destino tras autenticarse', () => {
         expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
 })
+
+describe('LoginPage - mensajes de error', () => {
+    // Antes esta pantalla reescribía el mensaje de CUENTA_BLOQUEADA por un
+    // texto fijo, así que el tiempo real restante que ahora calcula el
+    // backend nunca llegaba a mostrarse -- este caso evita que eso se repita.
+    it('muestra el mensaje real del backend cuando la cuenta esta bloqueada, sin reescribirlo', async () => {
+        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue([
+            { id: 1, nombre: 'CAPRIS Médica' },
+        ])
+
+        const error = Object.assign(
+            new Error('Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 3 minutos.'),
+            { codigo: 'CUENTA_BLOQUEADA' },
+        )
+        const login = vi.fn().mockRejectedValue(error)
+
+        render(
+            <AuthContext.Provider value={{ login, estaAutenticado: false }}>
+                <MemoryRouter>
+                    <LoginPage />
+                </MemoryRouter>
+            </AuthContext.Provider>,
+        )
+
+        await screen.findByAltText('Logo de CAPRIS Médica')
+
+        fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'wmolina' } })
+        fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'algo' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 3 minutos.',
+        )
+    })
+})

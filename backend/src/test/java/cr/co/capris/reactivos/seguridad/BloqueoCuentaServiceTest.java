@@ -126,7 +126,7 @@ class BloqueoCuentaServiceTest {
 
         assertThatThrownBy(() -> bloqueoCuentaService.registrarIntentoFallido(usuario, "ip:127.0.0.1"))
                 .isInstanceOf(CuentaBloqueadaException.class)
-                .hasMessage(BloqueoCuentaService.MENSAJE_BLOQUEO);
+                .hasMessage("Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 7 minutos.");
 
         verify(usuario).setIntentosFallidos(4);
         verify(usuario).setBloqueadoHasta(bloqueoEsperado);
@@ -154,9 +154,44 @@ class BloqueoCuentaServiceTest {
 
         assertThatThrownBy(() -> bloqueoCuentaService.verificarBloqueo(usuario))
                 .isInstanceOf(CuentaBloqueadaException.class)
-                .hasMessage(BloqueoCuentaService.MENSAJE_BLOQUEO);
+                .hasMessage("Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 7 minutos.");
 
         verify(usuarioRepository, never()).save(usuario);
+    }
+
+    // El mensaje ya no dice "7 minutos" a ciegas -- si alguien reintenta a
+    // mitad del bloqueo, debe ver cuanto le falta de verdad, no el total fijo.
+    @Test
+    void unReintentoAMitadDelBloqueoMuestraElTiempoRealRestante() {
+
+        Instant cuatroMinutosDespues = AHORA.plusSeconds(4 * 60);
+        Clock clockAMitadDelBloqueo = Clock.fixed(cuatroMinutosDespues, ZoneOffset.UTC);
+        BloqueoCuentaService servicioAMitadDelBloqueo =
+                new BloqueoCuentaService(usuarioRepository, bitacoraSeguridadService, clockAMitadDelBloqueo);
+
+        OffsetDateTime bloqueadoHasta = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC).plusMinutes(7);
+        when(usuario.getBloqueadoHasta()).thenReturn(bloqueadoHasta);
+
+        assertThatThrownBy(() -> servicioAMitadDelBloqueo.verificarBloqueo(usuario))
+                .isInstanceOf(CuentaBloqueadaException.class)
+                .hasMessage("Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 3 minutos.");
+    }
+
+    @Test
+    void unReintentoConSegundosSueltosRedondeaHaciaArribaYUsaSingular() {
+
+        Instant seisMinutosConTreintaSegundosDespues = AHORA.plusSeconds(6 * 60 + 30);
+        Clock clockCercaDelFinal = Clock.fixed(seisMinutosConTreintaSegundosDespues, ZoneOffset.UTC);
+        BloqueoCuentaService servicioCercaDelFinal =
+                new BloqueoCuentaService(usuarioRepository, bitacoraSeguridadService, clockCercaDelFinal);
+
+        OffsetDateTime bloqueadoHasta = OffsetDateTime.ofInstant(AHORA, ZoneOffset.UTC).plusMinutes(7);
+        when(usuario.getBloqueadoHasta()).thenReturn(bloqueadoHasta);
+
+        // Faltan 30 segundos -- se redondea hacia arriba a 1 minuto, en singular.
+        assertThatThrownBy(() -> servicioCercaDelFinal.verificarBloqueo(usuario))
+                .isInstanceOf(CuentaBloqueadaException.class)
+                .hasMessage("Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 1 minuto.");
     }
 
     @Test
