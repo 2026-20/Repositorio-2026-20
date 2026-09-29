@@ -69,12 +69,14 @@ export async function crearUsuario(token, datos) {
     return procesarRespuesta(response)
 }
 
-export async function reactivarUsuario(token, id) {
+export async function reactivarUsuario(token, id, motivo) {
     const response = await fetch(`${API_URL}/usuarios/${id}/reactivar`, {
         method: 'POST',
         headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ motivo: motivo || null }),
     })
 
     return procesarRespuesta(response)

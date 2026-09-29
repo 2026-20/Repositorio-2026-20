@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   solicitarRecuperacion,
@@ -21,6 +21,11 @@ import styles from './RecuperarContrasena.module.css'
 // exactamente lo que habría que mover a la URL o a un contexto.
 const PASO = { CORREO: 'correo', OTP: 'otp', NUEVA_CONTRASENA: 'nueva-contrasena', LISTO: 'listo' }
 
+// Debe coincidir con app.email.otp.reenvio-espera-segundos en el backend --
+// ahí es donde de verdad se hace cumplir; esto solo evita que el boton
+// quede habilitado antes de tiempo en la UI.
+const SEGUNDOS_ESPERA_REENVIO = 60
+
 function RecuperarContrasena() {
   const enLinea = useConectividad()
   const prefiereMenosMovimiento = usePrefiereMenosMovimiento()
@@ -32,6 +37,20 @@ function RecuperarContrasena() {
   const [mensaje, setMensaje] = useState(null)
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(false)
+  const [reenviando, setReenviando] = useState(false)
+  const [segundosParaReenvio, setSegundosParaReenvio] = useState(0)
+
+  // Cuenta regresiva del boton "Reenviar codigo", un segundo a la vez,
+  // mientras segundosParaReenvio sea mayor a 0.
+  useEffect(() => {
+    if (segundosParaReenvio <= 0) return undefined
+
+    const temporizador = setTimeout(() => {
+      setSegundosParaReenvio((segundos) => segundos - 1)
+    }, 1000)
+
+    return () => clearTimeout(temporizador)
+  }, [segundosParaReenvio])
 
   // El navegador valida "required"/type="email" con su propio mensaje nativo,
   // en el idioma del sistema operativo o del navegador -- no del sitio. Con
@@ -79,10 +98,31 @@ function RecuperarContrasena() {
       const respuesta = await solicitarRecuperacion(correo)
       setMensaje(respuesta.mensaje)
       setPaso(PASO.OTP)
+      setSegundosParaReenvio(SEGUNDOS_ESPERA_REENVIO)
     } catch (err) {
       setError(err.message)
     } finally {
       setCargando(false)
+    }
+  }
+
+  // El backend usa esta misma llamada para el reenvio -- si todavia no paso
+  // el minuto de espera, responde el mismo mensaje generico de siempre pero
+  // no genera un codigo nuevo. Por eso ademas de deshabilitar el boton
+  // mientras cuenta, no hace falta distinguir ese caso aca: el usuario ve el
+  // mismo resultado que un envio exitoso.
+  async function manejarReenvio() {
+    setError(null)
+    setReenviando(true)
+    try {
+      const respuesta = await solicitarRecuperacion(correo)
+      setMensaje(respuesta.mensaje)
+      setOtp('')
+      setSegundosParaReenvio(SEGUNDOS_ESPERA_REENVIO)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setReenviando(false)
     }
   }
 
@@ -234,6 +274,27 @@ function RecuperarContrasena() {
               />
             </div>
             <p className={styles.info}>El código vence 15 minutos después de haberlo solicitado.</p>
+
+            <p className={styles.ayuda}>
+              ¿No te llegó? Revisá también la carpeta de spam o correo no
+              deseado. Si aun así no aparece, podés pedir uno nuevo con el
+              botón de abajo; si el problema persiste, contactá a un
+              administrador.
+            </p>
+
+            <button
+              type="button"
+              className={styles.botonReenviar}
+              onClick={manejarReenvio}
+              disabled={reenviando || segundosParaReenvio > 0}
+            >
+              {segundosParaReenvio > 0
+                ? `Reenviar código (${segundosParaReenvio}s)`
+                : reenviando
+                  ? 'Reenviando...'
+                  : 'Reenviar código'}
+            </button>
+
             <button type="submit" className={styles.boton} disabled={cargando}>Validar código</button>
           </form>
         )}

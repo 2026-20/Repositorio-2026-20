@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 @Service
@@ -41,7 +42,7 @@ public class BloqueoCuentaService {
         OffsetDateTime ahora = OffsetDateTime.now(clock);
 
         if (bloqueadoHasta.isAfter(ahora)) {
-            throw new CuentaBloqueadaException(MENSAJE_BLOQUEO, bloqueadoHasta);
+            throw new CuentaBloqueadaException(construirMensajeBloqueo(bloqueadoHasta, ahora), bloqueadoHasta);
         }
 
         usuario.setIntentosFallidos(0);
@@ -65,12 +66,13 @@ public class BloqueoCuentaService {
 
         boolean bloqueoActivado = numeroIntento >= MAX_INTENTOS_FALLIDOS;
 
+        OffsetDateTime ahora = OffsetDateTime.now(clock);
         OffsetDateTime bloqueadoHasta = null;
 
         usuario.setIntentosFallidos(numeroIntento);
 
         if (bloqueoActivado) {
-            bloqueadoHasta = OffsetDateTime.now(clock).plusMinutes(MINUTOS_BLOQUEO);
+            bloqueadoHasta = ahora.plusMinutes(MINUTOS_BLOQUEO);
             usuario.setBloqueadoHasta(bloqueadoHasta);
         }
 
@@ -90,8 +92,24 @@ public class BloqueoCuentaService {
                     "Bloqueo automático hasta %s; identificadorCliente=%s"
                             .formatted(bloqueadoHasta, identificadorCliente));
 
-            throw new CuentaBloqueadaException(MENSAJE_BLOQUEO, bloqueadoHasta);
+            throw new CuentaBloqueadaException(construirMensajeBloqueo(bloqueadoHasta, ahora), bloqueadoHasta);
         }
+    }
+
+    /**
+     * Antes se usaba MENSAJE_BLOQUEO (texto fijo, siempre "7 minutos") sin
+     * importar cuanto faltara de verdad para el desbloqueo -- alguien que
+     * reintentaba a la mitad del bloqueo veia el mismo mensaje que alguien
+     * que se acababa de bloquear. bloqueadoHasta ya se calculaba y se
+     * guardaba, solo no se usaba para el mensaje. Redondea hacia arriba
+     * para nunca mostrar "0 minutos" con el bloqueo todavia activo.
+     */
+    private String construirMensajeBloqueo(OffsetDateTime bloqueadoHasta, OffsetDateTime ahora) {
+        long segundosRestantes = Duration.between(ahora, bloqueadoHasta).getSeconds();
+        long minutosRestantes = Math.max(1, (segundosRestantes + 59) / 60);
+        String unidad = minutosRestantes == 1 ? "minuto" : "minutos";
+        return "Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en %d %s."
+                .formatted(minutosRestantes, unidad);
     }
 
     public void reiniciarIntentosTrasLoginExitoso(Usuario usuario) {

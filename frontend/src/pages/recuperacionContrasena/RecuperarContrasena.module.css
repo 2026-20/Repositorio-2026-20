@@ -122,6 +122,28 @@
     line-height: var(--line-height-base);
 }
 
+.botonReenviar {
+    align-self: center;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.botonReenviar:hover:not(:disabled) {
+    text-decoration: underline;
+}
+
+.botonReenviar:disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
 .boton {
     display: flex;
     align-items: center;

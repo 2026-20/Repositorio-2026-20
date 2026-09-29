@@ -25,7 +25,10 @@ export default function UsersPage() {
     const [motivo, setMotivo] = useState('')
     const [inactivando, setInactivando] = useState(false)
     const [desbloqueandoId, setDesbloqueandoId] = useState(null)
-    const [reactivandoId, setReactivandoId] = useState(null)
+
+    const [usuarioAReactivar, setUsuarioAReactivar] = useState(null)
+    const [motivoReactivar, setMotivoReactivar] = useState('')
+    const [reactivando, setReactivando] = useState(false)
 
     const [mostrarCrear, setMostrarCrear] = useState(false)
     const [creando, setCreando] = useState(false)
@@ -163,14 +166,26 @@ export default function UsersPage() {
         }
     }
 
-    async function reactivar(usuario) {
+    function abrirConfirmacionReactivar(usuario) {
+        setUsuarioAReactivar(usuario)
+        setMotivoReactivar('')
+    }
+
+    function cerrarConfirmacionReactivar() {
+        if (reactivando) return
+        setUsuarioAReactivar(null)
+        setMotivoReactivar('')
+    }
+
+    async function confirmarReactivacion() {
         try {
-            setReactivandoId(usuario.id)
+            setReactivando(true)
             setError('')
 
             const actualizado = await reactivarUsuario(
                 token,
-                usuario.id,
+                usuarioAReactivar.id,
+                motivoReactivar.trim(),
             )
 
             setUsuarios((actual) =>
@@ -180,12 +195,15 @@ export default function UsersPage() {
                         : item,
                 ),
             )
+
+            setUsuarioAReactivar(null)
+            setMotivoReactivar('')
         } catch {
             setError(
                 'No fue posible reactivar al usuario. Intente nuevamente.',
             )
         } finally {
-            setReactivandoId(null)
+            setReactivando(false)
         }
     }
 
@@ -293,12 +311,9 @@ export default function UsersPage() {
                                         <button
                                             type="button"
                                             className={styles.botonReactivar}
-                                            onClick={() => reactivar(usuario)}
-                                            disabled={reactivandoId === usuario.id}
+                                            onClick={() => abrirConfirmacionReactivar(usuario)}
                                         >
-                                            {reactivandoId === usuario.id
-                                                ? 'Reactivando...'
-                                                : 'Reactivar'}
+                                            Reactivar
                                         </button>
                                     ) : (
                                         <button
@@ -344,6 +359,38 @@ export default function UsersPage() {
                         value={motivo}
                         onChange={(event) => setMotivo(event.target.value)}
                         disabled={inactivando}
+                        rows={3}
+                    />
+                </ConfirmDialog>
+            )}
+
+            {usuarioAReactivar && (
+                <ConfirmDialog
+                    titulo="Reactivar usuario"
+                    confirmando={reactivando}
+                    textoConfirmar="Reactivar"
+                    variante="primaria"
+                    onConfirmar={confirmarReactivacion}
+                    onCancelar={cerrarConfirmacionReactivar}
+                >
+                    <p>
+                        ¿Está seguro de que desea reactivar a{' '}
+                        <strong>{usuarioAReactivar.nombreCompleto}</strong> (usuario{' '}
+                        <strong>{usuarioAReactivar.username}</strong>)?
+                    </p>
+
+                    <p>
+                        Podrá volver a iniciar sesión de inmediato con sus credenciales.
+                    </p>
+
+                    <label htmlFor="motivo-reactivacion">Motivo (opcional)</label>
+
+                    <textarea
+                        id="motivo-reactivacion"
+                        className={styles.motivo}
+                        value={motivoReactivar}
+                        onChange={(event) => setMotivoReactivar(event.target.value)}
+                        disabled={reactivando}
                         rows={3}
                     />
                 </ConfirmDialog>

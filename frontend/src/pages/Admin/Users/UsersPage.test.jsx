@@ -141,7 +141,35 @@ describe('UsersPage', () => {
         expect(screen.getAllByRole('button', { name: 'Inactivar' })).toHaveLength(1)
     })
 
-    it('reactiva un usuario y actualiza el estado en la tabla', async () => {
+    it('pide confirmacion mostrando nombre y username antes de reactivar', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+
+        renderUsersPage()
+
+        await screen.findByText('Adrián Arce Soto')
+        fireEvent.click(screen.getByRole('button', { name: 'Reactivar' }))
+
+        const dialogo = screen.getByRole('alertdialog')
+
+        expect(dialogo).toHaveTextContent('Adrián Arce Soto')
+        expect(dialogo).toHaveTextContent('arcea')
+    })
+
+    it('cancela la reactivacion sin llamar al backend', async () => {
+        vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
+        const reactivarSpy = vi.spyOn(usuarioService, 'reactivarUsuario')
+
+        renderUsersPage()
+
+        await screen.findByText('Adrián Arce Soto')
+        fireEvent.click(screen.getByRole('button', { name: 'Reactivar' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(reactivarSpy).not.toHaveBeenCalled()
+    })
+
+    it('confirma la reactivacion y actualiza el estado en la tabla', async () => {
         vi.spyOn(usuarioService, 'listarUsuarios').mockResolvedValue(usuarios)
         vi.spyOn(usuarioService, 'reactivarUsuario').mockResolvedValue({
             ...usuarios[1],
@@ -153,13 +181,18 @@ describe('UsersPage', () => {
         await screen.findByText('Adrián Arce Soto')
         fireEvent.click(screen.getByRole('button', { name: 'Reactivar' }))
 
+        const dialogo = screen.getByRole('alertdialog')
+        fireEvent.click(within(dialogo).getByRole('button', { name: 'Reactivar' }))
+
         await waitFor(() => {
             expect(usuarioService.reactivarUsuario).toHaveBeenCalledWith(
                 TOKEN_DE_PRUEBA,
                 2,
+                '',
             )
         })
 
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
         expect(screen.getAllByText('ACTIVO')).toHaveLength(2)
     })
 
