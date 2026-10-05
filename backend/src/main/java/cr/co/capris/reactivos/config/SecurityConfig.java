@@ -82,6 +82,12 @@ public class SecurityConfig {
 								"/api/usuarios/*/reactivar",
 								"/api/usuarios/*/desbloquear"
 						).hasRole("Administrador")
+						// HU-037 (stopgap manual, ver SUPUESTO en Bodega sobre codUsu):
+						// solo un Administrador asigna bodegas a un Usuario de Campo.
+						.requestMatchers(
+								HttpMethod.PATCH,
+								"/api/auditoria/visitas/*/*/asignacion"
+						).hasRole("Administrador")
 						.anyRequest().authenticated()
 				)
 

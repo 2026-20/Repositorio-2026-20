@@ -1,5 +1,7 @@
 package cr.co.capris.reactivos.seguridad;
 
+import cr.co.capris.reactivos.auditoria.JornadaNoIniciadaException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -93,5 +95,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> manejar(AccesoNoAutorizadoException ex) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 				.body(ErrorResponse.de("ACCESO_NO_AUTORIZADO", ex.getMessage()));
+	}
+
+	// HU-038 criterio 4.
+	@ExceptionHandler(JornadaNoIniciadaException.class)
+	public ResponseEntity<ErrorResponse> manejar(JornadaNoIniciadaException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.de("JORNADA_NO_INICIADA", ex.getMessage()));
 	}
 }
