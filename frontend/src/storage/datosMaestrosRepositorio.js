@@ -3,6 +3,22 @@ import { abrirBaseLocal, cerrarBaseLocal, consultar, ejecutar } from './baseDato
 const NOMBRE_ARCHIVO = 'datos-maestros.db'
 const CLAVE_ULTIMA_SINCRONIZACION = 'ultima_sincronizacion_en'
 
+// AccessHandlePoolVFS (el VFS de OPFS que usa baseDatosLocal.js) no soporta
+// acceso concurrente -- confirmado en un navegador real: si dos funciones
+// de este modulo abren una sesion sobre el mismo archivo al mismo tiempo
+// (ej. la pantalla pidiendo la ultima sincronizacion justo cuando el login
+// dispara una sincronizacion nueva), la segunda falla con "Access Handles
+// cannot be created if there is another open Access Handle...". Por eso
+// todas las funciones de aqui abajo pasan por esta cola -- nunca hay mas
+// de una sesion abierta a la vez contra el almacenamiento local.
+let colaOperaciones = Promise.resolve()
+
+function encolar(operacion) {
+    const resultado = colaOperaciones.then(operacion, operacion)
+    colaOperaciones = resultado.catch(() => {})
+    return resultado
+}
+
 // HU-003 criterio 4: "los datos descargados quedan asociados unicamente al
 // usuario que inicio sesion". Cada usuario tiene su propio directorio OPFS
 // (y por lo tanto su propia base/archivo) -- si otro usuario inicia sesion
@@ -14,22 +30,36 @@ function directorioParaUsuario(usuarioId) {
     return `capris/usuario-${usuarioId}`
 }
 
+// Las 4 tablas en una sola llamada (un solo viaje de ida y vuelta al
+// worker): ninguna necesita parametros, asi que sqlite3.run() las puede
+// ejecutar todas de una, como cualquier script SQL con varias sentencias
+// separadas por ";". crearEsquema() se llama en cada funcion exportada de
+// este modulo (es idempotente, "IF NOT EXISTS"), asi que esto evita 4
+// round-trips de mas en cada una.
 async function crearEsquema(sesion) {
     await ejecutar(
         sesion,
+        // cod_bod NO es unico por si solo -- el ERP reusa el mismo codigo
+        // de bodega bajo distinto tipo_bod/num_con (ej. "MEPRIN" como ENT
+        // y como DEV). Mismo problema, y misma clave compuesta, que el
+        // equipo ya tuvo que corregir en la entidad Bodega del backend
+        // (ver javadoc de esa clase) -- confirmado con datos reales al
+        // probar esta pantalla.
         `CREATE TABLE IF NOT EXISTS bodegas (
-            cod_bod TEXT PRIMARY KEY,
+            cod_bod TEXT NOT NULL,
             des_bod TEXT NOT NULL,
             num_con TEXT NOT NULL,
-            tipo_bod TEXT NOT NULL
-        )`,
-    )
-    await ejecutar(
-        sesion,
-        // cantidad_teorica/cantidad_minima se guardan como TEXT (no REAL):
-        // son BigDecimal en el backend (precision 14, escala 4) y un float
-        // de SQLite perderia precision en el viaje de ida y vuelta.
-        `CREATE TABLE IF NOT EXISTS detalle_bodega (
+            tipo_bod TEXT NOT NULL,
+            PRIMARY KEY (cod_bod, num_con, tipo_bod)
+        );
+        -- cantidad_teorica/cantidad_minima se guardan como TEXT (no REAL):
+        -- son BigDecimal en el backend (precision 14, escala 4) y un float
+        -- de SQLite perderia precision en el viaje de ida y vuelta.
+        --
+        -- cod_art tampoco es unico por bodega solo con cod_bod -- el mismo
+        -- articulo puede estar bajo dos contratos distintos de la misma
+        -- bodega. Mismo caso que arriba, confirmado con datos reales.
+        CREATE TABLE IF NOT EXISTS detalle_bodega (
             cod_bod TEXT NOT NULL,
             cod_art TEXT NOT NULL,
             des_art TEXT NOT NULL,
@@ -37,26 +67,20 @@ async function crearEsquema(sesion) {
             indicador_lote INTEGER NOT NULL,
             num_con TEXT NOT NULL,
             cantidad_minima TEXT,
-            PRIMARY KEY (cod_bod, cod_art)
-        )`,
-    )
-    await ejecutar(
-        sesion,
-        `CREATE TABLE IF NOT EXISTS lote_bodega (
+            PRIMARY KEY (cod_bod, cod_art, num_con)
+        );
+        CREATE TABLE IF NOT EXISTS lote_bodega (
             cod_bod TEXT NOT NULL,
             cod_art TEXT NOT NULL,
             num_lote TEXT NOT NULL,
             fecha_vencimiento TEXT,
             cantidad TEXT NOT NULL,
             PRIMARY KEY (cod_bod, cod_art, num_lote)
-        )`,
-    )
-    await ejecutar(
-        sesion,
-        `CREATE TABLE IF NOT EXISTS metadatos_sincronizacion (
+        );
+        CREATE TABLE IF NOT EXISTS metadatos_sincronizacion (
             clave TEXT PRIMARY KEY,
             valor TEXT NOT NULL
-        )`,
+        );`,
     )
 }
 
@@ -67,7 +91,7 @@ async function crearEsquema(sesion) {
  * este modulo no sabe nada de HTTP ni de conectividad, solo de persistir
  * lo que se le pasa.
  */
-export async function reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega }) {
+async function reemplazarCatalogosInterno(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega }) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -83,15 +107,25 @@ export async function reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodeg
                     'INSERT INTO bodegas (cod_bod, des_bod, num_con, tipo_bod) VALUES (?, ?, ?, ?)',
                     [bodega.codBod, bodega.desBod, bodega.numCon, bodega.tipoBod],
                 )
+            }
 
-                for (const detalle of detallesPorBodega[bodega.codBod] ?? []) {
+            // El detalle y los lotes los expone el backend agrupados solo
+            // por cod_bod (no por num_con/tipo_bod) -- un mismo cod_bod
+            // puede aparecer en varias filas de "bodegas" (ver arriba), asi
+            // que se insertan una sola vez por cod_bod distinto, no una vez
+            // por cada fila de bodega (eso duplicaria las filas e insertaria
+            // la misma clave dos veces).
+            const codigosBodegaUnicos = [...new Set(bodegas.map((bodega) => bodega.codBod))]
+
+            for (const codBod of codigosBodegaUnicos) {
+                for (const detalle of detallesPorBodega[codBod] ?? []) {
                     await ejecutar(
                         sesion,
                         `INSERT INTO detalle_bodega
                             (cod_bod, cod_art, des_art, cantidad_teorica, indicador_lote, num_con, cantidad_minima)
                             VALUES (?, ?, ?, ?, ?, ?, ?)`,
                         [
-                            bodega.codBod,
+                            codBod,
                             detalle.codArt,
                             detalle.desArt,
                             String(detalle.cantidadTeorica),
@@ -102,12 +136,12 @@ export async function reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodeg
                     )
                 }
 
-                for (const lote of lotesPorBodega[bodega.codBod] ?? []) {
+                for (const lote of lotesPorBodega[codBod] ?? []) {
                     await ejecutar(
                         sesion,
                         `INSERT INTO lote_bodega (cod_bod, cod_art, num_lote, fecha_vencimiento, cantidad)
                             VALUES (?, ?, ?, ?, ?)`,
-                        [bodega.codBod, lote.codArt, lote.numLote, lote.fechaVencimiento, String(lote.cantidad)],
+                        [codBod, lote.codArt, lote.numLote, lote.fechaVencimiento, String(lote.cantidad)],
                     )
                 }
             }
@@ -132,7 +166,7 @@ export async function reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodeg
     }
 }
 
-export async function obtenerUltimaSincronizacion(usuarioId) {
+async function obtenerUltimaSincronizacionInterno(usuarioId) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -145,7 +179,7 @@ export async function obtenerUltimaSincronizacion(usuarioId) {
     }
 }
 
-export async function obtenerBodegas(usuarioId) {
+async function obtenerBodegasInterno(usuarioId) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -156,7 +190,7 @@ export async function obtenerBodegas(usuarioId) {
     }
 }
 
-export async function obtenerDetalleBodega(usuarioId, codBod) {
+async function obtenerDetalleBodegaInterno(usuarioId, codBod) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -179,7 +213,7 @@ export async function obtenerDetalleBodega(usuarioId, codBod) {
     }
 }
 
-export async function obtenerLotesBodega(usuarioId, codBod) {
+async function obtenerLotesBodegaInterno(usuarioId, codBod) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -197,4 +231,27 @@ export async function obtenerLotesBodega(usuarioId, codBod) {
     } finally {
         await cerrarBaseLocal(sesion)
     }
+}
+
+// Unica puerta de entrada publica de este modulo: todo pasa por encolar()
+// para que nunca haya dos sesiones abiertas a la vez contra el mismo
+// archivo (ver comentario de encolar() arriba).
+export function reemplazarCatalogos(usuarioId, datos) {
+    return encolar(() => reemplazarCatalogosInterno(usuarioId, datos))
+}
+
+export function obtenerUltimaSincronizacion(usuarioId) {
+    return encolar(() => obtenerUltimaSincronizacionInterno(usuarioId))
+}
+
+export function obtenerBodegas(usuarioId) {
+    return encolar(() => obtenerBodegasInterno(usuarioId))
+}
+
+export function obtenerDetalleBodega(usuarioId, codBod) {
+    return encolar(() => obtenerDetalleBodegaInterno(usuarioId, codBod))
+}
+
+export function obtenerLotesBodega(usuarioId, codBod) {
+    return encolar(() => obtenerLotesBodegaInterno(usuarioId, codBod))
 }

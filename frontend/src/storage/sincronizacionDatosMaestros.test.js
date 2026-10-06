@@ -44,6 +44,29 @@ describe('sincronizarDatosMaestros', () => {
         expect(resultado).toBe('2026-10-05T20:00:00.000Z')
     })
 
+    it('no pide el detalle/lotes dos veces si el mismo cod_bod aparece en mas de una bodega', async () => {
+        // Bug real: el ERP reusa cod_bod bajo distinto tipo_bod/num_con
+        // (ver datosMaestrosRepositorio.js). El backend expone el detalle
+        // agrupado solo por cod_bod, asi que pedirlo una vez por fila de
+        // bodega es trabajo de mas (y causaba inserciones duplicadas).
+        const bodegaComoEnt = { ...BODEGA, tipoBod: 'ENT' }
+        const bodegaComoDev = { ...BODEGA, tipoBod: 'DEV', numCon: '8743' }
+        listarBodegas.mockResolvedValue([bodegaComoEnt, bodegaComoDev])
+        listarDetalleBodega.mockResolvedValue([])
+        listarLotesBodega.mockResolvedValue([])
+        reemplazarCatalogos.mockResolvedValue('2026-10-05T20:00:00.000Z')
+
+        await sincronizarDatosMaestros(7, 'jwt-prueba')
+
+        expect(listarDetalleBodega).toHaveBeenCalledTimes(1)
+        expect(listarLotesBodega).toHaveBeenCalledTimes(1)
+        expect(reemplazarCatalogos).toHaveBeenCalledWith(7, {
+            bodegas: [bodegaComoEnt, bodegaComoDev],
+            detallesPorBodega: { MEPRIN: [] },
+            lotesPorBodega: { MEPRIN: [] },
+        })
+    })
+
     it('no llama al backend si no hay conexion, y no toca el almacenamiento local (criterio 3)', async () => {
         vi.spyOn(globalThis.navigator, 'onLine', 'get').mockReturnValue(false)
 

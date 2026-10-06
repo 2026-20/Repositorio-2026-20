@@ -47,11 +47,16 @@ export async function sincronizarDatosMaestros(usuarioId, token) {
 
     const bodegas = await sinFalsoPositivoDeRed(listarBodegas(token))
 
+    // El backend expone el detalle/lotes de una bodega agrupados solo por
+    // cod_bod -- si "bodegas" trae el mismo cod_bod en mas de una fila (el
+    // ERP reusa el codigo bajo distinto tipo_bod/num_con, ver
+    // datosMaestrosRepositorio.js), no hay que pedirlo dos veces.
     const detallesPorBodega = {}
     const lotesPorBodega = {}
-    for (const bodega of bodegas) {
-        detallesPorBodega[bodega.codBod] = await sinFalsoPositivoDeRed(listarDetalleBodega(token, bodega.codBod))
-        lotesPorBodega[bodega.codBod] = await sinFalsoPositivoDeRed(listarLotesBodega(token, bodega.codBod))
+    const codigosBodegaUnicos = [...new Set(bodegas.map((bodega) => bodega.codBod))]
+    for (const codBod of codigosBodegaUnicos) {
+        detallesPorBodega[codBod] = await sinFalsoPositivoDeRed(listarDetalleBodega(token, codBod))
+        lotesPorBodega[codBod] = await sinFalsoPositivoDeRed(listarLotesBodega(token, codBod))
     }
 
     return reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega })
