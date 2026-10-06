@@ -65,3 +65,12 @@ app:
       expiracion-minutos: 15 # criterio de aceptación 3
       intentos-maximos: 3    # criterio de aceptación 5
       reenvio-espera-segundos: 60 # botón "Reenviar código" en el paso del OTP
+
+  # Autenticacion servidor-a-servidor para los endpoints internos de ingesta
+  # (/api/auditoria/ingesta/**) -- no es un usuario con JWT, es el futuro
+  # servidor puente FTP el que llama esto. Secreto de desarrollo local
+  # UNICAMENTE -- en produccion se sobreescribe con la variable de entorno
+  # APP_AUDITORIA_INGESTA_API_KEY (nunca commitear el secreto real).
+  auditoria:
+    ingesta:
+      api-key: ${APP_AUDITORIA_INGESTA_API_KEY:dev-only-ingesta-key-cambiar-en-produccion}

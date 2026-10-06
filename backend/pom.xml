@@ -90,6 +90,16 @@
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+
+		<!-- Lectura de los XML de auditoria que manda el ERP por FTP (ver paquete
+		     cr.co.capris.reactivos.auditoria). Se descarto jackson-dataformat-xml:
+		     no tiene version compatible con Jackson 3 (el que usa Spring Boot 4.1.1
+		     para todo lo demas; confirmado con "mvn dependency:tree", trae su
+		     propia pila de Jackson 2.x en paralelo). El formato ROWSET/ROW es
+		     tags planos sin anidamiento, asi que un lector StAX propio
+		     (AuditoriaRowReader, usa solo javax.xml.stream del JDK) es mas
+		     directo y no depende de ninguna libreria externa. -->
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa-test</artifactId>

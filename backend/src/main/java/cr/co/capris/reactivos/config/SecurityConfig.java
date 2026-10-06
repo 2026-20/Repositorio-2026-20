@@ -1,5 +1,6 @@
 package cr.co.capris.reactivos.config;
 
+import cr.co.capris.reactivos.auditoria.AuditoriaIngestaApiKeyFilter;
 import cr.co.capris.reactivos.auth.JwtAuthenticationFilter;
 import cr.co.capris.reactivos.seguridad.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,16 +29,25 @@ import java.io.IOException;
  * /api/auth/login y /api/empresas son las unicas rutas publicas; el resto exige un
  * JWT valido (JwtAuthenticationFilter deja el request sin autenticar si falta, esta
  * vencido, o el usuario fue inactivado -- ver HU-048).
+ *
+ * /api/auditoria/ingesta/** es la unica excepcion a "todo es JWT de usuario":
+ * esa es la entrada del futuro servidor puente FTP, que no es un usuario --
+ * se autentica con una API key (ver AuditoriaIngestaApiKeyFilter).
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final AuditoriaIngestaApiKeyFilter auditoriaIngestaApiKeyFilter;
 	private final ObjectMapper objectMapper;
 
-	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, ObjectMapper objectMapper) {
+	public SecurityConfig(
+			JwtAuthenticationFilter jwtAuthenticationFilter,
+			AuditoriaIngestaApiKeyFilter auditoriaIngestaApiKeyFilter,
+			ObjectMapper objectMapper) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+		this.auditoriaIngestaApiKeyFilter = auditoriaIngestaApiKeyFilter;
 		this.objectMapper = objectMapper;
 	}
 
@@ -82,11 +92,28 @@ public class SecurityConfig {
 								"/api/usuarios/*/reactivar",
 								"/api/usuarios/*/desbloquear"
 						).hasRole("Administrador")
+						// HU-037 (stopgap manual, ver SUPUESTO en Bodega sobre codUsu):
+						// solo un Administrador asigna bodegas a un Usuario de Campo.
+						.requestMatchers(
+								HttpMethod.PATCH,
+								"/api/auditoria/visitas/*/*/asignacion"
+						).hasRole("Administrador")
+						// Entrada servidor-a-servidor para el futuro servidor puente FTP --
+						// no es un usuario, se autentica por API key (ver
+						// AuditoriaIngestaApiKeyFilter), nunca con un rol de usuario normal.
+						.requestMatchers(
+								HttpMethod.POST,
+								"/api/auditoria/ingesta/**"
+						).hasRole("SISTEMA_INGESTA")
 						.anyRequest().authenticated()
 				)
 
 				.addFilterBefore(
 						jwtAuthenticationFilter,
+						UsernamePasswordAuthenticationFilter.class
+				)
+				.addFilterBefore(
+						auditoriaIngestaApiKeyFilter,
 						UsernamePasswordAuthenticationFilter.class
 				);
 

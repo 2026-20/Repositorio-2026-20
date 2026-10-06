@@ -113,7 +113,7 @@ Esta contraseña compartida es **exclusiva de desarrollo local** — nunca se us
 
 Mientras una cuenta siga con contraseña temporal (`PENDIENTE_PRIMER_INGRESO`), `JwtAuthenticationFilter` la restringe a solo cambiar su contraseña o cerrar sesión, sin importar el rol.
 
-**Pendiente**: integración con el ERP institucional (validar activo, cargar rutas, iniciar jornada).
+**Pendiente**: validar activo contra el ERP institucional. Cargar rutas e iniciar jornada ya tienen una primera versión — ver "Auditoría de reactivos" más abajo.
 
 ### Recuperación de contraseña (OTP)
 
@@ -202,6 +202,56 @@ credenciales por correo (ver `EmailService` arriba).
 Inactivar y reactivar un usuario exigen rol Administrador, quedan
 registrados en la bitácora de seguridad, e inactivar revoca de inmediato
 las sesiones activas de ese usuario.
+
+### Auditoría de reactivos (ERP)
+
+El ERP institucional manda 6 tipos de XML (catálogo de bodegas, detalle y
+lotes de inventario, estado de visita, movimientos pendientes) — hoy se
+reciben como archivo (el transporte real por FTP todavía no está
+conectado, ver "Pendiente" más abajo). Paquete `auditoria/`:
+
+- **`AuditoriaRowReader`** (lector StAX propio, sin librería externa)
+  parsea cada archivo tolerando filas individuales con datos inválidos:
+  esa fila se descarta y se loguea, el resto del archivo se procesa
+  normal.
+- **`AuditoriaIngestaService`** mapea cada fila a su entidad y la guarda
+  con upsert por clave natural; cada fila corre en su propia transacción
+  (`AuditoriaFilaTransaccional`), así que una fila que falle al guardarse
+  no revierte las que ya se confirmaron en la misma corrida.
+- **`ConteoFisico`**: el registro de lo que el Usuario de Campo contó
+  físicamente (vs. la cantidad teórica del ERP). Pensado para
+  sincronización offline-first — el cliente genera una clave de
+  idempotencia al registrar localmente, así un reintento de sync no
+  duplica el conteo.
+- **`Jornada`**: confirmar el inicio de la jornada de un Usuario de
+  Campo; no se puede registrar un conteo sin una jornada confirmada ese
+  día.
+- **Asignación de visitas**: hoy es manual (un Administrador asigna
+  bodega + fecha a un Usuario de Campo desde la app) — el ERP decide esa
+  asignación internamente y todavía no la manda en ningún XML.
+
+**Endpoints** (`/api/auditoria/...`):
+
+| Método | Endpoint | Qué hace |
+|---|---|---|
+| `GET` | `/bodegas`, `/bodegas/{codBod}/detalle`, `/bodegas/{codBod}/lotes` | Catálogo recibido del ERP |
+| `GET` | `/visitas` (filtros `asignadoAUsuarioId`, `fecha`, `estadoApp`) | Visitas, con estado de avance propio (`Pendiente`/`En progreso`/`Finalizada`) |
+| `PATCH` | `/visitas/{numCon}/{codBod}/estado` | Mover el estado de avance de una visita |
+| `PATCH` | `/visitas/{numCon}/{codBod}/asignacion` | Asignar una visita a un Usuario de Campo (solo Administrador) |
+| `POST` | `/conteos` | Registrar un conteo físico (idempotente) |
+| `GET` | `/conteos?codBod=` | Conteos ya registrados en una bodega |
+| `POST` | `/jornadas/iniciar` | Confirmar el inicio de jornada del usuario autenticado |
+| `GET` | `/jornadas/hoy` | Consultar si la jornada de hoy ya está confirmada |
+
+**Pendiente** (bloqueado por el proveedor del ERP, contactado y sin
+respuesta todavía):
+- Transporte real por FTP (hoy los XML se procesan como archivo, no se
+  reciben de un servidor FTP todavía).
+- Formato del XML de salida (el conteo validado de vuelta hacia el ERP).
+- Mapeo de la empresa del ERP a la empresa real de este sistema (CAPRIS
+  Médica / Diagnostika) — bloquea filtrar bodegas por empresa activa.
+- Si la asignación real de auditor-bodega viene en la estructura de
+  carpetas del FTP (resolvería la asignación manual de arriba).
 
 ### Apariencia
 

@@ -1,5 +1,7 @@
 package cr.co.capris.reactivos.seguridad;
 
+import cr.co.capris.reactivos.auditoria.JornadaNoIniciadaException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -93,5 +95,22 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> manejar(AccesoNoAutorizadoException ex) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN)
 				.body(ErrorResponse.de("ACCESO_NO_AUTORIZADO", ex.getMessage()));
+	}
+
+	// HU-038 criterio 4.
+	@ExceptionHandler(JornadaNoIniciadaException.class)
+	public ResponseEntity<ErrorResponse> manejar(JornadaNoIniciadaException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.de("JORNADA_NO_INICIADA", ex.getMessage()));
+	}
+
+	// AuditoriaRowReader (XML mal formado) e IdentificadorVisita (nombre de
+	// archivo que no calza) lanzan esta -- por convencion, IllegalArgumentException
+	// significa "quien llamo mando algo invalido", asi que mapearla a 400 aca
+	// aplica para cualquier caso futuro igual, no solo estos dos.
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<ErrorResponse> manejar(IllegalArgumentException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ErrorResponse.de("SOLICITUD_INVALIDA", ex.getMessage()));
 	}
 }
