@@ -5,4 +5,5 @@ export const paths = {
     dashboard: '/dashboard',
     usuarios: '/admin/usuarios',
     ajustes: '/ajustes',
+    sincronizacion: '/sincronizacion',
 }

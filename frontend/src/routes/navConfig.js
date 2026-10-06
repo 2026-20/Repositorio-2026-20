@@ -35,6 +35,12 @@ export const NAV_ITEMS = [
         descripcion: 'Transmisión al ERP, trazabilidad y reportes (F04)',
     },
     {
+        label: 'Sincronización',
+        path: paths.sincronizacion,
+        icon: 'sync',
+        disponible: true,
+    },
+    {
         label: 'Usuarios',
         path: paths.usuarios,
         icon: 'usuarios',

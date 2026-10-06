@@ -10,6 +10,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
 import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
+import SincronizacionPage from '../pages/Sync/SincronizacionPage'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
 import { paths } from './paths'
@@ -59,6 +60,11 @@ export default function AppRoutes() {
                 <Route
                     path={paths.ajustes}
                     element={<AjustesPage />}
+                />
+
+                <Route
+                    path={paths.sincronizacion}
+                    element={<SincronizacionPage />}
                 />
             </Route>
 
