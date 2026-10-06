@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: ftp-gateway
+
+server:
+  port: 8081
+
+# Valores de desarrollo local -- apuntan al FTP de prueba (ver README.md
+# de este proyecto para levantarlo con Docker) y al backend corriendo en
+# localhost:8080. En produccion se sobreescriben con variables de entorno
+# (nunca comitear credenciales reales del FTP del ERP).
+app:
+  ftp:
+    host: ${APP_FTP_HOST:localhost}
+    port: ${APP_FTP_PORT:2121}
+    usuario: ${APP_FTP_USUARIO:capris}
+    password: ${APP_FTP_PASSWORD:capris_dev}
+    directorio-remoto: ${APP_FTP_DIRECTORIO_REMOTO:/}
+    intervalo-polling-segundos: ${APP_FTP_INTERVALO_POLLING_SEGUNDOS:30}
+
+  backend:
+    base-url: ${APP_BACKEND_BASE_URL:http://localhost:8080}
+    # Mismo valor que app.auditoria.ingesta.api-key en el backend
+    # (application.yml de ese proyecto) -- en produccion, la misma
+    # variable de entorno APP_AUDITORIA_INGESTA_API_KEY de un lado y
+    # APP_BACKEND_API_KEY del otro deben tener el mismo valor.
+    api-key: ${APP_BACKEND_API_KEY:dev-only-ingesta-key-cambiar-en-produccion}
+    timeout-conexion-segundos: ${APP_BACKEND_TIMEOUT_CONEXION_SEGUNDOS:10}
+    timeout-lectura-segundos: ${APP_BACKEND_TIMEOUT_LECTURA_SEGUNDOS:30}
