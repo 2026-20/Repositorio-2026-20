@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { AuthContext } from '../context/AuthContext'
+import { SincronizacionContext } from '../context/SincronizacionContext'
 import AppRoutes from './AppRoutes'
 
 function renderConSesion(entrada, rol = 'Administrador') {
@@ -21,11 +22,13 @@ function renderConSesion(entrada, rol = 'Administrador') {
                 logout: vi.fn(),
             }}
         >
-            <MemoryRouter
-                initialEntries={[entrada]}
-            >
-                <AppRoutes />
-            </MemoryRouter>
+            <SincronizacionContext.Provider value={{ estado: 'inactivo', error: null, ultimaSincronizacion: null, sincronizar: vi.fn() }}>
+                <MemoryRouter
+                    initialEntries={[entrada]}
+                >
+                    <AppRoutes />
+                </MemoryRouter>
+            </SincronizacionContext.Provider>
         </AuthContext.Provider>,
     )
 }
@@ -52,6 +55,14 @@ describe('AppRoutes', () => {
 
         expect(
             await screen.findByRole('heading', { name: 'Accesos' }),
+        ).toBeInTheDocument()
+    })
+
+    it('monta /sincronizacion y renderiza la pantalla de HU-003', async () => {
+        renderConSesion('/sincronizacion')
+
+        expect(
+            await screen.findByRole('heading', { name: 'Sincronización' }),
         ).toBeInTheDocument()
     })
 

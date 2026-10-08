@@ -7,11 +7,14 @@ import '@fontsource/inter/600.css'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthProvider.jsx'
+import { SincronizacionProvider } from './context/SincronizacionProvider.jsx'
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <AuthProvider>
-            <App />
+            <SincronizacionProvider>
+                <App />
+            </SincronizacionProvider>
         </AuthProvider>
     </StrictMode>,
 )
