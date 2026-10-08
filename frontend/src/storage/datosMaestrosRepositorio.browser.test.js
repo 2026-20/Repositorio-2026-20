@@ -4,6 +4,7 @@ import {
     obtenerBodegas,
     obtenerDetalleBodega,
     obtenerLotesBodega,
+    obtenerRuta,
     obtenerUltimaSincronizacion,
     reemplazarCatalogos,
 } from './datosMaestrosRepositorio.js'
@@ -120,5 +121,60 @@ describe('datosMaestrosRepositorio', () => {
         const detalle = await obtenerDetalleBodega(USUARIO_A, 'MEPRIN')
         expect(detalle).toHaveLength(2)
         expect(detalle.map((d) => d.numCon).sort()).toEqual(['12555', '8743'].sort())
+    })
+
+    // HU-037: la ruta vive como JSON en metadatos_sincronizacion (sin tabla
+    // propia, ver CLAVE_RUTA) y tiene que quedar disponible sin red.
+    describe('ruta (HU-037)', () => {
+        const PARADA = {
+            codBod: 'MEPRIN',
+            desBod: 'Bodega Medicamentos Principal',
+            numCon: '123',
+            objCon: 'Reactivos',
+            estadoErp: 'PEND',
+            estadoApp: 'PENDIENTE',
+            fechaAsignada: '2026-10-01',
+        }
+
+        it('guarda la ruta junto con el catalogo y la devuelve tal cual', async () => {
+            await reemplazarCatalogos(USUARIO_A, {
+                bodegas: [BODEGA_MEPRIN],
+                detallesPorBodega: {},
+                lotesPorBodega: {},
+                ruta: [PARADA],
+            })
+
+            expect(await obtenerRuta(USUARIO_A)).toEqual([PARADA])
+        })
+
+        it('una sincronizacion nueva reemplaza la ruta anterior', async () => {
+            await reemplazarCatalogos(USUARIO_A, { bodegas: [], detallesPorBodega: {}, lotesPorBodega: {}, ruta: [PARADA] })
+            await reemplazarCatalogos(USUARIO_A, { bodegas: [], detallesPorBodega: {}, lotesPorBodega: {}, ruta: [] })
+
+            expect(await obtenerRuta(USUARIO_A)).toEqual([])
+        })
+
+        it('la ruta de un usuario no es visible para otro (criterio 2)', async () => {
+            await reemplazarCatalogos(USUARIO_A, { bodegas: [], detallesPorBodega: {}, lotesPorBodega: {}, ruta: [PARADA] })
+
+            expect(await obtenerRuta(USUARIO_B)).toEqual([])
+        })
+
+        it('si el reemplazo falla a medio camino, la ruta anterior queda intacta (todo o nada)', async () => {
+            await reemplazarCatalogos(USUARIO_A, { bodegas: [], detallesPorBodega: {}, lotesPorBodega: {}, ruta: [PARADA] })
+
+            // Dos bodegas con la misma clave primaria -> el INSERT revienta
+            // antes de llegar a guardar la ruta nueva, y se hace ROLLBACK.
+            await expect(
+                reemplazarCatalogos(USUARIO_A, {
+                    bodegas: [BODEGA_MEPRIN, BODEGA_MEPRIN],
+                    detallesPorBodega: {},
+                    lotesPorBodega: {},
+                    ruta: [],
+                }),
+            ).rejects.toThrow()
+
+            expect(await obtenerRuta(USUARIO_A)).toEqual([PARADA])
+        })
     })
 })

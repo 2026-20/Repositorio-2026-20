@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { listarBodegas, listarDetalleBodega, listarLotesBodega } from '../services/auditoriaService.js'
+import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerMiRuta } from '../services/auditoriaService.js'
+import { hayCambiosPendientesDeSubir } from './cambiosPendientes.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
-import { ErrorSinConexion, sincronizarDatosMaestros } from './sincronizacionDatosMaestros.js'
+import { ErrorCambiosPendientes, ErrorSinConexion, sincronizarDatosMaestros } from './sincronizacionDatosMaestros.js'
 
 vi.mock('../services/auditoriaService.js', () => ({
     listarBodegas: vi.fn(),
     listarDetalleBodega: vi.fn(),
     listarLotesBodega: vi.fn(),
+    obtenerMiRuta: vi.fn(),
+}))
+
+vi.mock('./cambiosPendientes.js', () => ({
+    hayCambiosPendientesDeSubir: vi.fn(),
 }))
 
 vi.mock('./datosMaestrosRepositorio.js', () => ({
@@ -15,10 +21,21 @@ vi.mock('./datosMaestrosRepositorio.js', () => ({
 }))
 
 const BODEGA = { codBod: 'MEPRIN', desBod: 'Bodega Principal', numCon: '123', tipoBod: 'CLI' }
+const PARADA = {
+    codBod: 'MEPRIN',
+    desBod: 'Bodega Principal',
+    numCon: '123',
+    objCon: 'Reactivos',
+    estadoErp: 'PEND',
+    estadoApp: 'PENDIENTE',
+    fechaAsignada: '2026-10-07',
+}
 
 describe('sincronizarDatosMaestros', () => {
     beforeEach(() => {
         vi.spyOn(globalThis.navigator, 'onLine', 'get').mockReturnValue(true)
+        hayCambiosPendientesDeSubir.mockResolvedValue(false)
+        obtenerMiRuta.mockResolvedValue([PARADA])
     })
 
     afterEach(() => {
@@ -36,10 +53,12 @@ describe('sincronizarDatosMaestros', () => {
         expect(listarBodegas).toHaveBeenCalledWith('jwt-prueba')
         expect(listarDetalleBodega).toHaveBeenCalledWith('jwt-prueba', 'MEPRIN')
         expect(listarLotesBodega).toHaveBeenCalledWith('jwt-prueba', 'MEPRIN')
+        expect(obtenerMiRuta).toHaveBeenCalledWith('jwt-prueba')
         expect(reemplazarCatalogos).toHaveBeenCalledWith(7, {
             bodegas: [BODEGA],
             detallesPorBodega: { MEPRIN: [{ codArt: 'ART1', cantidadTeorica: 10 }] },
             lotesPorBodega: { MEPRIN: [{ codArt: 'ART1', numLote: 'L1', cantidad: 10 }] },
+            ruta: [PARADA],
         })
         expect(resultado).toBe('2026-10-05T20:00:00.000Z')
     })
@@ -64,6 +83,7 @@ describe('sincronizarDatosMaestros', () => {
             bodegas: [bodegaComoEnt, bodegaComoDev],
             detallesPorBodega: { MEPRIN: [] },
             lotesPorBodega: { MEPRIN: [] },
+            ruta: [PARADA],
         })
     })
 
@@ -97,6 +117,26 @@ describe('sincronizarDatosMaestros', () => {
         listarBodegas.mockResolvedValue([BODEGA, { ...BODEGA, codBod: 'OTRA' }])
         listarDetalleBodega.mockResolvedValueOnce([]).mockRejectedValueOnce(new TypeError('Failed to fetch'))
         listarLotesBodega.mockResolvedValue([])
+
+        await expect(sincronizarDatosMaestros(7, 'jwt-prueba')).rejects.toBeInstanceOf(ErrorSinConexion)
+
+        expect(reemplazarCatalogos).not.toHaveBeenCalled()
+    })
+
+    it('HU-037: si hay cambios sin subir, no descarga nada ni toca el almacenamiento local', async () => {
+        hayCambiosPendientesDeSubir.mockResolvedValue(true)
+
+        await expect(sincronizarDatosMaestros(7, 'jwt-prueba')).rejects.toBeInstanceOf(ErrorCambiosPendientes)
+
+        expect(hayCambiosPendientesDeSubir).toHaveBeenCalledWith(7)
+        expect(listarBodegas).not.toHaveBeenCalled()
+        expect(obtenerMiRuta).not.toHaveBeenCalled()
+        expect(reemplazarCatalogos).not.toHaveBeenCalled()
+    })
+
+    it('HU-037: si falla la descarga de la ruta, no reemplaza el catalogo local (la ruta anterior se conserva)', async () => {
+        listarBodegas.mockResolvedValue([BODEGA])
+        obtenerMiRuta.mockRejectedValue(new TypeError('Failed to fetch'))
 
         await expect(sincronizarDatosMaestros(7, 'jwt-prueba')).rejects.toBeInstanceOf(ErrorSinConexion)
 

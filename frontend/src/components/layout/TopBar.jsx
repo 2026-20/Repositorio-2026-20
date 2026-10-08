@@ -8,10 +8,10 @@ import styles from './TopBar.module.css'
 // duplica aqui con una hamburguesa, para evitar dos botones que abren lo
 // mismo con un icono que ademas sugeria un comportamiento distinto
 // (panel lateral) al que en realidad tenia (hoja inferior).
-export default function TopBar({ usuario, onCerrarSesion }) {
+export default function TopBar({ usuario, empresaNombre, onCerrarSesion }) {
     return (
         <header className={styles.topBar}>
-            <span className={styles.marcaMovil}>CAPRIS</span>
+            <span className={styles.marcaMovil}>{empresaNombre || 'CAPRIS'}</span>
 
             <div className={styles.acciones}>
                 <ThemeToggle />

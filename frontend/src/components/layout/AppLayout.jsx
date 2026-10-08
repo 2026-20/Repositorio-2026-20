@@ -46,11 +46,12 @@ export default function AppLayout() {
                 onTerminar={ocultarBienvenida}
             />
 
-            <Sidebar rolUsuario={usuario?.rol} />
+            <Sidebar rolUsuario={usuario?.rol} empresaNombre={usuario?.empresaNombre} />
 
             <div className={styles.contenido}>
                 <TopBar
                     usuario={usuario}
+                    empresaNombre={usuario?.empresaNombre}
                     onCerrarSesion={manejarCerrarSesion}
                 />
 

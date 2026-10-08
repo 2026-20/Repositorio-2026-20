@@ -8,6 +8,7 @@ import AppLayout from '../components/layout/AppLayout'
 import AjustesPage from '../pages/Settings/AjustesPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
+import MiRutaPage from '../pages/Ruta/MiRutaPage'
 import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import SincronizacionPage from '../pages/Sync/SincronizacionPage'
@@ -65,6 +66,11 @@ export default function AppRoutes() {
                 <Route
                     path={paths.sincronizacion}
                     element={<SincronizacionPage />}
+                />
+
+                <Route
+                    path={paths.miRuta}
+                    element={<MiRutaPage />}
                 />
             </Route>
 

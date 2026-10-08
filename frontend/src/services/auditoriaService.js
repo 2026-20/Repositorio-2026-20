@@ -61,3 +61,17 @@ export async function listarLotesBodega(token, codBod) {
 
     return procesarRespuesta(response)
 }
+
+/**
+ * HU-037: bodegas asignadas al usuario del token que todavia no estan
+ * finalizadas, sin filtro de fecha (ver RutaController en el backend).
+ */
+export async function obtenerMiRuta(token) {
+    const response = await fetch(`${API_URL}/auditoria/visitas/mi-ruta`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}

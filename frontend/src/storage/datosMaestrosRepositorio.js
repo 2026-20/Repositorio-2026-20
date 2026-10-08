@@ -3,6 +3,13 @@ import { abrirBaseLocal, cerrarBaseLocal, consultar, ejecutar } from './baseDato
 const NOMBRE_ARCHIVO = 'datos-maestros.db'
 const CLAVE_ULTIMA_SINCRONIZACION = 'ultima_sincronizacion_en'
 
+// HU-037: la ruta del usuario se guarda como JSON en metadatos_sincronizacion
+// en vez de en una tabla propia (decision del equipo: no crear tablas
+// nuevas). Son pocas decenas de paradas que siempre se leen completas, asi
+// que no hace falta consultarlas con SQL -- y guardarla aqui la deja dentro
+// de la misma transaccion que el catalogo (ver reemplazarCatalogosInterno).
+const CLAVE_RUTA = 'ruta_paradas'
+
 // AccessHandlePoolVFS (el VFS de OPFS que usa baseDatosLocal.js) no soporta
 // acceso concurrente -- confirmado en un navegador real: si dos funciones
 // de este modulo abren una sesion sobre el mismo archivo al mismo tiempo
@@ -91,7 +98,7 @@ async function crearEsquema(sesion) {
  * este modulo no sabe nada de HTTP ni de conectividad, solo de persistir
  * lo que se le pasa.
  */
-async function reemplazarCatalogosInterno(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega }) {
+async function reemplazarCatalogosInterno(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega, ruta = [] }) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
         await crearEsquema(sesion)
@@ -146,6 +153,12 @@ async function reemplazarCatalogosInterno(usuarioId, { bodegas, detallesPorBodeg
                 }
             }
 
+            await ejecutar(sesion, 'DELETE FROM metadatos_sincronizacion WHERE clave = ?', [CLAVE_RUTA])
+            await ejecutar(sesion, 'INSERT INTO metadatos_sincronizacion (clave, valor) VALUES (?, ?)', [
+                CLAVE_RUTA,
+                JSON.stringify(ruta),
+            ])
+
             const ahoraIso = new Date().toISOString()
             await ejecutar(sesion, 'DELETE FROM metadatos_sincronizacion WHERE clave = ?', [
                 CLAVE_ULTIMA_SINCRONIZACION,
@@ -174,6 +187,23 @@ async function obtenerUltimaSincronizacionInterno(usuarioId) {
             CLAVE_ULTIMA_SINCRONIZACION,
         ])
         return resultado.rows[0]?.[0] ?? null
+    } finally {
+        await cerrarBaseLocal(sesion)
+    }
+}
+
+// HU-037: lee la ruta guardada en la ultima sincronizacion exitosa -- sin
+// red de por medio, asi que funciona igual sin conexion. Sin sincronizacion
+// previa devuelve [].
+async function obtenerRutaInterno(usuarioId) {
+    const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
+    try {
+        await crearEsquema(sesion)
+        const resultado = await consultar(sesion, 'SELECT valor FROM metadatos_sincronizacion WHERE clave = ?', [
+            CLAVE_RUTA,
+        ])
+        const valor = resultado.rows[0]?.[0]
+        return valor ? JSON.parse(valor) : []
     } finally {
         await cerrarBaseLocal(sesion)
     }
@@ -242,6 +272,10 @@ export function reemplazarCatalogos(usuarioId, datos) {
 
 export function obtenerUltimaSincronizacion(usuarioId) {
     return encolar(() => obtenerUltimaSincronizacionInterno(usuarioId))
+}
+
+export function obtenerRuta(usuarioId) {
+    return encolar(() => obtenerRutaInterno(usuarioId))
 }
 
 export function obtenerBodegas(usuarioId) {

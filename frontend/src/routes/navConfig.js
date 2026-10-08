@@ -17,6 +17,12 @@ export const NAV_ITEMS = [
         disponible: true,
     },
     {
+        label: 'Mi ruta',
+        path: paths.miRuta,
+        icon: 'ruta',
+        disponible: true,
+    },
+    {
         label: 'Conteo',
         icon: 'conteo',
         disponible: false,

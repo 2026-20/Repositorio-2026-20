@@ -6,4 +6,5 @@ export const paths = {
     usuarios: '/admin/usuarios',
     ajustes: '/ajustes',
     sincronizacion: '/sincronizacion',
+    miRuta: '/mi-ruta',
 }

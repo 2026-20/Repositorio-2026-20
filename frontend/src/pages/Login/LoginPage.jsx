@@ -70,6 +70,7 @@ export default function LoginPage() {
                 username.trim(),
                 contrasena,
                 empresaId,
+                empresaSeleccionada?.nombre,
             )
         } catch (err) {
             // El backend siempre manda un mensaje ya listo para mostrar (incluye
