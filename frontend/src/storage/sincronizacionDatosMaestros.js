@@ -1,10 +1,20 @@
-import { listarBodegas, listarDetalleBodega, listarLotesBodega } from '../services/auditoriaService.js'
+import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerMiRuta } from '../services/auditoriaService.js'
+import { hayCambiosPendientesDeSubir } from './cambiosPendientes.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
 
 export class ErrorSinConexion extends Error {
     constructor() {
         super('No hay conexion a internet. Los datos de la ultima sincronizacion no se modificaron.')
         this.name = 'ErrorSinConexion'
+    }
+}
+
+// HU-037: ver cambiosPendientes.js -- reemplazar el almacenamiento local
+// con cambios sin subir los perderia.
+export class ErrorCambiosPendientes extends Error {
+    constructor() {
+        super('Hay cambios sin enviar. Envíelos antes de sincronizar para no perderlos.')
+        this.name = 'ErrorCambiosPendientes'
     }
 }
 
@@ -29,14 +39,18 @@ async function sinFalsoPositivoDeRed(promesaHttp) {
 }
 
 /**
- * HU-003. Descarga el catalogo completo (bodegas + su detalle + sus lotes)
- * y reemplaza el almacenamiento local de ese usuario de forma atomica.
+ * HU-003 / HU-037. Descarga el catalogo completo (bodegas + su detalle + sus
+ * lotes) y la ruta asignada al usuario, y reemplaza el almacenamiento local de ese usuario de forma atomica.
  *
  * Criterio 3 ("los datos descargados previamente permanecen sin
  * modificacion" si falla): el reemplazo en el almacenamiento local
  * (reemplazarCatalogos) solo se llama si TODAS las descargas tuvieron
  * exito. Si cualquiera falla a medio camino, no se toca el almacenamiento
  * local en absoluto -- no hay un estado intermedio posible.
+ *
+ * La ruta (HU-037) va en esa misma transaccion: la ruta y el detalle con que
+ * se va a contar quedan siempre del mismo snapshot, y una ruta ya descargada
+ * sigue disponible offline hasta la proxima sincronizacion exitosa.
  *
  * Devuelve la fecha/hora ISO de la sincronizacion (criterio 1).
  */
@@ -45,7 +59,12 @@ export async function sincronizarDatosMaestros(usuarioId, token) {
         throw new ErrorSinConexion()
     }
 
+    if (await hayCambiosPendientesDeSubir(usuarioId)) {
+        throw new ErrorCambiosPendientes()
+    }
+
     const bodegas = await sinFalsoPositivoDeRed(listarBodegas(token))
+    const ruta = await sinFalsoPositivoDeRed(obtenerMiRuta(token))
 
     // El backend expone el detalle/lotes de una bodega agrupados solo por
     // cod_bod -- si "bodegas" trae el mismo cod_bod en mas de una fila (el
@@ -59,5 +78,5 @@ export async function sincronizarDatosMaestros(usuarioId, token) {
         lotesPorBodega[codBod] = await sinFalsoPositivoDeRed(listarLotesBodega(token, codBod))
     }
 
-    return reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega })
+    return reemplazarCatalogos(usuarioId, { bodegas, detallesPorBodega, lotesPorBodega, ruta })
 }

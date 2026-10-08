@@ -49,6 +49,20 @@
     color: var(--sidebar-text);
 }
 
+.wordmarkCompleto {
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .wordmarkCompleto {
+        display: inline;
+    }
+
+    .wordmarkCorto {
+        display: none;
+    }
+}
+
 .nav {
     display: flex;
     flex-direction: column;

@@ -24,7 +24,10 @@ export function AuthProvider({ children }) {
     // ya activa.
     const [mostrarBienvenida, setMostrarBienvenida] = useState(false)
 
-    async function login(username, contrasena, empresaId) {
+    // empresaNombre no lo devuelve el backend en el login: lo conoce la
+    // pantalla de login (selector de empresa) y se guarda en la sesion para
+    // mostrar la marca de la empresa activa en el menu (Sidebar/TopBar).
+    async function login(username, contrasena, empresaId, empresaNombre) {
 
         const respuesta = await iniciarSesion(
             username,
@@ -37,6 +40,7 @@ export function AuthProvider({ children }) {
             nombreCompleto: respuesta.nombreCompleto,
             rol: respuesta.rol,
             debeCambiarContrasena: respuesta.debeCambiarContrasena,
+            empresaNombre,
         }
 
         setUsuario(usuarioAutenticado)

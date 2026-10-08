@@ -10,6 +10,7 @@ import {
     LogOut,
     Moon,
     RefreshCw,
+    Route,
     Settings,
     Sun,
     User,
@@ -39,6 +40,7 @@ const ICONOS = {
     ojoOculto: EyeOff,
     cerrar: X,
     sync: RefreshCw,
+    ruta: Route,
 }
 
 export default function Icon({ name, size = 20, className }) {

@@ -23,6 +23,12 @@ describe('HU-003 - Sincronizacion de catalogos maestros', () => {
             statusCode: 200,
             body: [],
         }).as('lotes')
+
+        // HU-037: la sincronizacion tambien descarga la ruta del usuario.
+        cy.intercept('GET', '**/api/auditoria/visitas/mi-ruta', {
+            statusCode: 200,
+            body: [],
+        }).as('miRuta')
     })
 
     it('sincroniza automaticamente al entrar con sesion activa (criterio 1) y muestra el resultado', () => {
