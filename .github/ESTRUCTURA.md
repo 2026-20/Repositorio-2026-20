@@ -12,7 +12,7 @@ Spring Boot (Java 17, Maven). Paquete base: `cr.co.capris.reactivos`.
 | `auth/` | HU-001 (login), versión mínima pero funcional: `AutenticacionController` (`POST /api/auth/login`), `JwtService` (emite/valida el JWT), `JwtAuthenticationFilter` (lo lee en cada petición) y `ContextoUsuarioActualImpl` (implementación real del contrato de `seguridad/`). No cubre todavía todos los criterios de aceptación de HU-001 — ver `README.md` sección "Sprint 1" para el detalle de qué falta. |
 | `seguridad/` | Infraestructura compartida para las HUs de seguridad del Sprint 1 — **no implementa ninguna HU en particular**, son contratos y piezas base: interfaces `ContextoUsuarioActual` (ya tiene implementación real en `auth/`) y `ValidadorPoliticaContrasena` (todavía sin implementación), `TokenRecuperacion` (recuperación de contraseña), `BitacoraSeguridad` + `BitacoraSeguridadService` (auditoría), las excepciones de dominio (incluye `SesionNoValidaException` y `AccesoNoAutorizadoException`, de HU-023) y el `GlobalExceptionHandler`. Ver `README.md` sección "Sprint 1" para el detalle de qué HU implementa qué. |
 | `config/` | `SecurityConfig` (BCrypt + registra el filtro JWT; `authorizeHttpRequests` ya exige sesión válida en toda ruta excepto `/api/auth/login` y `/api/empresas` — el rechazo sin JWT devuelve el mismo `ErrorResponse` con código `SESION_NO_VALIDA` que usaría `GlobalExceptionHandler`, porque este rechazo ocurre en el filtro de Spring Security, antes de llegar a un controlador) y `WebConfig` (CORS para el frontend en desarrollo). |
-| `auditoria/` | Ingesta de los 6 XML del ERP y lo construido encima: `xml/` (DTOs de parseo + `AuditoriaRowReader`, lector StAX propio), las 6 entidades del snapshot del ERP (`Bodega`, `ResultadoVisita`, `DetalleBodega`, `LoteBodega`, `MovimientoPendiente`, `LoteMovimiento`) con sus repositorios, `AuditoriaXmlMapper` + `AuditoriaIngestaService` (upsert por clave natural, cada fila en su propia transacción vía `AuditoriaFilaTransaccional`), y la base de Sprint 2: `ConteoFisico`, `Jornada`, asignación manual de visitas. Varios supuestos/parches documentados explícitamente en el javadoc de cada clase (formato de salida al ERP sin confirmar, mapeo de empresa sin resolver, asignación de rutas manual mientras no llega el dato real del ERP) — ver `README.md` sección "Auditoría de reactivos" para el resumen y qué sigue pendiente. |
+| `auditoria/` | Ingesta de los 6 XML del ERP y lo construido encima: `xml/` (DTOs de parseo + `AuditoriaRowReader`, lector StAX propio), las 6 entidades del snapshot del ERP (`Bodega`, `ResultadoVisita`, `DetalleBodega`, `LoteBodega`, `MovimientoPendiente`, `LoteMovimiento`) con sus repositorios, `AuditoriaXmlMapper` + `AuditoriaIngestaService` (upsert por clave natural, cada fila en su propia transacción vía `AuditoriaFilaTransaccional`), la base de Sprint 2 (`ConteoFisico`, `Jornada`, asignación manual de visitas) y las lecturas para la PWA: `BodegaConsultaController` (`GET /api/auditoria/bodegas`, `/bodegas/{codBod}/detalle`, `/bodegas/{codBod}/lotes`) exponiendo `BodegaResumenDTO`, `DetalleBodegaResumenDTO` y `LoteBodegaResumenDTO` — los que alimentan la descarga offline del HU-003. Varios supuestos/parches documentados explícitamente en el javadoc de cada clase (formato de salida al ERP sin confirmar, mapeo de empresa sin resolver, asignación de rutas manual mientras no llega el dato real del ERP) — ver `README.md` secciones "Auditoría de reactivos" y "Sincronización de catálogos maestros (HU-003)" para el resumen y qué sigue pendiente. |
 
 ### Convención multiempresa (HU-023)
 
@@ -38,7 +38,7 @@ Toda entidad visible al usuario autenticado (no solo `Usuario`) debe aislarse po
 
 ## Frontend (`frontend/`)
 
-React + Vite, JavaScript puro (sin TypeScript). Hoy es solo estructura de carpetas — sin implementación todavía.
+React + Vite, JavaScript puro (sin TypeScript).
 
 | Carpeta | Qué va ahí |
 |---|---|
@@ -46,7 +46,8 @@ React + Vite, JavaScript puro (sin TypeScript). Hoy es solo estructura de carpet
 | `pages/` | Una carpeta por pantalla (`Login`, `Dashboard`, `Products`, `Admin/Users`...). |
 | `context/` | Contextos de React (Auth, Theme, Connectivity...) — Context API + hooks nativos, sin Redux/Zustand. |
 | `hooks/` | Hooks reutilizables sin JSX. |
-| `services/` | Funciones que llaman al backend real (nada de mocks — eso quedó solo en la demo de referencia). |
+| `services/` | Funciones que llaman al backend real (nada de mocks — eso quedó solo en la demo de referencia). Ej.: `auditoriaService.js` (catálogos de bodegas/artículos/lotes para el HU-003). |
+| `storage/` | Persistencia local offline-first: wa-sqlite + OPFS (`baseDatosLocal.js`), `datosMaestrosRepositorio.js` (base por usuario `capris/usuario-<id>`) y `sincronizacionDatosMaestros.js` (descarga de catálogos del HU-003). |
 | `utils/` | Funciones puras sin estado. |
 | `styles/` | Tokens de diseño y estilos base globales. |
 | `routes/` | Configuración de React Router. |

@@ -253,6 +253,33 @@ respuesta todavía):
 - Si la asignación real de auditor-bodega viene en la estructura de
   carpetas del FTP (resolvería la asignación manual de arriba).
 
+### Sincronización de catálogos maestros (HU-003)
+
+La PWA descarga los catálogos maestros (bodegas, artículos con cantidad
+teórica y lotes/vencimientos) para poder contar sin conexión a campo. Es
+offline-first: los datos se guardan en el navegador del usuario y todo el
+registro de trabajo (conteos, jornadas) se hace contra esa copia local.
+
+- **Descarga automática al iniciar sesión** (`SincronizacionProvider` en
+  `frontend/src/context/`, disparada desde `AppLayout`) — criterio de
+  aceptación 1; la pantalla **Sincronización** (`/sincronizacion`,
+  `pages/Sync/SincronizacionPage.jsx`) permite ver el estado y forzarla a
+  mano (criterio 3).
+- **Endpoints que consume** (`frontend/src/services/auditoriaService.js`):
+  `GET /api/auditoria/bodegas` (catálogo de bodegas),
+  `GET /api/auditoria/bodegas/{codBod}/detalle` (artículos y cantidad
+  teórica), `GET /api/auditoria/bodegas/{codBod}/lotes` (lotes y
+  vencimientos) — ver `BodegaConsultaController`.
+- **Almacenamiento local por usuario** (criterio 4): wa-sqlite + OPFS en
+  `frontend/src/storage/` (`datos-maestros.db`), un directorio OPFS por
+  usuario (`capris/usuario-<id>`) — sin columnas de `usuario_id` para
+  filtrar, cada usuario tiene su propia base. El registro conectado
+  (`ConteoFisico`) genera la clave de idempotencia localmente, así un
+  reintento de sincronización no duplica.
+- **Falta (bloqueado por el ERP)**: el mapeo `codOrg` → empresa real y el
+  transporte FTP mencionados arriba; mientras tanto los catálogos cargan
+  sin filtro de empresa.
+
 ### Apariencia
 
 Modo claro/oscuro con elección explícita desde Ajustes; la preferencia
