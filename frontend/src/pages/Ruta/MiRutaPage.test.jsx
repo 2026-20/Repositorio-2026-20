@@ -81,6 +81,32 @@ describe('MiRutaPage', () => {
         expect(within(grupoHoy).getByText('En progreso')).toBeInTheDocument()
     })
 
+    it('agrupa bajo un solo titulo las bodegas del mismo dia y mantiene las de dias siguientes', async () => {
+        obtenerRuta.mockResolvedValue([
+            parada('B1', 'Hospital Mexico', fechaLocal(0)),
+            parada('B2', 'Clinica Biblica', fechaLocal(0)),
+            parada('B3', 'Clinica de pasado manana', fechaLocal(2)),
+        ])
+
+        renderPagina()
+
+        const grupoHoy = (await screen.findByText('Hospital Mexico')).closest('section')
+        expect(within(grupoHoy).getByText('Clinica Biblica')).toBeInTheDocument()
+        expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2)
+
+        const grupoFuturo = screen.getByText('Clinica de pasado manana').closest('section')
+        expect(within(grupoFuturo).getByRole('heading')).toHaveTextContent(diaEscrito(fechaLocal(2)))
+    })
+
+    it('agrupa aparte las bodegas sin fecha asignada', async () => {
+        obtenerRuta.mockResolvedValue([parada('HSJD', 'Hospital San Juan de Dios', null)])
+
+        renderPagina()
+
+        const grupo = (await screen.findByText('Hospital San Juan de Dios')).closest('section')
+        expect(within(grupo).getByRole('heading')).toHaveTextContent('Sin fecha asignada')
+    })
+
     it('muestra la ruta guardada sin conexion, con un aviso', async () => {
         vi.stubGlobal('navigator', { ...navigator, onLine: false })
         obtenerRuta.mockResolvedValue([parada('HSJD', 'Hospital San Juan de Dios', fechaLocal(0))])
