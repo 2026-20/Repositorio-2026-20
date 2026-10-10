@@ -75,3 +75,30 @@ export async function obtenerMiRuta(token) {
 
     return procesarRespuesta(response)
 }
+
+/**
+ * HU-038: confirmar el inicio de la jornada del usuario autenticado para
+ * hoy. Idempotente del lado del backend (ver JornadaService.iniciar):
+ * llamarlo de nuevo el mismo dia no crea una segunda jornada.
+ */
+export async function iniciarJornada(token) {
+    const response = await fetch(`${API_URL}/auditoria/jornadas/iniciar`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}
+
+/** HU-038: consultar si la jornada de hoy del usuario ya esta confirmada. */
+export async function obtenerEstadoJornada(token) {
+    const response = await fetch(`${API_URL}/auditoria/jornadas/hoy`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}

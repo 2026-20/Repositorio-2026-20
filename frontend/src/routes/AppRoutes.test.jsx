@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import { AuthContext } from '../context/AuthContext'
+import { JornadaContext } from '../context/JornadaContext'
 import { SincronizacionContext } from '../context/SincronizacionContext'
 import AppRoutes from './AppRoutes'
 
@@ -23,11 +24,13 @@ function renderConSesion(entrada, rol = 'Administrador') {
             }}
         >
             <SincronizacionContext.Provider value={{ estado: 'inactivo', error: null, ultimaSincronizacion: null, sincronizar: vi.fn() }}>
-                <MemoryRouter
-                    initialEntries={[entrada]}
-                >
-                    <AppRoutes />
-                </MemoryRouter>
+                <JornadaContext.Provider value={{ iniciada: false, iniciadaEn: null, cargando: false, confirmando: false, error: null, confirmarInicio: vi.fn() }}>
+                    <MemoryRouter
+                        initialEntries={[entrada]}
+                    >
+                        <AppRoutes />
+                    </MemoryRouter>
+                </JornadaContext.Provider>
             </SincronizacionContext.Provider>
         </AuthContext.Provider>,
     )

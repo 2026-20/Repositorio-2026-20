@@ -3,6 +3,48 @@
     color: var(--color-text-muted);
 }
 
+.jornada {
+    margin-bottom: var(--space-5);
+}
+
+.jornadaIniciada {
+    display: inline-block;
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-primary-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-primary-bg);
+    color: var(--color-success);
+    font-weight: 600;
+    margin: 0;
+}
+
+.jornadaAviso {
+    margin: var(--space-2) 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.9em;
+}
+
+.botonIniciarJornada {
+    min-height: var(--touch-target-min);
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: var(--color-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.botonIniciarJornada:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.botonIniciarJornada:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .aviso {
     margin-bottom: var(--space-4);
     padding: var(--space-3);

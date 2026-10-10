@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react'
 
+import ConfirmDialog from '../../components/feedback/ConfirmDialog'
 import { useAuth } from '../../context/useAuth'
+import { useJornada } from '../../context/useJornada'
 import { useSincronizacion } from '../../context/useSincronizacion'
 import { useConectividad } from '../../hooks/useConectividad'
 import { obtenerRuta } from '../../storage/datosMaestrosRepositorio.js'
+import { hoyLocal } from '../../utils/fecha.js'
 import styles from './MiRutaPage.module.css'
 
 const ETIQUETA_ESTADO = {
     PENDIENTE: 'Pendiente',
     EN_PROGRESO: 'En progreso',
-}
-
-// "YYYY-MM-DD" en hora local del dispositivo -- el mismo formato en que el
-// backend manda fechaAsignada (LocalDate), asi que se pueden comparar como
-// texto. toISOString() no sirve: daria la fecha en UTC.
-function hoyLocal() {
-    const ahora = new Date()
-    const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-    const dia = String(ahora.getDate()).padStart(2, '0')
-    return `${ahora.getFullYear()}-${mes}-${dia}`
 }
 
 function formatearDia(fechaIso) {
@@ -67,9 +60,25 @@ export default function MiRutaPage() {
     const { usuario } = useAuth()
     const { estado, ultimaSincronizacion } = useSincronizacion()
     const enLinea = useConectividad()
+    const {
+        iniciada: jornadaIniciada,
+        iniciadaEn: jornadaIniciadaEn,
+        confirmando: confirmandoJornada,
+        error: errorJornada,
+        confirmarInicio,
+    } = useJornada()
 
     const [paradas, setParadas] = useState(null)
     const [errorLectura, setErrorLectura] = useState(false)
+    const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+
+    // Se cierra el dialogo solo cuando la jornada queda realmente
+    // confirmada (nunca en el mismo instante del clic): si confirmarInicio
+    // falla, errorJornada queda visible y el dialogo sigue abierto para
+    // reintentar sin tener que volver a abrirlo.
+    useEffect(() => {
+        if (jornadaIniciada) setMostrarConfirmacion(false)
+    }, [jornadaIniciada])
 
     // Se vuelve a leer cuando termina una sincronizacion (ultimaSincronizacion
     // cambia) -- la descarga automatica de AppLayout puede terminar despues
@@ -97,9 +106,64 @@ export default function MiRutaPage() {
 
     const hoy = hoyLocal()
 
+    // HU-038 criterios 1 y 5: solo se puede confirmar el inicio de jornada
+    // una vez que la ruta terminó de cargar SIN error, Y ÚNICAMENTE si tiene
+    // al menos una bodega asignada -- sin bodegas no hay nada que contar
+    // hoy, asi que no tiene sentido ofrecer "Iniciar jornada".
+    const rutaCargada = paradas !== null && !errorLectura
+    const tieneBodegasAsignadas = rutaCargada && paradas.length > 0
+
     return (
         <main>
             <h1>Mi ruta</h1>
+
+            <section className={styles.jornada}>
+                {jornadaIniciada ? (
+                    <p className={styles.jornadaIniciada} role="status">
+                        Jornada iniciada · {formatearFechaHora(jornadaIniciadaEn)}
+                    </p>
+                ) : (
+                    <>
+                        <button
+                            type="button"
+                            className={styles.botonIniciarJornada}
+                            disabled={!tieneBodegasAsignadas}
+                            onClick={() => setMostrarConfirmacion(true)}
+                        >
+                            Iniciar jornada
+                        </button>
+
+                        {!rutaCargada && (
+                            <p className={styles.jornadaAviso}>Esperando a que se cargue la ruta asignada…</p>
+                        )}
+
+                        {rutaCargada && !tieneBodegasAsignadas && (
+                            <p className={styles.jornadaAviso}>
+                                No tiene bodegas asignadas: no es posible iniciar jornada.
+                            </p>
+                        )}
+                    </>
+                )}
+            </section>
+
+            {mostrarConfirmacion && (
+                <ConfirmDialog
+                    titulo="Iniciar jornada"
+                    confirmando={confirmandoJornada}
+                    textoConfirmar={errorJornada ? 'Reintentar' : 'Iniciar'}
+                    variante="primaria"
+                    onConfirmar={confirmarInicio}
+                    onCancelar={() => setMostrarConfirmacion(false)}
+                >
+                    <p>¿Confirma el inicio de su jornada de hoy?</p>
+
+                    {errorJornada && (
+                        <p className={styles.error} role="alert">
+                            No fue posible confirmar el inicio de jornada. Intente de nuevo.
+                        </p>
+                    )}
+                </ConfirmDialog>
+            )}
 
             <p className={styles.estadoLinea}>
                 Ruta sincronizada:{' '}
