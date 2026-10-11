@@ -332,9 +332,13 @@ registro de trabajo (conteos, jornadas) se hace contra esa copia local.
 - **Almacenamiento local por usuario** (criterio 4): wa-sqlite + OPFS en
   `frontend/src/storage/` (`datos-maestros.db`), un directorio OPFS por
   usuario (`capris/usuario-<id>`) — sin columnas de `usuario_id` para
-  filtrar, cada usuario tiene su propia base. El registro conectado
-  (`ConteoFisico`) genera la clave de idempotencia localmente, así un
-  reintento de sincronización no duplica.
+  filtrar, cada usuario tiene su propia base.
+- **Cómo se evitan duplicados**: `reemplazarCatalogos` (`datosMaestrosRepositorio.js`)
+  hace un `DELETE` + `INSERT` completo del catálogo dentro de una sola
+  transacción atómica. Un reintento no usa ninguna clave de idempotencia:
+  reemplaza todo de nuevo y el catálogo local nunca queda a medias. (La
+  clave de idempotencia es de `ConteoFisico`, para la subida de conteos de
+  HU-005/HU-021 — otro mecanismo, no de los catálogos.)
 - **Falta (bloqueado por el ERP)**: el mapeo `codOrg` → empresa real y el
   transporte FTP mencionados arriba; mientras tanto los catálogos cargan
   sin filtro de empresa.
