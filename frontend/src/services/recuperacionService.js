@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+import { API_BASE_URL as BASE_URL } from './apiBaseUrl.js'
 
 export const MENSAJE_SIN_CONEXION = 'Funcionalidad no disponible sin conexión a red'
 

@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:8080/api'
+import { API_BASE_URL } from './apiBaseUrl.js'
+
+const API_URL = `${API_BASE_URL}/api`
 
 async function procesarRespuesta(response) {
     let datos = null
@@ -68,6 +70,54 @@ export async function listarLotesBodega(token, codBod) {
  */
 export async function obtenerMiRuta(token) {
     const response = await fetch(`${API_URL}/auditoria/visitas/mi-ruta`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}
+
+/**
+ * HU-005/HU-021: registra un conteo fisico. idempotenciaKey la genera el
+ * cliente al guardarlo localmente (ver conteosPendientesRepositorio.js) y
+ * se reenvia tal cual aqui -- un reintento del mismo conteo nunca duplica
+ * (ver ConteoFisicoService en el backend).
+ */
+export async function registrarConteo(token, datos) {
+    const response = await fetch(`${API_URL}/auditoria/conteos`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(datos),
+    })
+
+    return procesarRespuesta(response)
+}
+
+/**
+ * HU-021/HU-038: estado de la jornada de hoy. Se consulta mientras hay
+ * conexion y se cachea localmente (ver conteosPendientesRepositorio.js)
+ * para poder decidir sin red si se puede registrar un conteo -- el backend
+ * exige jornada iniciada (JornadaNoIniciadaException, HTTP 409) y "iniciar
+ * jornada" en si necesita conexion.
+ */
+export async function obtenerJornadaHoy(token) {
+    const response = await fetch(`${API_URL}/auditoria/jornadas/hoy`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}
+
+/** HU-038: confirma el inicio de jornada de hoy (ver ConteoPage). */
+export async function iniciarJornada(token) {
+    const response = await fetch(`${API_URL}/auditoria/jornadas/iniciar`, {
+        method: 'POST',
         headers: {
             Authorization: `Bearer ${token}`,
         },

@@ -7,4 +7,5 @@ export const paths = {
     ajustes: '/ajustes',
     sincronizacion: '/sincronizacion',
     miRuta: '/mi-ruta',
+    conteo: '/conteo',
 }

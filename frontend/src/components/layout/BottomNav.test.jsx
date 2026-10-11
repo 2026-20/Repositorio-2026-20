@@ -35,8 +35,18 @@ describe('BottomNav', () => {
             </MemoryRouter>,
         )
 
-        expect(screen.queryByRole('link', { name: /Conteo/ })).not.toBeInTheDocument()
-        expect(screen.getByTitle(/Conteo \(próximamente\)/)).toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: /Alertas/ })).not.toBeInTheDocument()
+        expect(screen.getByTitle(/Alertas \(próximamente\)/)).toBeInTheDocument()
+    })
+
+    it('HU-021: Conteo ya esta implementado y es navegable', () => {
+        render(
+            <MemoryRouter>
+                <BottomNav rolUsuario="Usuario de Campo" />
+            </MemoryRouter>,
+        )
+
+        expect(screen.getByRole('link', { name: /Conteo/ })).toBeInTheDocument()
     })
 
     it('no muestra etiquetas de texto, solo iconos', () => {

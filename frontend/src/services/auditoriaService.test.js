@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { listarBodegas, listarDetalleBodega, listarLotesBodega } from './auditoriaService'
+import {
+    iniciarJornada,
+    listarBodegas,
+    listarDetalleBodega,
+    listarLotesBodega,
+    obtenerJornadaHoy,
+    registrarConteo,
+} from './auditoriaService'
 
 describe('auditoriaService', () => {
     afterEach(() => {
@@ -53,6 +60,70 @@ describe('auditoriaService', () => {
             headers: { Authorization: 'Bearer jwt-prueba' },
         })
         expect(resultado).toEqual(lotes)
+    })
+
+    it('HU-021: registra un conteo fisico con el cuerpo tal cual se recibe', async () => {
+        const datos = {
+            idempotenciaKey: 'clave-generada',
+            codBod: 'MEPRIN',
+            codArt: 'ART1',
+            numLote: null,
+            numCon: '123',
+            cantidadTeorica: 10,
+            cantidadFisica: 9,
+            observaciones: null,
+        }
+        const conteoCreado = { id: 1, ...datos }
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => conteoCreado,
+        })
+
+        const resultado = await registrarConteo('jwt-prueba', datos)
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/conteos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer jwt-prueba',
+            },
+            body: JSON.stringify(datos),
+        })
+        expect(resultado).toEqual(conteoCreado)
+    })
+
+    it('HU-021/HU-038: consulta el estado de la jornada de hoy', async () => {
+        const jornada = { iniciada: true, iniciadaEn: '2026-10-08T08:00:00.000Z' }
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => jornada,
+        })
+
+        const resultado = await obtenerJornadaHoy('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/jornadas/hoy', {
+            headers: { Authorization: 'Bearer jwt-prueba' },
+        })
+        expect(resultado).toEqual(jornada)
+    })
+
+    it('HU-038: confirma el inicio de jornada de hoy', async () => {
+        const jornada = { iniciada: true, iniciadaEn: '2026-10-08T08:00:00.000Z' }
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => jornada,
+        })
+
+        const resultado = await iniciarJornada('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/jornadas/iniciar', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer jwt-prueba' },
+        })
+        expect(resultado).toEqual(jornada)
     })
 
     it('lanza error con el status cuando el backend rechaza la solicitud', async () => {

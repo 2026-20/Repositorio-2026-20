@@ -39,6 +39,13 @@ describe('HU-037 - Cargar asignacion de rutas', () => {
     beforeEach(() => {
         cy.intercept('GET', '**/api/auditoria/bodegas', { statusCode: 200, body: [] }).as('bodegas')
         cy.intercept('GET', '**/api/auditoria/visitas/mi-ruta', { statusCode: 200, body: RUTA }).as('miRuta')
+
+        // HU-021: la sincronizacion tambien refresca el cache local de
+        // jornada iniciada.
+        cy.intercept('GET', '**/api/auditoria/jornadas/hoy', {
+            statusCode: 200,
+            body: { iniciada: false, iniciadaEn: null },
+        }).as('jornadaHoy')
     })
 
     it('descarga la ruta del usuario al iniciar sesion y la muestra (criterios 1, 2 y 3)', () => {

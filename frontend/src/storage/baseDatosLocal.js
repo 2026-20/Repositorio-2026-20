@@ -24,18 +24,44 @@ function crearPuente(worker) {
     }
 }
 
+const REINTENTOS_MAXIMOS_AL_ABRIR = 5
+
+function esAccessHandleTodaviaOcupado(error) {
+    return /Access Handles cannot be created/.test(error?.message ?? '')
+}
+
 /**
  * Abre (o crea) una base SQLite persistida en OPFS. Cada llamada levanta un
  * Worker nuevo -- equivalente, para efectos de OPFS, a lo que pasaria en un
  * reload real de pagina (un realm de JS nuevo, un modulo WASM nuevo, un
  * registro de VFS nuevo). El directorio OPFS si persiste entre llamadas,
  * independientemente del Worker que lo escribio o leyo.
+ *
+ * Reintenta con backoff si OPFS todavia no termino de liberar el access
+ * handle de la sesion anterior sobre este mismo archivo -- confirmado en un
+ * navegador real: aunque cerrarBaseLocal() ya resolvio (el worker confirmo
+ * "cerrado" y se le mando terminate()), la liberacion real del handle a
+ * nivel de SO puede tardar un poco mas en reflejarse. Encolar en el
+ * repositorio (ver datosMaestrosRepositorio.js) evita que DOS llamadas de
+ * esta app choquen entre si, pero no alcanza para cubrir ese margen final
+ * de la sesion que se esta cerrando.
  */
 export async function abrirBaseLocal(directorioOpfs, nombreArchivo) {
-    const worker = new Worker(new URL('./baseDatosLocal.worker.js', import.meta.url), { type: 'module' })
-    const enviar = crearPuente(worker)
-    await enviar('abrir', { directorioOpfs, nombreArchivo })
-    return { worker, enviar }
+    for (let intento = 1; intento <= REINTENTOS_MAXIMOS_AL_ABRIR; intento++) {
+        const worker = new Worker(new URL('./baseDatosLocal.worker.js', import.meta.url), { type: 'module' })
+        const enviar = crearPuente(worker)
+        try {
+            await enviar('abrir', { directorioOpfs, nombreArchivo })
+            return { worker, enviar }
+        } catch (error) {
+            worker.terminate()
+            const esElUltimoIntento = intento === REINTENTOS_MAXIMOS_AL_ABRIR
+            if (esElUltimoIntento || !esAccessHandleTodaviaOcupado(error)) {
+                throw error
+            }
+            await new Promise((resolve) => setTimeout(resolve, 25 * intento))
+        }
+    }
 }
 
 export async function ejecutar(sesion, sql, params) {

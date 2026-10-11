@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Certificados locales (mkcert) para probar HTTPS desde otros dispositivos
+# en la red -- la clave privada nunca debe versionarse.
+.certs
+
 # Reportes de pruebas
 coverage
 test-results

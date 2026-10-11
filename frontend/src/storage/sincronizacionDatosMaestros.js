@@ -1,6 +1,8 @@
-import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerMiRuta } from '../services/auditoriaService.js'
+import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerJornadaHoy, obtenerMiRuta } from '../services/auditoriaService.js'
 import { hayCambiosPendientesDeSubir } from './cambiosPendientes.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
+import { subirConteosPendientes } from './sincronizacionConteos.js'
+import { guardarJornadaIniciada } from './conteosPendientesRepositorio.js'
 
 export class ErrorSinConexion extends Error {
     constructor() {
@@ -59,12 +61,29 @@ export async function sincronizarDatosMaestros(usuarioId, token) {
         throw new ErrorSinConexion()
     }
 
+    // HU-021 criterio 3: intenta subir lo pendiente primero -- si lo logra,
+    // hayCambiosPendientesDeSubir de abajo ya no bloquea la descarga. Nunca
+    // lanza (ver subirConteosPendientes): si falla por conexion real, lo
+    // que no se pudo subir sigue pendiente y el chequeo de abajo lo detecta.
+    await subirConteosPendientes(usuarioId, token)
+
     if (await hayCambiosPendientesDeSubir(usuarioId)) {
         throw new ErrorCambiosPendientes()
     }
 
     const bodegas = await sinFalsoPositivoDeRed(listarBodegas(token))
     const ruta = await sinFalsoPositivoDeRed(obtenerMiRuta(token))
+
+    // HU-021/HU-038: refresca el cache local de "jornada de hoy iniciada"
+    // en cada sincronizacion (mientras hay conexion, que es la unica forma
+    // de saberlo de verdad) para poder decidir sin red si se puede
+    // registrar un conteo. Si no esta iniciada no se guarda nada -- la
+    // ausencia de fila para hoy ya significa "no iniciada" (ver
+    // estaJornadaIniciadaHoy).
+    const jornada = await sinFalsoPositivoDeRed(obtenerJornadaHoy(token))
+    if (jornada.iniciada) {
+        await guardarJornadaIniciada(usuarioId, jornada.iniciadaEn)
+    }
 
     // El backend expone el detalle/lotes de una bodega agrupados solo por
     // cod_bod -- si "bodegas" trae el mismo cod_bod en mas de una fila (el

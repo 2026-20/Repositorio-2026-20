@@ -37,10 +37,20 @@ describe('Sidebar', () => {
         )
 
         expect(
-            screen.queryByRole('link', { name: /Conteo/ }),
+            screen.queryByRole('link', { name: /Alertas/ }),
         ).not.toBeInTheDocument()
 
-        expect(screen.getByText('Conteo')).toBeInTheDocument()
+        expect(screen.getByText('Alertas')).toBeInTheDocument()
+    })
+
+    it('HU-021: Conteo ya esta implementado y es navegable', () => {
+        render(
+            <MemoryRouter>
+                <Sidebar rolUsuario="Usuario de Campo" />
+            </MemoryRouter>,
+        )
+
+        expect(screen.getByRole('link', { name: /Conteo/ })).toBeInTheDocument()
     })
 
     it('muestra el nombre de la empresa de la sesion como marca', () => {
