@@ -60,7 +60,7 @@ describe('HU-037 - Cargar asignacion de rutas', () => {
         cy.wait('@miRutaVacia')
 
         cy.contains('No tiene bodegas asignadas pendientes.').should('be.visible')
-        cy.get('section').should('not.exist')
+        cy.get('ul').should('not.exist')
     })
 
     it('sin conexion sigue mostrando la ruta descargada antes, incluida la de dias anteriores', () => {
