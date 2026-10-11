@@ -2,6 +2,7 @@ import {
     fireEvent,
     render,
     screen,
+    waitFor,
 } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -142,6 +143,37 @@ describe('LoginPage - mensajes de error', () => {
 
         expect(await screen.findByRole('alert')).toHaveTextContent(
             'Cuenta bloqueada temporalmente tras múltiples intentos fallidos. Podés reintentar en 3 minutos.',
+        )
+    })
+})
+
+// HU-037: el nombre de la empresa no viene del backend en el login; lo
+// aporta esta pantalla para que el menu muestre la marca de la empresa activa.
+describe('LoginPage - empresa de la sesion', () => {
+    it('envia al login el nombre de la empresa seleccionada', async () => {
+        vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue([
+            { id: 1, nombre: 'CAPRIS Médica' },
+            { id: 2, nombre: 'Diagnostika' },
+        ])
+        const login = vi.fn().mockResolvedValue(undefined)
+
+        render(
+            <AuthContext.Provider value={{ login, estaAutenticado: false }}>
+                <MemoryRouter>
+                    <LoginPage />
+                </MemoryRouter>
+            </AuthContext.Provider>,
+        )
+
+        await screen.findByRole('heading', { name: 'Iniciar sesión' })
+
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: '2' } })
+        fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'wmolina' } })
+        fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'Clave123!' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+        await waitFor(() =>
+            expect(login).toHaveBeenCalledWith('wmolina', 'Clave123!', '2', 'Diagnostika'),
         )
     })
 })
