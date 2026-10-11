@@ -6,6 +6,7 @@ import {
     listarDetalleBodega,
     listarLotesBodega,
     obtenerJornadaHoy,
+    obtenerMiRuta,
     registrarConteo,
 } from './auditoriaService'
 
@@ -60,6 +61,32 @@ describe('auditoriaService', () => {
             headers: { Authorization: 'Bearer jwt-prueba' },
         })
         expect(resultado).toEqual(lotes)
+    })
+
+    it('HU-037: obtiene la ruta del usuario del token', async () => {
+        const ruta = [
+            {
+                codBod: 'MEPRIN',
+                desBod: 'Bodega Medicamentos Principal',
+                numCon: '123',
+                objCon: 'Reactivos',
+                estadoErp: 'PEND',
+                estadoApp: 'PENDIENTE',
+                fechaAsignada: '2026-10-07',
+            },
+        ]
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => ruta,
+        })
+
+        const resultado = await obtenerMiRuta('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/visitas/mi-ruta', {
+            headers: { Authorization: 'Bearer jwt-prueba' },
+        })
+        expect(resultado).toEqual(ruta)
     })
 
     it('HU-021: registra un conteo fisico con el cuerpo tal cual se recibe', async () => {
