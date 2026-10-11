@@ -24,7 +24,15 @@ function crearPuente(worker) {
     }
 }
 
-const REINTENTOS_MAXIMOS_AL_ABRIR = 5
+// Antes era 5 reintentos x 25ms*intento (~375ms) -- alcanzaba en el caso
+// simple, pero en una carga fresca de /conteo se abren varias sesiones de
+// OPFS en paralelo (la sincronizacion automatica de AppLayout + la jornada +
+// la ruta + la cola pendiente) y la liberacion real del handle de la sesion
+// anterior a nivel de SO puede tardar mas que esa ventana (confirmado en
+// navegador real, ver el comentario de abrirBaseLocal). 12 intentos con
+// backoff lineal cubren hasta ~3.7s: suficiente para que el margen final se
+// libere sin que la prueba (ni un usuario ahi afuera) vea el rechazo.
+const REINTENTOS_MAXIMOS_AL_ABRIR = 12
 
 function esAccessHandleTodaviaOcupado(error) {
     return /Access Handles cannot be created/.test(error?.message ?? '')
@@ -59,7 +67,7 @@ export async function abrirBaseLocal(directorioOpfs, nombreArchivo) {
             if (esElUltimoIntento || !esAccessHandleTodaviaOcupado(error)) {
                 throw error
             }
-            await new Promise((resolve) => setTimeout(resolve, 25 * intento))
+            await new Promise((resolve) => setTimeout(resolve, 50 * intento))
         }
     }
 }

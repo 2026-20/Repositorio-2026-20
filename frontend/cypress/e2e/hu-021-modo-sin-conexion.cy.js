@@ -75,8 +75,17 @@ describe('HU-021 - Operar en modo sin conexion', () => {
         cy.url().should('include', '/conteo')
         cy.get('#conteo-bodega', { timeout: 10000 }).should('be.visible')
 
+        // El select existe pero puede estar todavia sin sus opciones: la ruta
+        // (que trae las bodegas) se lee de OPFS y en esta pantalla compite en
+        // paralelo con la sincronizacion de AppLayout y la cola de pendientes
+        // (ver el comentario de la linea ~103). Un cy.select() antes de que
+        // llegue la opcion falla con "no tiene esa opcion" -- y si el select
+        // se re-renderiza a mitad, con "elemento disabled". Por eso se espera
+        // la opcion concreta, que es la senal real.
+        cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 10000 }).should('exist')
         cy.get('#conteo-bodega').select('MEPRIN')
-        cy.get('#conteo-articulo').select('Reactivo de prueba (teórico: 10)')
+        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 10000 }).should('exist')
+        cy.get('#conteo-articulo').select('ART1::123')
         cy.get('#conteo-cantidad').type('9')
         cy.contains('button', 'Registrar conteo').click()
 
