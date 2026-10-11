@@ -89,6 +89,65 @@ npm run dev
 
 Queda disponible en `http://localhost:5173`.
 
+### Probar desde un celular en la misma red
+
+Por USB/cable la depuración remota suele fallar o no conectar — probar
+por WiFi, con el celular y la máquina en la misma red, es más confiable.
+
+**1. Que el frontend escuche en la red, no solo en localhost:**
+```bash
+npm run dev -- --host 0.0.0.0
+```
+Anotá la IP que imprime Vite bajo "Network" (o la de tu máquina en la red WiFi).
+
+**2. Apuntar el frontend al backend por esa IP, no por localhost** (el
+celular no puede resolver `localhost` como tu máquina): crear
+`frontend/.env.local` (ya en `.gitignore`, nunca se commitea):
+```
+VITE_API_BASE_URL=http://<tu-ip-en-la-red>:8080
+```
+
+**3. Agregar esa IP a los orígenes CORS del backend** (ver
+`APP_CORS_ALLOWED_ORIGINS` en la tabla de variables de entorno más arriba):
+```bash
+APP_CORS_ALLOWED_ORIGINS="http://localhost:5173,http://<tu-ip-en-la-red>:5173" mvn spring-boot:run
+```
+
+**4. El almacenamiento local (OPFS/wa-sqlite) exige un "contexto
+seguro"** — por `http://<ip>` desde otro dispositivo, el navegador no
+expone `navigator.storage` y falla con `Cannot read properties of
+undefined (reading 'getDirectory')`. Dos formas de resolverlo, según el
+navegador del celular:
+
+- **Chrome en Android**: no confía en certificados HTTPS autofirmados
+  para contextos seguros (ignora los certificados de usuario desde
+  Android 7). El camino que sí funciona es decirle a Chrome que trate ese
+  origen como seguro aunque sea `http://`:
+  `chrome://flags/#unsafely-treat-insecure-origin-as-secure` → pegar
+  `http://<tu-ip>:5173` (o el puerto que estés usando) → Enabled →
+  reiniciar Chrome.
+- **Safari en iOS, o Chrome de escritorio**: sí funciona HTTPS con un
+  certificado local de confianza. Generarlo una vez con
+  [mkcert](https://github.com/FiloSottile/mkcert) y guardarlo en
+  `frontend/.certs/` (ya en `.gitignore` — nunca commitear la clave
+  privada):
+  ```bash
+  mkcert -cert-file frontend/.certs/dev-cert.pem -key-file frontend/.certs/dev-key.pem <tu-ip> localhost 127.0.0.1
+  ```
+  `vite.config.js` detecta esos archivos solos y sirve HTTPS si existen
+  (nunca bajo Vitest, para no romper las pruebas `browser`). Para que el
+  celular confíe en el certificado hace falta instalar el certificado raíz
+  (`$(mkcert -CAROOT)/rootCA.pem`) en el dispositivo una sola vez.
+
+**5. Para probar el modo sin conexión de verdad (el service worker)**: el
+servidor de desarrollo (`npm run dev`) no lo activa. Hace falta el build
+de producción:
+```bash
+npm run build
+npm run preview -- --host 0.0.0.0 --port 4173
+```
+Y repetir los pasos 2-4 también para el puerto 4173.
+
 ## Usuarios de desarrollo (datos semilla)
 
 La migración `V2__seed_usuarios_iniciales.sql` crea 3 usuarios reales de CAPRIS para poder probar contra datos válidos desde el día uno:

@@ -1,15 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerMiRuta } from '../services/auditoriaService.js'
+import {
+    listarBodegas,
+    listarDetalleBodega,
+    listarLotesBodega,
+    obtenerJornadaHoy,
+    obtenerMiRuta,
+} from '../services/auditoriaService.js'
 import { hayCambiosPendientesDeSubir } from './cambiosPendientes.js'
+import { guardarJornadaIniciada } from './conteosPendientesRepositorio.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
 import { ErrorCambiosPendientes, ErrorSinConexion, sincronizarDatosMaestros } from './sincronizacionDatosMaestros.js'
+import { subirConteosPendientes } from './sincronizacionConteos.js'
 
 vi.mock('../services/auditoriaService.js', () => ({
     listarBodegas: vi.fn(),
     listarDetalleBodega: vi.fn(),
     listarLotesBodega: vi.fn(),
     obtenerMiRuta: vi.fn(),
+    obtenerJornadaHoy: vi.fn(),
 }))
 
 vi.mock('./cambiosPendientes.js', () => ({
@@ -18,6 +27,14 @@ vi.mock('./cambiosPendientes.js', () => ({
 
 vi.mock('./datosMaestrosRepositorio.js', () => ({
     reemplazarCatalogos: vi.fn(),
+}))
+
+vi.mock('./sincronizacionConteos.js', () => ({
+    subirConteosPendientes: vi.fn(),
+}))
+
+vi.mock('./conteosPendientesRepositorio.js', () => ({
+    guardarJornadaIniciada: vi.fn(),
 }))
 
 const BODEGA = { codBod: 'MEPRIN', desBod: 'Bodega Principal', numCon: '123', tipoBod: 'CLI' }
@@ -36,6 +53,8 @@ describe('sincronizarDatosMaestros', () => {
         vi.spyOn(globalThis.navigator, 'onLine', 'get').mockReturnValue(true)
         hayCambiosPendientesDeSubir.mockResolvedValue(false)
         obtenerMiRuta.mockResolvedValue([PARADA])
+        subirConteosPendientes.mockResolvedValue(undefined)
+        obtenerJornadaHoy.mockResolvedValue({ iniciada: false, iniciadaEn: null })
     })
 
     afterEach(() => {
@@ -141,5 +160,43 @@ describe('sincronizarDatosMaestros', () => {
         await expect(sincronizarDatosMaestros(7, 'jwt-prueba')).rejects.toBeInstanceOf(ErrorSinConexion)
 
         expect(reemplazarCatalogos).not.toHaveBeenCalled()
+    })
+
+    it('HU-021: intenta subir los conteos pendientes antes de revisar si quedan cambios sin subir', async () => {
+        listarBodegas.mockResolvedValue([])
+        reemplazarCatalogos.mockResolvedValue('2026-10-08T00:00:00.000Z')
+
+        const ordenDeLlamadas = []
+        subirConteosPendientes.mockImplementation(async () => {
+            ordenDeLlamadas.push('subir')
+        })
+        hayCambiosPendientesDeSubir.mockImplementation(async () => {
+            ordenDeLlamadas.push('revisar')
+            return false
+        })
+
+        await sincronizarDatosMaestros(7, 'jwt-prueba')
+
+        expect(subirConteosPendientes).toHaveBeenCalledWith(7, 'jwt-prueba')
+        expect(ordenDeLlamadas).toEqual(['subir', 'revisar'])
+    })
+
+    it('HU-021: si la jornada de hoy ya esta iniciada, cachea el momento localmente', async () => {
+        listarBodegas.mockResolvedValue([])
+        reemplazarCatalogos.mockResolvedValue('2026-10-08T00:00:00.000Z')
+        obtenerJornadaHoy.mockResolvedValue({ iniciada: true, iniciadaEn: '2026-10-08T08:00:00.000Z' })
+
+        await sincronizarDatosMaestros(7, 'jwt-prueba')
+
+        expect(guardarJornadaIniciada).toHaveBeenCalledWith(7, '2026-10-08T08:00:00.000Z')
+    })
+
+    it('HU-021: si la jornada de hoy no esta iniciada, no cachea nada', async () => {
+        listarBodegas.mockResolvedValue([])
+        reemplazarCatalogos.mockResolvedValue('2026-10-08T00:00:00.000Z')
+
+        await sincronizarDatosMaestros(7, 'jwt-prueba')
+
+        expect(guardarJornadaIniciada).not.toHaveBeenCalled()
     })
 })

@@ -5,6 +5,7 @@ import {
 } from 'react-router-dom'
 
 import AppLayout from '../components/layout/AppLayout'
+import ConteoPage from '../pages/Conteo/ConteoPage'
 import AjustesPage from '../pages/Settings/AjustesPage'
 import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
@@ -71,6 +72,11 @@ export default function AppRoutes() {
                 <Route
                     path={paths.miRuta}
                     element={<MiRutaPage />}
+                />
+
+                <Route
+                    path={paths.conteo}
+                    element={<ConteoPage />}
                 />
             </Route>
 

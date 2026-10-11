@@ -11,8 +11,10 @@ import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.file.FileHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -76,20 +78,63 @@ public class ReenviadorAlBackend {
 		}
 
 		try (InputStream contenido = mensaje.getPayload()) {
-			restClient.post()
-					.uri("/api/auditoria/ingesta/{endpoint}", endpoint)
-					.header(HEADER_API_KEY, apiKey)
-					.header(HEADER_NOMBRE_ARCHIVO, nombreArchivo)
-					.contentType(MediaType.APPLICATION_XML)
-					.body(new InputStreamResource(contenido))
-					.retrieve()
-					.toBodilessEntity();
+			enviarHttp(contenido, nombreArchivo, endpoint);
 			log.info("{}: reenviado correctamente a /api/auditoria/ingesta/{}", nombreArchivo, endpoint);
 		} catch (RestClientException | IOException e) {
 			log.error("{}: fallo al reenviar a /api/auditoria/ingesta/{}", nombreArchivo, endpoint, e);
 		} finally {
 			cerrarSesionFtp(mensaje, nombreArchivo);
 		}
+	}
+
+	/**
+	 * Resultado de un reenvio manual (ver reenviarManual/SimuladorIngestaController).
+	 * A diferencia de reenviar(Message), aqui si interesa el detalle: quien
+	 * usa el simulador quiere ver si el backend acepto el archivo y cuantas
+	 * filas guardo/descarto, no solo un log.
+	 */
+	public record ResultadoReenvio(boolean exito, String endpoint, Integer statusBackend, String cuerpo) {
+	}
+
+	/**
+	 * Mismo reenvio que el flujo real del FTP (mismo endpoint por nombre de
+	 * archivo, mismos headers), pero para un disparo manual desde el
+	 * simulador (ver SimuladorIngestaController) -- sin sesion FTP que
+	 * cerrar, y devolviendo el detalle de la respuesta del backend en vez de
+	 * solo loguearlo, para que quien prueba vea el resultado real.
+	 */
+	public ResultadoReenvio reenviarManual(InputStream contenido, String nombreArchivo) {
+		String endpoint = endpointPara(nombreArchivo);
+		if (endpoint == null) {
+			return new ResultadoReenvio(false, null, null,
+					"Nombre de archivo no reconocido -- no coincide con ninguno de los 6 tipos esperados "
+							+ "(cai_bod, cai_est_vis, cai_det_bod, cai_lot_bod, cai_det_mov, cai_lot_mov).");
+		}
+
+		try {
+			ResponseEntity<String> respuesta = enviarHttp(contenido, nombreArchivo, endpoint);
+			log.info("{}: reenviado manualmente (simulador) a /api/auditoria/ingesta/{}", nombreArchivo, endpoint);
+			return new ResultadoReenvio(true, endpoint, respuesta.getStatusCode().value(), respuesta.getBody());
+		} catch (RestClientResponseException e) {
+			log.warn("{}: el backend rechazo el reenvio manual (simulador) a /api/auditoria/ingesta/{}", nombreArchivo,
+					endpoint, e);
+			return new ResultadoReenvio(false, endpoint, e.getStatusCode().value(), e.getResponseBodyAsString());
+		} catch (RestClientException e) {
+			log.error("{}: fallo al reenviar manualmente (simulador) a /api/auditoria/ingesta/{}", nombreArchivo,
+					endpoint, e);
+			return new ResultadoReenvio(false, endpoint, null, "No fue posible contactar al backend: " + e.getMessage());
+		}
+	}
+
+	private ResponseEntity<String> enviarHttp(InputStream contenido, String nombreArchivo, String endpoint) {
+		return restClient.post()
+				.uri("/api/auditoria/ingesta/{endpoint}", endpoint)
+				.header(HEADER_API_KEY, apiKey)
+				.header(HEADER_NOMBRE_ARCHIVO, nombreArchivo)
+				.contentType(MediaType.APPLICATION_XML)
+				.body(new InputStreamResource(contenido))
+				.retrieve()
+				.toEntity(String.class);
 	}
 
 	/**

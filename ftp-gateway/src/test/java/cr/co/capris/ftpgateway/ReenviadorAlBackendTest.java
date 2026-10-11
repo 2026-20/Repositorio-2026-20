@@ -100,6 +100,29 @@ class ReenviadorAlBackendTest {
 		assertThat(reenviador.endpointPara(null)).isNull();
 	}
 
+	@Test
+	void reenviarManualDevuelveFallaSinLlamarAlBackendCuandoElNombreNoSeReconoce() {
+		var resultado = reenviador.reenviarManual(new ByteArrayInputStream(new byte[0]), "archivo_random.xml");
+
+		assertThat(resultado.exito()).isFalse();
+		assertThat(resultado.endpoint()).isNull();
+		assertThat(resultado.cuerpo()).contains("no reconocido");
+	}
+
+	@Test
+	void reenviarManualDevuelveFallaConElEndpointCuandoElBackendEsInalcanzable() {
+		ReenviadorAlBackend reenviadorConBackendInalcanzable =
+				new ReenviadorAlBackend("http://localhost:1", "clave-de-prueba", 1, 1);
+
+		var resultado = reenviadorConBackendInalcanzable.reenviarManual(
+				new ByteArrayInputStream(new byte[0]), "med_wmolina_cai_bod.xml");
+
+		assertThat(resultado.exito()).isFalse();
+		assertThat(resultado.endpoint()).isEqualTo("bodegas");
+		assertThat(resultado.statusBackend()).isNull();
+		assertThat(resultado.cuerpo()).contains("No fue posible contactar al backend");
+	}
+
 	private static class InputStreamRastreable extends ByteArrayInputStream {
 		boolean cerrado = false;
 

@@ -24,9 +24,9 @@ export const NAV_ITEMS = [
     },
     {
         label: 'Conteo',
+        path: paths.conteo,
         icon: 'conteo',
-        disponible: false,
-        descripcion: 'Registro y corrección de conteos físicos (F03)',
+        disponible: true,
     },
     {
         label: 'Alertas',

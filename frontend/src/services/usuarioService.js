@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:8080/api'
+import { API_BASE_URL } from './apiBaseUrl.js'
+
+const API_URL = `${API_BASE_URL}/api`
 
 async function procesarRespuesta(response) {
     let datos = null

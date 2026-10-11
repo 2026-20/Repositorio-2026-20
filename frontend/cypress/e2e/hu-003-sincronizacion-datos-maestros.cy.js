@@ -29,6 +29,13 @@ describe('HU-003 - Sincronizacion de catalogos maestros', () => {
             statusCode: 200,
             body: [],
         }).as('miRuta')
+
+        // HU-021: la sincronizacion tambien refresca el cache local de
+        // jornada iniciada.
+        cy.intercept('GET', '**/api/auditoria/jornadas/hoy', {
+            statusCode: 200,
+            body: { iniciada: false, iniciadaEn: null },
+        }).as('jornadaHoy')
     })
 
     it('sincroniza automaticamente al entrar con sesion activa (criterio 1) y muestra el resultado', () => {
