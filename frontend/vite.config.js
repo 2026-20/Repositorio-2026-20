@@ -5,6 +5,17 @@ import { playwright } from '@vitest/browser-playwright'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Vite descubre estas dependencias de wa-sqlite recien a mitad de la
+  // corrida de las pruebas "browser" (OPFS) y las reoptimiza, lo que fuerza
+  // una recarga del test y puede tumbar el iframe del tester (timeout de
+  // 60s). Declararlas de entrada evita esa reoptimizacion sobre la marcha.
+  optimizeDeps: {
+    include: [
+      'wa-sqlite/dist/wa-sqlite.mjs',
+      'wa-sqlite/src/examples/AccessHandlePoolVFS.js',
+      'wa-sqlite/src/sqlite-api.js',
+    ],
+  },
   test: {
     // La base del proyecto arranca sin pruebas todavia; que no falle mientras
     // cada equipo agrega las suyas (quitar esta linea una vez existan pruebas reales).
