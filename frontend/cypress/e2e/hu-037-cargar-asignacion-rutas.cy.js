@@ -53,6 +53,16 @@ describe('HU-037 - Cargar asignacion de rutas', () => {
         cy.contains('todavía no se ha sincronizado').should('not.exist')
     })
 
+    it('avisa cuando el usuario no tiene bodegas asignadas pendientes', () => {
+        cy.intercept('GET', '**/api/auditoria/visitas/mi-ruta', { statusCode: 200, body: [] }).as('miRutaVacia')
+
+        cy.visitarConSesion('/mi-ruta', USUARIO_DE_CAMPO)
+        cy.wait('@miRutaVacia')
+
+        cy.contains('No tiene bodegas asignadas pendientes.').should('be.visible')
+        cy.get('section').should('not.exist')
+    })
+
     it('sin conexion sigue mostrando la ruta descargada antes, incluida la de dias anteriores', () => {
         cy.visitarConSesion('/mi-ruta', USUARIO_DE_CAMPO)
         cy.wait('@miRuta')
