@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Simulador de ingesta FTP — CAPRIS</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --azul: #0f426e;
+            --borde: #d7dce1;
+            --fondo: #f4f6f8;
+            --superficie: #ffffff;
+            --texto-tenue: #59636e;
+            --exito: #1a7f4b;
+            --error: #b3261e;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 0 16px;
+            background: var(--fondo);
+            color: #20262e;
+        }
+        h1 { font-size: 1.25rem; margin-bottom: 4px; }
+        p.descripcion { color: var(--texto-tenue); margin-top: 0; line-height: 1.4; }
+        form {
+            background: var(--superficie);
+            border: 1px solid var(--borde);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        label { font-weight: 600; font-size: 0.9rem; }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid var(--borde);
+            border-radius: 6px;
+            font: inherit;
+        }
+        .ayuda { font-size: 0.8rem; color: var(--texto-tenue); margin: -8px 0 0; }
+        button {
+            align-self: flex-start;
+            min-height: 40px;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            background: var(--azul);
+            color: #fff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        #resultado {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--borde);
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: ui-monospace, monospace;
+            font-size: 0.85rem;
+            display: none;
+        }
+        #resultado.exito { border-color: var(--exito); background: rgba(26, 127, 75, 0.08); }
+        #resultado.error { border-color: var(--error); background: rgba(179, 38, 30, 0.08); }
+        .endpoints { font-size: 0.8rem; color: var(--texto-tenue); margin-top: 24px; }
+        .endpoints code { background: var(--superficie); padding: 1px 4px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Simulador de ingesta FTP</h1>
+    <p class="descripcion">
+        Sube un XML como si llegara por el FTP real del ERP — este formulario lo reenvía al backend
+        exactamente por el mismo camino que usa <code>ReenviadorAlBackend</code> cuando el archivo
+        viene del FTP (mismos headers, mismo endpoint por nombre de archivo). Solo para pruebas.
+    </p>
+
+    <form id="formulario">
+        <div>
+            <label for="archivo">Archivo XML</label><br />
+            <input type="file" id="archivo" name="archivo" accept=".xml" required />
+        </div>
+
+        <div>
+            <label for="nombreArchivo">Nombre de archivo a enviar</label><br />
+            <input type="text" id="nombreArchivo" name="nombreArchivo" required />
+            <p class="ayuda">
+                Se precarga con el nombre real del archivo elegido, pero es editable — el endpoint se
+                decide por este nombre (substring), no por el contenido. Para <code>cai_det_mov</code> y
+                <code>cai_lot_mov</code> además tiene que calzar el patrón
+                <code>org_usuario_bodega_fechaCorta_cai_{det|lot}_mov_YYYY-MM-DD_HHmm_secuencia.xml</code>.
+            </p>
+        </div>
+
+        <button type="submit" id="boton">Enviar al backend</button>
+    </form>
+
+    <div id="resultado"></div>
+
+    <p class="endpoints">
+        Ruteo por nombre de archivo: <code>cai_bod</code> → bodegas · <code>cai_est_vis</code> → estados-visita ·
+        <code>cai_det_bod</code> → detalle-bodega · <code>cai_lot_bod</code> → lote-bodega ·
+        <code>cai_det_mov</code> → movimientos-pendientes · <code>cai_lot_mov</code> → lotes-movimiento.
+    </p>
+
+    <script>
+        const campoArchivo = document.getElementById('archivo')
+        const campoNombre = document.getElementById('nombreArchivo')
+        const formulario = document.getElementById('formulario')
+        const boton = document.getElementById('boton')
+        const resultado = document.getElementById('resultado')
+
+        // Precarga el nombre real, pero no lo pisa si ya se edito a mano.
+        let nombreEditadoAMano = false
+        campoNombre.addEventListener('input', () => { nombreEditadoAMano = true })
+        campoArchivo.addEventListener('change', () => {
+            if (!nombreEditadoAMano && campoArchivo.files[0]) {
+                campoNombre.value = campoArchivo.files[0].name
+            }
+        })
+
+        formulario.addEventListener('submit', async (evento) => {
+            evento.preventDefault()
+            if (!campoArchivo.files[0]) return
+
+            boton.disabled = true
+            boton.textContent = 'Enviando…'
+            resultado.style.display = 'none'
+
+            const datos = new FormData()
+            datos.append('archivo', campoArchivo.files[0])
+            datos.append('nombreArchivo', campoNombre.value)
+
+            try {
+                const respuesta = await fetch('/simulador/ingesta', { method: 'POST', body: datos })
+                const cuerpo = await respuesta.json()
+
+                resultado.className = cuerpo.exito ? 'exito' : 'error'
+                resultado.textContent = JSON.stringify(cuerpo, null, 2)
+                resultado.style.display = 'block'
+            } catch (error) {
+                resultado.className = 'error'
+                resultado.textContent = 'No se pudo contactar al simulador: ' + error.message
+                resultado.style.display = 'block'
+            } finally {
+                boton.disabled = false
+                boton.textContent = 'Enviar al backend'
+            }
+        })
+    </script>
+</body>
+</html>

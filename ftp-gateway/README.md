@@ -51,6 +51,37 @@ No usar la imagen `delfer/alpine-ftp-server`: su script de arranque tiene un
 bug que ignora `FTP_USER` y siempre crea un usuario llamado `alpineftp`,
 causando `530 Login incorrect` sin importar las credenciales configuradas.
 
+## Simulador de ingesta (pruebas manuales, sin FTP)
+
+Para probar el reenvio sin depender de un FTP (real o de prueba): una
+pagina web minima que deja subir un XML desde el navegador y lo reenvia al
+backend por el mismo camino que usa el flujo real
+(`ReenviadorAlBackend.reenviarManual`, mismos headers, mismo endpoint por
+nombre de archivo). Util para probar manualmente que un XML especifico
+(incluido uno armado a mano, o una variante corrupta a proposito) llega
+bien y se le carga al usuario en la app.
+
+Apagado por defecto -- se activa con el perfil `simulador`:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=simulador
+```
+
+Con el backend corriendo en `localhost:8080`, abrir
+`http://localhost:8081/simulador`. El nombre de archivo es editable (no
+tiene que coincidir con el del archivo local elegido) -- para
+`cai_det_mov`/`cai_lot_mov` tiene que calzar ademas el patron de
+`IdentificadorVisita` (ver javadoc de esa clase en el backend), para los
+otros 4 tipos el nombre solo decide el endpoint por substring.
+
+Los 6 XML de `backend/src/test/resources/auditoria/xmls/` son el punto de
+partida mas seguro: ya pasan todas las validaciones reales y sirven de
+molde para armar variantes de prueba.
+
+No dejar este perfil activo fuera de un ambiente de pruebas: el endpoint
+`/simulador/ingesta` no tiene autenticacion propia (mas alla de la que ya
+hace el backend con la API key interna) y dispara escrituras reales.
+
 ## Tests
 
 ```bash
