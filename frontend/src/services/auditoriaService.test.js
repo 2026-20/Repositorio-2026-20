@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerMiRuta } from './auditoriaService'
+import {
+    iniciarJornada,
+    listarBodegas,
+    listarDetalleBodega,
+    listarLotesBodega,
+    obtenerEstadoJornada,
+    obtenerMiRuta
+} from './auditoriaService'
 
 describe('auditoriaService', () => {
     afterEach(() => {
@@ -90,6 +97,53 @@ describe('auditoriaService', () => {
 
         await expect(listarBodegas('jwt-vencido')).rejects.toMatchObject({
             message: 'Token invalido',
+            codigo: 'NO_AUTENTICADO',
+            status: 401,
+        })
+    })
+
+    // HU-038
+    it('confirma el inicio de jornada con POST y el token del usuario', async () => {
+        const estado = { iniciada: true, iniciadaEn: '2026-10-10T08:00:00-06:00' }
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => estado,
+        })
+
+        const resultado = await iniciarJornada('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/jornadas/iniciar', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer jwt-prueba' },
+        })
+        expect(resultado).toEqual(estado)
+    })
+
+    it('consulta el estado de la jornada de hoy', async () => {
+        const estado = { iniciada: false, iniciadaEn: null }
+
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: true,
+            json: async () => estado,
+        })
+
+        const resultado = await obtenerEstadoJornada('jwt-prueba')
+
+        expect(fetch).toHaveBeenCalledWith('http://localhost:8080/api/auditoria/jornadas/hoy', {
+            headers: { Authorization: 'Bearer jwt-prueba' },
+        })
+        expect(resultado).toEqual(estado)
+    })
+
+    it('propaga el codigo y status del error cuando el backend rechaza confirmar la jornada', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+            ok: false,
+            status: 401,
+            json: async () => ({ codigo: 'NO_AUTENTICADO', mensaje: 'Token invalido' }),
+        })
+
+        await expect(iniciarJornada('jwt-vencido')).rejects.toMatchObject({
             codigo: 'NO_AUTENTICADO',
             status: 401,
         })
