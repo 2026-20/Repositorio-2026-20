@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthContext } from '../../context/AuthContext'
+import { ContextoAuditoriaContext } from '../../context/ContextoAuditoriaContext'
 import { SincronizacionContext } from '../../context/SincronizacionContext'
 import { iniciarJornada } from '../../services/auditoriaService.js'
 import {
@@ -256,6 +257,57 @@ describe('ConteoPage', () => {
 
             await screen.findByLabelText('Bodega')
             expect(iniciarJornada).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // HU-004: con un contrato activo elegido en Mi ruta, solo se cuenta
+    // dentro de ese contrato y la bodega elegida alli llega ya seleccionada.
+    describe('con un contrato activo (HU-004)', () => {
+        function renderConContexto(contexto) {
+            return render(
+                <AuthContext.Provider value={{ usuario: { id: 7 }, token: 'jwt-prueba' }}>
+                    <SincronizacionContext.Provider
+                        value={{ estado: 'listo', error: null, ultimaSincronizacion: '2026-10-08T10:00:00.000Z', sincronizar: vi.fn() }}
+                    >
+                        <ContextoAuditoriaContext.Provider value={{ contexto }}>
+                            <ConteoPage />
+                        </ContextoAuditoriaContext.Provider>
+                    </SincronizacionContext.Provider>
+                </AuthContext.Provider>,
+            )
+        }
+
+        it('llega con la bodega elegida en Mi ruta y muestra el contrato activo', async () => {
+            renderConContexto({ numCon: '123', objCon: 'HEMATOLOGIA', codBodSeleccionada: 'MEPRIN' })
+
+            expect(await screen.findByText('Articulo sin lote (teórico: 10)')).toBeInTheDocument()
+            expect(screen.getByLabelText('Bodega')).toHaveValue('MEPRIN')
+            expect(screen.getByTestId('contrato-activo')).toHaveTextContent('123 · HEMATOLOGIA')
+        })
+
+        it('solo ofrece las bodegas y los articulos del contrato activo', async () => {
+            obtenerRuta.mockResolvedValue([BODEGA, { codBod: 'OTRA', desBod: 'Bodega de otro contrato', numCon: '999' }])
+            const articuloContratoA = { ...ARTICULO_SIN_LOTE, numCon: 'A', cantidadTeorica: '1' }
+            const articuloContratoActivo = { ...ARTICULO_SIN_LOTE, numCon: '123', cantidadTeorica: '99' }
+            obtenerDetalleBodega.mockResolvedValue([articuloContratoA, articuloContratoActivo])
+            registrarConteoLocal.mockResolvedValue('clave-generada')
+
+            renderConContexto({ numCon: '123', objCon: 'HEMATOLOGIA', codBodSeleccionada: 'MEPRIN' })
+
+            await screen.findByText('Articulo sin lote (teórico: 99)')
+            expect(screen.queryByText('Articulo sin lote (teórico: 1)')).not.toBeInTheDocument()
+            expect(screen.queryByRole('option', { name: 'Bodega de otro contrato' })).not.toBeInTheDocument()
+
+            fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '7' } })
+            fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+            await waitFor(() => {
+                expect(registrarConteoLocal).toHaveBeenCalledWith(
+                    7,
+                    expect.objectContaining({ codBod: 'MEPRIN', numCon: '123', cantidadTeorica: '99' }),
+                )
+            })
         })
     })
 })
