@@ -12,21 +12,12 @@ import { useSincronizacion } from '../../context/useSincronizacion'
 import { useConectividad } from '../../hooks/useConectividad'
 import { paths } from '../../routes/paths'
 import { obtenerRuta } from '../../storage/datosMaestrosRepositorio.js'
+import { hoyLocal } from '../../utils/fecha.js'
 import styles from './MiRutaPage.module.css'
 
 const ETIQUETA_ESTADO = {
     PENDIENTE: 'Pendiente',
     EN_PROGRESO: 'En progreso',
-}
-
-// "YYYY-MM-DD" en hora local del dispositivo -- el mismo formato en que el
-// backend manda fechaAsignada (LocalDate), asi que se pueden comparar como
-// texto. toISOString() no sirve: daria la fecha en UTC.
-function hoyLocal() {
-    const ahora = new Date()
-    const mes = String(ahora.getMonth() + 1).padStart(2, '0')
-    const dia = String(ahora.getDate()).padStart(2, '0')
-    return `${ahora.getFullYear()}-${mes}-${dia}`
 }
 
 function formatearDia(fechaIso) {
