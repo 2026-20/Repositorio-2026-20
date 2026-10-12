@@ -312,6 +312,37 @@ respuesta todavía):
 - Si la asignación real de auditor-bodega viene en la estructura de
   carpetas del FTP (resolvería la asignación manual de arriba).
 
+### Sincronización de catálogos maestros (HU-003)
+
+La PWA descarga los catálogos maestros (bodegas, artículos con cantidad
+teórica y lotes/vencimientos) para poder contar sin conexión a campo. Es
+offline-first: los datos se guardan en el navegador del usuario y todo el
+registro de trabajo (conteos, jornadas) se hace contra esa copia local.
+
+- **Descarga automática al iniciar sesión** (`SincronizacionProvider` en
+  `frontend/src/context/`, disparada desde `AppLayout`) — criterio de
+  aceptación 1; la pantalla **Sincronización** (`/sincronizacion`,
+  `pages/Sync/SincronizacionPage.jsx`) permite ver el estado y forzarla a
+  mano (criterio 3).
+- **Endpoints que consume** (`frontend/src/services/auditoriaService.js`):
+  `GET /api/auditoria/bodegas` (catálogo de bodegas),
+  `GET /api/auditoria/bodegas/{codBod}/detalle` (artículos y cantidad
+  teórica), `GET /api/auditoria/bodegas/{codBod}/lotes` (lotes y
+  vencimientos) — ver `BodegaConsultaController`.
+- **Almacenamiento local por usuario** (criterio 4): wa-sqlite + OPFS en
+  `frontend/src/storage/` (`datos-maestros.db`), un directorio OPFS por
+  usuario (`capris/usuario-<id>`) — sin columnas de `usuario_id` para
+  filtrar, cada usuario tiene su propia base.
+- **Cómo se evitan duplicados**: `reemplazarCatalogos` (`datosMaestrosRepositorio.js`)
+  hace un `DELETE` + `INSERT` completo del catálogo dentro de una sola
+  transacción atómica. Un reintento no usa ninguna clave de idempotencia:
+  reemplaza todo de nuevo y el catálogo local nunca queda a medias. (La
+  clave de idempotencia es de `ConteoFisico`, para la subida de conteos de
+  HU-005/HU-021 — otro mecanismo, no de los catálogos.)
+- **Falta (bloqueado por el ERP)**: el mapeo `codOrg` → empresa real y el
+  transporte FTP mencionados arriba; mientras tanto los catálogos cargan
+  sin filtro de empresa.
+
 ### Apariencia
 
 Modo claro/oscuro con elección explícita desde Ajustes; la preferencia
