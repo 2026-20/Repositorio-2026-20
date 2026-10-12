@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import FormularioCambioContrasena from '../../components/auth/FormularioCambioContrasena'
 import Modal from '../../components/feedback/Modal'
 import Icon from '../../components/ui/Icon'
@@ -6,6 +6,7 @@ import { useAuth } from '../../context/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { cambiarContrasena } from '../../services/authService'
 import styles from './AjustesPage.module.css'
+import { consultarPerfil } from '../../services/usuarioService'
 
 // Cuanto queda visible el mensaje de exito antes de cerrar la ventana sola.
 const MS_ANTES_DE_CERRAR_TRAS_EXITO = 1500
@@ -28,7 +29,43 @@ const OPCIONES_APARIENCIA = [
 export default function AjustesPage() {
     const { temaEfectivo, setTema } = useTheme()
     const { token } = useAuth()
+    const [perfil, setPerfil] = useState(null)
+    const [cargandoPerfil, setCargandoPerfil] = useState(true)
+    const [errorPerfil, setErrorPerfil] = useState('')
     const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false)
+
+    useEffect(() => {
+        let activo = true
+
+        async function cargarPerfil() {
+            try {
+                const datos = await consultarPerfil(token)
+
+                if (activo) {
+                    setPerfil(datos)
+                    setErrorPerfil('')
+                }
+            } catch (error) {
+                if (activo) {
+                    setErrorPerfil(error.message)
+                }
+            } finally {
+                if (activo) {
+                    setCargandoPerfil(false)
+                }
+            }
+        }
+
+        if (token) {
+            cargarPerfil()
+        } else {
+            setCargandoPerfil(false)
+        }
+
+        return () => {
+            activo = false
+        }
+    }, [token])
 
     async function manejarCambioContrasena({ contrasenaActual, contrasenaNueva }) {
         await cambiarContrasena(token, contrasenaActual, contrasenaNueva)
@@ -40,7 +77,47 @@ export default function AjustesPage() {
     return (
         <main>
             <h1>Ajustes</h1>
+            <section className={styles.seccion}>
+                <h2 className={styles.tituloSeccion}>
+                    Información del usuario
+                </h2>
 
+                {cargandoPerfil && (
+                    <p className={styles.descripcion}>
+                        Cargando información del perfil...
+                    </p>
+                )}
+
+                {errorPerfil && (
+                    <p role="alert" className={styles.errorPerfil}>
+                        {errorPerfil}
+                    </p>
+                )}
+
+                {perfil && (
+                    <div className={styles.tarjetaPerfil}>
+                        <div className={styles.campoPerfil}>
+                            <span>Nombre</span>
+                            <strong>{perfil.nombreCompleto}</strong>
+                        </div>
+
+                        <div className={styles.campoPerfil}>
+                            <span>Correo electrónico</span>
+                            <strong>{perfil.correo}</strong>
+                        </div>
+
+                        <div className={styles.campoPerfil}>
+                            <span>Rol</span>
+                            <strong>{perfil.rol}</strong>
+                        </div>
+
+                        <div className={styles.campoPerfil}>
+                            <span>Empresa activa</span>
+                            <strong>{perfil.empresa}</strong>
+                        </div>
+                    </div>
+                )}
+            </section>
             <section className={styles.seccion}>
                 <h2 className={styles.tituloSeccion}>Apariencia</h2>
 

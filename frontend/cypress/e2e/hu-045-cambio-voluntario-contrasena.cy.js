@@ -253,7 +253,7 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
             cy.wait('@cambiarPasswordCorregido')
 
             cy.get('[role="status"]').should('contain', 'se cambió correctamente')
-            cy.get('[role="alert"]').should('not.exist')
+            cy.get('[role="dialog"] [role="alert"]').should('not.exist')
         })
     })
 })
