@@ -27,13 +27,19 @@ const RUTA = [
     {
         codBod: 'HSJD',
         desBod: 'Hospital San Juan de Dios',
-        numCon: 'C-002',
+        numCon: 'C-001',
         objCon: 'Reactivos de laboratorio',
         estadoErp: 'PEND',
         estadoApp: 'EN_PROGRESO',
         fechaAsignada: fechaLocal(0),
     },
 ]
+
+// HU-004: Mi ruta se recorre por contrato -- las dos bodegas de RUTA son del
+// mismo contrato, que se elige (tocando su tarjeta) antes de ver las bodegas.
+function elegirContrato() {
+    cy.contains('button', 'C-001 · Reactivos de laboratorio').click()
+}
 
 describe('HU-037 - Cargar asignacion de rutas', () => {
     beforeEach(() => {
@@ -54,6 +60,7 @@ describe('HU-037 - Cargar asignacion de rutas', () => {
         cy.wait('@miRuta').its('request.headers.authorization').should('eq', 'Bearer jwt-prueba')
 
         cy.contains('h1', 'Mi ruta').should('be.visible')
+        elegirContrato()
         cy.contains('Hospital San Juan de Dios').should('be.visible')
         cy.contains('h2', 'Hoy,').should('be.visible')
         cy.contains('Hospital México').closest('section').find('h2').should('contain', diaEscrito(fechaLocal(-3)))
@@ -73,6 +80,7 @@ describe('HU-037 - Cargar asignacion de rutas', () => {
     it('sin conexion sigue mostrando la ruta descargada antes, incluida la de dias anteriores', () => {
         cy.visitarConSesion('/mi-ruta', USUARIO_DE_CAMPO)
         cy.wait('@miRuta')
+        elegirContrato()
         cy.contains('Hospital San Juan de Dios').should('be.visible')
 
         // Se corta la red: el navegador se reporta sin conexion y cualquier

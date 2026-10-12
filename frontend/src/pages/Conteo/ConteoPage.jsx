@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { useAuth } from '../../context/useAuth'
+import { useContextoAuditoria } from '../../context/useContextoAuditoria'
 import { useSincronizacion } from '../../context/useSincronizacion'
 import { iniciarJornada } from '../../services/auditoriaService.js'
 import {
@@ -35,6 +36,10 @@ function claveArticulo(articulo) {
 export default function ConteoPage() {
     const { usuario, token } = useAuth()
     const { ultimaSincronizacion } = useSincronizacion()
+    // HU-004: si hay un contrato activo (elegido en Mi ruta), solo se cuenta
+    // dentro de ese contrato, y la bodega elegida alli llega ya seleccionada.
+    // Sin contrato activo la pantalla funciona igual que antes.
+    const contexto = useContextoAuditoria()?.contexto ?? null
 
     // verificando | lista | sin-conexion | error
     const [estadoJornada, setEstadoJornada] = useState('verificando')
@@ -42,7 +47,7 @@ export default function ConteoPage() {
     const [intentoJornada, setIntentoJornada] = useState(0)
 
     const [bodegas, setBodegas] = useState([])
-    const [codBodSeleccionado, setCodBodSeleccionado] = useState('')
+    const [codBodSeleccionado, setCodBodSeleccionado] = useState(contexto?.codBodSeleccionada ?? '')
     const [articulos, setArticulos] = useState([])
     const [claveArticuloSeleccionado, setClaveArticuloSeleccionado] = useState('')
     const [lotes, setLotes] = useState([])
@@ -143,7 +148,13 @@ export default function ConteoPage() {
         }
     }, [usuario?.id, codBodSeleccionado])
 
-    const articuloSeleccionado = articulos.find((articulo) => claveArticulo(articulo) === claveArticuloSeleccionado)
+    const bodegasVisibles = contexto ? bodegas.filter((bodega) => bodega.numCon === contexto.numCon) : bodegas
+    const articulosVisibles = contexto
+        ? articulos.filter((articulo) => articulo.numCon === contexto.numCon)
+        : articulos
+    const articuloSeleccionado = articulosVisibles.find(
+        (articulo) => claveArticulo(articulo) === claveArticuloSeleccionado,
+    )
 
     useEffect(() => {
         if (!usuario?.id || !codBodSeleccionado || !articuloSeleccionado?.indicadorLote) {
@@ -243,6 +254,12 @@ export default function ConteoPage() {
         <main>
             <h1>Conteo</h1>
 
+            {contexto && (
+                <p className={styles.pendientes} data-testid="contrato-activo">
+                    Contrato activo: {contexto.objCon ? `${contexto.numCon} · ${contexto.objCon}` : contexto.numCon}
+                </p>
+            )}
+
             {pendientesSinSincronizar > 0 && (
                 <p className={styles.pendientes}>
                     {pendientesSinSincronizar} conteo{pendientesSinSincronizar === 1 ? '' : 's'} todavía sin
@@ -263,7 +280,7 @@ export default function ConteoPage() {
                         }}
                     >
                         <option value="">Seleccioná una bodega</option>
-                        {bodegas.map((bodega) => (
+                        {bodegasVisibles.map((bodega) => (
                             <option key={bodega.codBod} value={bodega.codBod}>
                                 {bodega.desBod}
                             </option>
@@ -283,7 +300,7 @@ export default function ConteoPage() {
                         disabled={!codBodSeleccionado}
                     >
                         <option value="">Seleccioná un artículo</option>
-                        {articulos.map((articulo) => (
+                        {articulosVisibles.map((articulo) => (
                             <option key={claveArticulo(articulo)} value={claveArticulo(articulo)}>
                                 {articulo.desArt} (teórico: {articulo.cantidadTeorica})
                             </option>

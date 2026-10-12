@@ -29,7 +29,6 @@
 
 .grupo {
     margin-top: var(--space-5);
-    max-width: 640px;
 }
 
 .tituloGrupo {
@@ -41,42 +40,116 @@
     text-transform: uppercase;
 }
 
-.lista {
+/* HU-004: indicador del contexto activo, arriba de la pagina. */
+.indicador {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin: var(--space-2) 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-primary-border);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.enlace {
+    min-height: var(--touch-target-min);
+    padding: 0 var(--space-2);
+    border: none;
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: var(--font-weight-heading);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.enlace:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.busqueda {
+    margin-bottom: var(--space-5);
+}
+
+/* Tarjetas en cuadricula: 1 columna en movil, 2 desde 768px, 3 desde 1200px
+   (mismo patron que la pagina Clientes de la demo). */
+.cuadricula {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.parada {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--space-1) var(--space-3);
+@media (min-width: 768px) {
+    .cuadricula {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1200px) {
+    .cuadricula {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.tarjeta {
+    display: flex;
     align-items: center;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-surface);
+    justify-content: space-between;
+    gap: var(--space-3);
+    height: 100%;
+    min-height: var(--touch-target-min);
 }
 
-.parada + .parada {
-    margin-top: var(--space-2);
+/* Contrato activo: borde azul primario (#0f426e en modo claro). */
+.tarjetaActiva {
+    border: 2px solid var(--color-primary);
 }
 
-.nombre {
-    font-weight: 600;
+.principal {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    min-width: 0;
 }
 
-.detalle {
-    grid-column: 1;
-    color: var(--color-text-muted);
-    font-size: 0.9em;
-    overflow-wrap: anywhere;
-}
-
-.estado {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    color: var(--color-text-muted);
-    font-size: 0.9em;
+.titulo {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-text);
+    font-weight: var(--font-weight-heading);
+    text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.subtitulo {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.insignia {
+    margin-top: var(--space-1);
+}
+
+.meta {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.chevron {
+    color: var(--color-text-muted);
 }

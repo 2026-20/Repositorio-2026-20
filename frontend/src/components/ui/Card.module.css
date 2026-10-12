@@ -1,0 +1,40 @@
+/* IS-011: los botones llevan radio de 10px (--radius-md); una tarjeta
+   clicable es un boton. */
+.card {
+    display: block;
+    width: 100%;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-low);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    transition:
+        background-color var(--transition-theme),
+        border-color var(--transition-theme);
+}
+
+.interactiva {
+    cursor: pointer;
+    transition:
+        border-color var(--transition-theme),
+        box-shadow var(--transition-theme),
+        transform var(--transition-theme);
+}
+
+.interactiva:hover {
+    border-color: var(--color-primary-border);
+    box-shadow: var(--shadow-medium);
+}
+
+.interactiva:active {
+    transform: scale(0.99);
+}
+
+.interactiva:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
