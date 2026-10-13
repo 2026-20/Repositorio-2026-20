@@ -217,6 +217,8 @@ class AutenticacionControllerTest {
                 .thenReturn(10L);
         when(usuario.getNombreCompleto())
                 .thenReturn("William Molina");
+        when(usuario.getCorreo())
+                .thenReturn("william@capris.cr");
         when(usuario.getRol())
                 .thenReturn(rol);
         when(rol.getNombre())
@@ -230,6 +232,8 @@ class AutenticacionControllerTest {
                 .isEqualTo(10L);
         assertThat(respuesta.nombreCompleto())
                 .isEqualTo("William Molina");
+        assertThat(respuesta.correo())
+                .isEqualTo("william@capris.cr");
         assertThat(respuesta.rol())
                 .isEqualTo("Administrador");
         assertThat(respuesta.debeCambiarContrasena())

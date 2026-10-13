@@ -2,11 +2,19 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../context/AuthContext'
 import * as authService from '../../services/authService'
+import * as usuarioService from '../../services/usuarioService'
 import AjustesPage from './AjustesPage'
 
-function renderAjustes() {
+const PERFIL_DE_PRUEBA = {
+    nombreCompleto: 'William Molina',
+    correo: 'william@capris.cr',
+    rol: 'Administrador',
+    empresa: 'CAPRIS Médica',
+}
+
+function renderAjustes(usuario = { nombreCompleto: 'William Molina' }) {
     return render(
-        <AuthContext.Provider value={{ token: 'jwt-prueba' }}>
+        <AuthContext.Provider value={{ token: 'jwt-prueba', usuario }}>
             <AjustesPage />
         </AuthContext.Provider>,
     )
@@ -16,10 +24,12 @@ describe('AjustesPage', () => {
     beforeEach(() => {
         localStorage.clear()
         document.documentElement.removeAttribute('data-theme')
+        vi.spyOn(usuarioService, 'consultarPerfil').mockResolvedValue(PERFIL_DE_PRUEBA)
     })
 
     afterEach(() => {
         vi.restoreAllMocks()
+        vi.unstubAllGlobals()
         localStorage.clear()
         document.documentElement.removeAttribute('data-theme')
     })
@@ -54,8 +64,62 @@ describe('AjustesPage', () => {
     })
 })
 
+// HU-022: consulta del perfil del usuario autenticado.
+describe('AjustesPage - informacion del usuario', () => {
+    beforeEach(() => {
+        localStorage.clear()
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+        vi.unstubAllGlobals()
+        localStorage.clear()
+    })
+
+    it('muestra el perfil consultado al backend', async () => {
+        vi.spyOn(usuarioService, 'consultarPerfil').mockResolvedValue(PERFIL_DE_PRUEBA)
+        renderAjustes()
+
+        expect(await screen.findByText('William Molina')).toBeInTheDocument()
+        expect(screen.getByText('william@capris.cr')).toBeInTheDocument()
+        expect(screen.getByText('CAPRIS Médica')).toBeInTheDocument()
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('sin conexion, muestra la informacion guardada en la sesion en vez de un error', async () => {
+        vi.stubGlobal('navigator', { ...navigator, onLine: false })
+        vi.spyOn(usuarioService, 'consultarPerfil').mockRejectedValue(new Error('Failed to fetch'))
+
+        renderAjustes({
+            nombreCompleto: 'Andrey Meléndez',
+            correo: 'andrey@capris.cr',
+            rol: 'Usuario de Campo',
+            empresaNombre: 'CAPRIS Médica',
+        })
+
+        expect(await screen.findByText('Andrey Meléndez')).toBeInTheDocument()
+        expect(screen.getByText('andrey@capris.cr')).toBeInTheDocument()
+        expect(screen.getByRole('status')).toHaveTextContent('Sin conexión')
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('en linea, si la consulta falla, muestra el error real', async () => {
+        vi.spyOn(usuarioService, 'consultarPerfil').mockRejectedValue(
+            new Error('No fue posible consultar el perfil'),
+        )
+        renderAjustes()
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('No fue posible consultar el perfil')
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+})
+
 // HU-045 AC1 y AC3: seccion de cambio de contraseña con actual + nueva + confirmar.
 describe('AjustesPage - cambio de contraseña', () => {
+    beforeEach(() => {
+        vi.spyOn(usuarioService, 'consultarPerfil').mockResolvedValue(PERFIL_DE_PRUEBA)
+    })
+
     afterEach(() => {
         vi.restoreAllMocks()
         localStorage.clear()

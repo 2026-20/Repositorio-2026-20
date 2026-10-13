@@ -86,3 +86,40 @@ describe('HU-022 - Gestionar perfil del usuario', () => {
     })
 
 })
+
+// HU-022: sin conexion no hay por que mostrar un error -- nombre, correo, rol
+// y empresa ya quedaron guardados en la sesion al iniciar sesion
+// (AuthProvider), asi que se muestran esos en vez de fallar.
+describe('HU-022 - Perfil sin conexion', () => {
+
+    it('muestra la informacion guardada en la sesion en vez de un error', () => {
+        cy.visitarConSesion('/ajustes', {
+            correo: 'william@capris.cr',
+            empresaNombre: 'CAPRIS Médica',
+        })
+
+        // cy.on() va dentro de cy.then() porque, a diferencia de los
+        // comandos, se registra apenas arranca la prueba -- afuera
+        // afectaria tambien la primera visita (ver hu-021).
+        cy.intercept('GET', '**/api/usuarios/perfil', { forceNetworkError: true }).as('perfilSinConexion')
+        cy.then(() => {
+            cy.on('window:before:load', (win) => {
+                Object.defineProperty(win.navigator, 'onLine', { get: () => false })
+            })
+        })
+
+        cy.reload()
+        cy.wait('@perfilSinConexion')
+
+        cy.contains('h2', 'Información del usuario')
+            .parent()
+            .within(() => {
+                cy.contains('William A. Molina Quirós').should('be.visible')
+                cy.contains('william@capris.cr').should('be.visible')
+                cy.contains('CAPRIS Médica').should('be.visible')
+                cy.contains('[role="status"]', 'Sin conexión').should('be.visible')
+            })
+        cy.get('[role="alert"]').should('not.exist')
+    })
+
+})

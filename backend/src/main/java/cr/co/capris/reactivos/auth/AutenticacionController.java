@@ -94,6 +94,7 @@ public class AutenticacionController {
 				token,
 				usuario.getId(),
 				usuario.getNombreCompleto(),
+				usuario.getCorreo(),
 				usuario.getRol().getNombre(),
 				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
 	}

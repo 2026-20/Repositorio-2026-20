@@ -3,6 +3,7 @@ import FormularioCambioContrasena from '../../components/auth/FormularioCambioCo
 import Modal from '../../components/feedback/Modal'
 import Icon from '../../components/ui/Icon'
 import { useAuth } from '../../context/useAuth'
+import { useConectividad } from '../../hooks/useConectividad'
 import { useTheme } from '../../hooks/useTheme'
 import { cambiarContrasena } from '../../services/authService'
 import styles from './AjustesPage.module.css'
@@ -28,10 +29,12 @@ const OPCIONES_APARIENCIA = [
 // bitacora (AC2/AC5) las aplica el backend.
 export default function AjustesPage() {
     const { temaEfectivo, setTema } = useTheme()
-    const { token } = useAuth()
+    const { usuario, token } = useAuth()
+    const enLinea = useConectividad()
     const [perfil, setPerfil] = useState(null)
     const [cargandoPerfil, setCargandoPerfil] = useState(true)
     const [errorPerfil, setErrorPerfil] = useState('')
+    const [perfilSinConexion, setPerfilSinConexion] = useState(false)
     const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false)
 
     useEffect(() => {
@@ -44,10 +47,29 @@ export default function AjustesPage() {
                 if (activo) {
                     setPerfil(datos)
                     setErrorPerfil('')
+                    setPerfilSinConexion(false)
                 }
             } catch (error) {
-                if (activo) {
+                if (!activo) return
+
+                // Sin conexion no hay por que tratarlo como un error: el
+                // nombre, correo, rol y empresa ya se guardaron en la sesion
+                // al iniciar sesion (AuthProvider), asi que se muestran esos
+                // en vez de un mensaje de fallo. Si la peticion falla
+                // estando en linea, eso si es un error real (backend caido,
+                // 500, etc).
+                if (!enLinea && usuario) {
+                    setPerfil({
+                        nombreCompleto: usuario.nombreCompleto,
+                        correo: usuario.correo,
+                        rol: usuario.rol,
+                        empresa: usuario.empresaNombre,
+                    })
+                    setErrorPerfil('')
+                    setPerfilSinConexion(true)
+                } else {
                     setErrorPerfil(error.message)
+                    setPerfilSinConexion(false)
                 }
             } finally {
                 if (activo) {
@@ -65,7 +87,7 @@ export default function AjustesPage() {
         return () => {
             activo = false
         }
-    }, [token])
+    }, [token, enLinea, usuario])
 
     async function manejarCambioContrasena({ contrasenaActual, contrasenaNueva }) {
         await cambiarContrasena(token, contrasenaActual, contrasenaNueva)
@@ -85,6 +107,12 @@ export default function AjustesPage() {
                 {cargandoPerfil && (
                     <p className={styles.descripcion}>
                         Cargando información del perfil...
+                    </p>
+                )}
+
+                {perfilSinConexion && (
+                    <p className={styles.avisoSinConexion} role="status">
+                        Sin conexión: se muestra la información guardada en este dispositivo.
                     </p>
                 )}
 
