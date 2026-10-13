@@ -58,7 +58,16 @@ export default function AjustesPage() {
                 // en vez de un mensaje de fallo. Si la peticion falla
                 // estando en linea, eso si es un error real (backend caido,
                 // 500, etc).
-                if (!enLinea && usuario) {
+                //
+                // No basta con navigator.onLine (puede dar falso positivo:
+                // wifi conectado pero sin salida real a internet -- ver
+                // recuperacionService.js). Segunda barrera real: cuando
+                // fetch() nunca recibe una respuesta, procesarRespuesta no
+                // llega a fijar error.status (eso solo pasa ante un 4xx/5xx
+                // real del backend).
+                const sinConexionDeVerdad = !enLinea || error.status === undefined
+
+                if (sinConexionDeVerdad && usuario) {
                     setPerfil({
                         nombreCompleto: usuario.nombreCompleto,
                         correo: usuario.correo,

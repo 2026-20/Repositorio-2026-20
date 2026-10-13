@@ -103,9 +103,30 @@ describe('AjustesPage - informacion del usuario', () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
+    it('navigator.onLine da falso positivo, pero igual muestra la informacion de la sesion', async () => {
+        // Wifi conectado pero sin salida real a internet: navigator.onLine
+        // sigue en true, pero fetch() nunca llega a tener una respuesta real
+        // (por eso el error no trae .status) -- la segunda barrera.
+        vi.spyOn(usuarioService, 'consultarPerfil').mockRejectedValue(new Error('Failed to fetch'))
+
+        renderAjustes({
+            nombreCompleto: 'Andrey Meléndez',
+            correo: 'andrey@capris.cr',
+            rol: 'Usuario de Campo',
+            empresaNombre: 'CAPRIS Médica',
+        })
+
+        expect(await screen.findByText('Andrey Meléndez')).toBeInTheDocument()
+        expect(screen.getByRole('status')).toHaveTextContent('Sin conexión')
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
     it('en linea, si la consulta falla, muestra el error real', async () => {
+        // error.status viene de procesarRespuesta ante un 4xx/5xx real del
+        // backend -- lo que distingue esto de una falla de red (ver el
+        // comentario de sinConexionDeVerdad en AjustesPage.jsx).
         vi.spyOn(usuarioService, 'consultarPerfil').mockRejectedValue(
-            new Error('No fue posible consultar el perfil'),
+            Object.assign(new Error('No fue posible consultar el perfil'), { status: 500 }),
         )
         renderAjustes()
 
