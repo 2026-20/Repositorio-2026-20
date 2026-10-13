@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     cerrarSesion,
     iniciarSesion,
 } from '../services/authService'
 import { AuthContext } from './AuthContext'
+import { escucharSesionInvalidada } from '../services/sesionInvalidada'
+import { validarSesion } from '../services/validarSesionService.js'
 
 export function AuthProvider({ children }) {
     const [usuario, setUsuario] = useState(() => {
@@ -23,6 +25,33 @@ export function AuthProvider({ children }) {
     // esta ejecucion, no cada vez que se recarga la pagina con una sesion
     // ya activa.
     const [mostrarBienvenida, setMostrarBienvenida] = useState(false)
+
+    function limpiarSesionLocal() {
+        setUsuario(null)
+        setToken(null)
+        setMostrarBienvenida(false)
+
+        sessionStorage.removeItem('capris_usuario')
+        sessionStorage.removeItem('capris_token')
+    }
+
+
+    useEffect(() => {
+        function manejarSesionInvalidada(event) {
+            const tokenInvalidado = event.detail?.token
+            const tokenActual = sessionStorage.getItem('capris_token')
+
+            if (
+                tokenInvalidado &&
+                tokenInvalidado === tokenActual
+            ) {
+                limpiarSesionLocal()
+            }
+        }
+
+        return escucharSesionInvalidada(manejarSesionInvalidada)
+    }, [])
+
 
     // empresaNombre no lo devuelve el backend en el login: lo conoce la
     // pantalla de login (selector de empresa) y se guarda en la sesion para
@@ -59,6 +88,49 @@ export function AuthProvider({ children }) {
 
         return respuesta
     }
+
+    useEffect(() => {
+        if (!token || !usuario?.id) {
+            return
+        }
+
+        let activo = true
+
+        async function comprobarSesion() {
+            if (!activo || !navigator.onLine) {
+                return
+            }
+
+            try {
+                await validarSesion(token, usuario.id)
+            } catch (error) {
+                // Una falla de red no debe cerrar la sesión offline.
+                // Las respuestas 401 SESION_NO_VALIDA
+                // ya son manejadas por procesarRespuesta.
+                if (error.status !== 401) {
+                    console.warn(
+                        'No se pudo comprobar la sesión:',
+                        error.message,
+                    )
+                }
+            }
+        }
+
+        function comprobarAlVolver() {
+            comprobarSesion()
+        }
+
+        window.addEventListener('online', comprobarAlVolver)
+
+        // También verifica la sesión al cargar la aplicación.
+        comprobarSesion()
+
+        return () => {
+            activo = false
+            window.removeEventListener('online', comprobarAlVolver)
+        }
+    }, [token, usuario?.id])
+
 
     // HU-044: el token no cambia al completar el cambio obligatorio (el backend
     // vuelve a leer el estado del usuario en cada peticion); solo hay que bajar

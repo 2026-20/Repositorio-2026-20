@@ -1,29 +1,9 @@
 import { API_BASE_URL } from './apiBaseUrl.js'
+import { procesarRespuesta } from './procesarRespuesta.js'
 
 const API_URL = `${API_BASE_URL}/api`
 
-async function procesarRespuesta(response) {
-    let datos = null
 
-    try {
-        datos = await response.json()
-    } catch {
-        datos = null
-    }
-
-    if (!response.ok) {
-        const mensaje =
-            datos?.mensaje ?? 'No fue posible completar la solicitud'
-
-        const error = new Error(mensaje)
-        error.codigo = datos?.codigo
-        error.status = response.status
-
-        throw error
-    }
-
-    return datos
-}
 
 export async function listarUsuarios(token) {
     const response = await fetch(`${API_URL}/usuarios`, {
@@ -32,7 +12,7 @@ export async function listarUsuarios(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 export async function inactivarUsuario(token, id, motivo) {
@@ -45,7 +25,7 @@ export async function inactivarUsuario(token, id, motivo) {
         body: JSON.stringify({ motivo: motivo || null }),
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 export async function listarRoles(token) {
@@ -55,7 +35,7 @@ export async function listarRoles(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 export async function crearUsuario(token, datos) {
@@ -68,7 +48,7 @@ export async function crearUsuario(token, datos) {
         body: JSON.stringify(datos),
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 export async function reactivarUsuario(token, id, motivo) {
@@ -81,7 +61,7 @@ export async function reactivarUsuario(token, id, motivo) {
         body: JSON.stringify({ motivo: motivo || null }),
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 export async function desbloquearUsuario(token, id) {
@@ -95,5 +75,5 @@ export async function desbloquearUsuario(token, id) {
         },
     )
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
