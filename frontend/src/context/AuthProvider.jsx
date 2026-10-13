@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
         const usuarioAutenticado = {
             id: respuesta.usuarioId,
             nombreCompleto: respuesta.nombreCompleto,
+            correo: respuesta.correo,
             rol: respuesta.rol,
             debeCambiarContrasena: respuesta.debeCambiarContrasena,
             empresaNombre,

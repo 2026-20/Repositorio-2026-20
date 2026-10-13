@@ -44,6 +44,7 @@ class AutenticacionControllerIT {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").isNotEmpty())
 				.andExpect(jsonPath("$.rol").value("Administrador"))
+				.andExpect(jsonPath("$.correo").value("wmolina@capris.cr"))
 				.andExpect(jsonPath("$.debeCambiarContrasena").value(false));
 	}
 
