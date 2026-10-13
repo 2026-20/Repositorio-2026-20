@@ -182,6 +182,34 @@ class UsuarioControllerIT {
 	}
 
 	@Test
+	void consultarPerfilDevuelveLosDatosDelUsuarioDelTokenSinImportarElRol() throws Exception {
+		// HU-022: a diferencia de listar()/crear(), /perfil no esta restringido a
+		// Administrador (ver SecurityConfig) -- lo prueba justo el token de un
+		// Usuario de Campo, no el del administrador semilla.
+		mockMvc.perform(get("/api/usuarios/perfil")
+						.header("Authorization", "Bearer " + tokenUsuarioDeCampoCapris))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.username").value("amelendez"))
+				.andExpect(jsonPath("$.empresa").value("CAPRIS Médica"))
+				.andExpect(jsonPath("$.rol").value("Usuario de Campo"));
+	}
+
+	@Test
+	void consultarPerfilDevuelveElPropioUsuarioDelTokenNoOtro() throws Exception {
+		mockMvc.perform(get("/api/usuarios/perfil")
+						.header("Authorization", "Bearer " + tokenUsuarioCapris))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.username").value("wmolina"));
+	}
+
+	@Test
+	void consultarPerfilSinHeaderAuthorizationDevuelve401ConSesionNoValida() throws Exception {
+		mockMvc.perform(get("/api/usuarios/perfil"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.codigo").value("SESION_NO_VALIDA"));
+	}
+
+	@Test
 	void peticionSinHeaderAuthorizationDevuelve401ConSesionNoValida() throws Exception {
 		mockMvc.perform(get("/api/usuarios"))
 				.andExpect(status().isUnauthorized())

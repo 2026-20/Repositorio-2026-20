@@ -130,6 +130,40 @@ class UsuarioControllerTest {
                 .hasMessage("No autorizado");
     }
 
+    // --- consultarPerfil ---
+
+    @Test
+    void consultarPerfilDevuelveElUsuarioAutenticadoDeLaEmpresaDelContexto() {
+        when(contextoUsuarioActual.getUsuarioId()).thenReturn(1L);
+        when(contextoUsuarioActual.getEmpresaId()).thenReturn(EMPRESA_ID);
+        Usuario usuario = usuarioDePrueba(1L, EstadoUsuario.ACTIVO);
+        when(usuarioRepository.findByIdAndEmpresaId(1L, EMPRESA_ID)).thenReturn(Optional.of(usuario));
+
+        UsuarioResumenDTO resultado = controller.consultarPerfil();
+
+        assertThat(resultado.username()).isEqualTo("afernandez");
+    }
+
+    @Test
+    void consultarPerfilSinUsuarioEnElContextoLanzaSesionNoValida() {
+        when(contextoUsuarioActual.getUsuarioId()).thenReturn(null);
+        when(contextoUsuarioActual.getEmpresaId()).thenReturn(EMPRESA_ID);
+
+        assertThatThrownBy(() -> controller.consultarPerfil())
+                .isInstanceOf(SesionNoValidaException.class);
+    }
+
+    @Test
+    void consultarPerfilDeUnUsuarioQueYaNoPerteneceALaEmpresaDelContextoLanzaAccesoNoAutorizado() {
+        when(contextoUsuarioActual.getUsuarioId()).thenReturn(1L);
+        when(contextoUsuarioActual.getEmpresaId()).thenReturn(EMPRESA_ID);
+        when(usuarioRepository.findByIdAndEmpresaId(1L, EMPRESA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> controller.consultarPerfil())
+                .isInstanceOf(AccesoNoAutorizadoException.class)
+                .hasMessage("No autorizado");
+    }
+
     // --- inactivar ---
 
     @Test
