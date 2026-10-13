@@ -25,18 +25,22 @@ public class CambioContrasenaService {
     private final BitacoraSeguridadService bitacoraSeguridadService;
     private final ValidadorPoliticaContrasena validadorPoliticaContrasena;
     private final BloqueoCuentaService bloqueoCuentaService;
+    private final CaducidadContrasenaService caducidadContrasenaService;
+
 
     public CambioContrasenaService(
             UsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
             BitacoraSeguridadService bitacoraSeguridadService,
             ValidadorPoliticaContrasena validadorPoliticaContrasena,
-            BloqueoCuentaService bloqueoCuentaService) {
+            BloqueoCuentaService bloqueoCuentaService,
+            CaducidadContrasenaService caducidadContrasenaService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.bitacoraSeguridadService = bitacoraSeguridadService;
         this.validadorPoliticaContrasena = validadorPoliticaContrasena;
         this.bloqueoCuentaService = bloqueoCuentaService;
+        this.caducidadContrasenaService = caducidadContrasenaService;
     }
 
     /** HU-044: pasa el usuario a ACTIVO y limpia la clave temporal. */
@@ -45,6 +49,7 @@ public class CambioContrasenaService {
         usuario.setPasswordHash(passwordEncoder.encode(contrasenaNueva));
         usuario.setEstado(EstadoUsuario.ACTIVO);
         usuario.setPasswordTemporalExpiraEn(null);
+        caducidadContrasenaService.reiniciarVigencia(usuario);
         usuarioRepository.save(usuario);
 
         bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(),
@@ -59,6 +64,9 @@ public class CambioContrasenaService {
     public void cambiarVoluntariamente(Usuario usuario, String contrasenaActual, String contrasenaNueva,
             String identificadorCliente) {
         bloqueoCuentaService.verificarBloqueo(usuario);
+
+        // NUEVO HU-049: Tenemos que saber si el cambio fue provocado por caducidad antes de reiniciar los 30 días.
+        boolean cambioPorCaducidad = caducidadContrasenaService.estaVencida(usuario);
 
         if (!passwordEncoder.matches(contrasenaActual, usuario.getPasswordHash())) {
             // Registra el fallo en la bitacora y, al llegar al maximo de intentos, bloquea
@@ -85,10 +93,15 @@ public class CambioContrasenaService {
         }
 
         usuario.setPasswordHash(passwordEncoder.encode(contrasenaNueva));
+        caducidadContrasenaService.reiniciarVigencia(usuario);
         usuarioRepository.save(usuario);
 
+        String detalle = cambioPorCaducidad
+                ? "Cambio obligatorio por caducidad de contraseña (HU-049)"
+                : "Cambio voluntario de contraseña (HU-045)";
+
         bitacoraSeguridadService.registrar(usuario.getUsername(), usuario.getId(),
-                TipoEventoSeguridad.CONTRASENA_CAMBIADA, "Cambio voluntario de contraseña (HU-045)");
+                TipoEventoSeguridad.CONTRASENA_CAMBIADA, detalle);
     }
 
     private void validarPolitica(String contrasenaNueva) {

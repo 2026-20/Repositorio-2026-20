@@ -5,5 +5,6 @@ public record LoginResponse(
 		Long usuarioId,
 		String nombreCompleto,
 		String rol,
-		boolean debeCambiarContrasena) {
+		boolean debeCambiarContrasena,
+		boolean contrasenaVencida) {
 }

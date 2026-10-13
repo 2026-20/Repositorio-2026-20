@@ -6,6 +6,7 @@ import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
 import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
+import cr.co.capris.reactivos.seguridad.CaducidadContrasenaService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,13 +42,17 @@ public class AutenticacionController {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final BloqueoCuentaService bloqueoCuentaService;
+	private final CaducidadContrasenaService caducidadContrasenaService;
 
 	public AutenticacionController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-			JwtService jwtService, BloqueoCuentaService bloqueoCuentaService) {
+									JwtService jwtService, BloqueoCuentaService bloqueoCuentaService,
+									CaducidadContrasenaService caducidadContrasenaService) {
+
 		this.usuarioRepository = usuarioRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.bloqueoCuentaService = bloqueoCuentaService;
+		this.caducidadContrasenaService = caducidadContrasenaService;
 	}
 
 	@PostMapping("/login")
@@ -95,6 +100,7 @@ public class AutenticacionController {
 				usuario.getId(),
 				usuario.getNombreCompleto(),
 				usuario.getRol().getNombre(),
-				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO);
+				usuario.getEstado() == EstadoUsuario.PENDIENTE_PRIMER_INGRESO,
+				usuario.getEstado() == EstadoUsuario.ACTIVO && caducidadContrasenaService.estaVencida(usuario));
 	}
 }

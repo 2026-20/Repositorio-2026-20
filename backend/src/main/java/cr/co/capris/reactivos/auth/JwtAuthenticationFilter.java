@@ -3,6 +3,8 @@ package cr.co.capris.reactivos.auth;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
+import cr.co.capris.reactivos.seguridad.CaducidadContrasenaService;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -26,22 +28,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private static final String RUTA_CAMBIO_PRIMER_INGRESO = "/api/auth/primer-ingreso/cambiar-password";
 	private static final String RUTA_LOGOUT = "/api/auth/logout";
+	private static final String RUTA_CAMBIO_CONTRASENA = "/api/auth/cambiar-password";
 
 	private final JwtService jwtService;
 	private final ContextoUsuarioActualImpl contextoUsuarioActual;
 	private final UsuarioRepository usuarioRepository;
 	private final TokenSesionRevocadoService tokenSesionRevocadoService;
+	private final CaducidadContrasenaService caducidadContrasenaService;
 
 	public JwtAuthenticationFilter(
 			JwtService jwtService,
 			ContextoUsuarioActualImpl contextoUsuarioActual,
 			UsuarioRepository usuarioRepository,
-			TokenSesionRevocadoService tokenSesionRevocadoService
+			TokenSesionRevocadoService tokenSesionRevocadoService,
+			CaducidadContrasenaService caducidadContrasenaService
 	) {
 		this.jwtService = jwtService;
 		this.contextoUsuarioActual = contextoUsuarioActual;
 		this.usuarioRepository = usuarioRepository;
 		this.tokenSesionRevocadoService = tokenSesionRevocadoService;
+		this.caducidadContrasenaService = caducidadContrasenaService;
 	}
 
 	@Override
@@ -91,6 +97,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 								.toInstant()
 								.atOffset(ZoneOffset.UTC);
 
+				boolean contrasenaVencida =
+						usuario.isPresent()
+								&& usuario.get().getEstado() == EstadoUsuario.ACTIVO
+								&& caducidadContrasenaService.estaVencida(usuario.get());
+
 				boolean valida =
 						usuario.isPresent()
 								&& sesionSigueValida(
@@ -100,6 +111,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 						)
 								&& !primerIngresoPendienteFueraDeRutaPermitida(
 								usuario.get().getEstado(),
+								request.getMethod(),
+								rutaSinContexto(request)
+						)
+								&& !contrasenaVencidaFueraDeRutaPermitida(
+								contrasenaVencida,
 								request.getMethod(),
 								rutaSinContexto(request)
 						);
@@ -169,6 +185,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 		boolean permitida = "POST".equals(metodo)
 				&& (RUTA_CAMBIO_PRIMER_INGRESO.equals(ruta) || RUTA_LOGOUT.equals(ruta));
+
+		return !permitida;
+	}
+
+	boolean contrasenaVencidaFueraDeRutaPermitida(boolean contrasenaVencida, String metodo, String ruta) {
+		if (!contrasenaVencida) {return false;}
+
+		boolean permitida = "POST".equals(metodo)
+						&& (RUTA_CAMBIO_CONTRASENA.equals(ruta)
+						|| RUTA_LOGOUT.equals(ruta));
 
 		return !permitida;
 	}

@@ -37,6 +37,7 @@ class CambioContrasenaServiceTest {
     @Mock private ValidadorPoliticaContrasena validadorPoliticaContrasena;
     @Mock private BloqueoCuentaService bloqueoCuentaService;
     @Mock private Usuario usuario;
+    @Mock private CaducidadContrasenaService caducidadContrasenaService;
 
     private CambioContrasenaService service;
 
@@ -44,7 +45,7 @@ class CambioContrasenaServiceTest {
     void setUp() {
         service = new CambioContrasenaService(
                 usuarioRepository, passwordEncoder, bitacoraSeguridadService,
-                validadorPoliticaContrasena, bloqueoCuentaService);
+                validadorPoliticaContrasena, bloqueoCuentaService,caducidadContrasenaService);
     }
 
     private void usuarioConIdentidad() {
@@ -65,6 +66,7 @@ class CambioContrasenaServiceTest {
         verify(usuario).setPasswordHash("hash-nuevo");
         verify(usuario).setEstado(EstadoUsuario.ACTIVO);
         verify(usuario).setPasswordTemporalExpiraEn(null);
+        verify(caducidadContrasenaService).reiniciarVigencia(usuario);
         verify(usuarioRepository).save(usuario);
         verify(bitacoraSeguridadService).registrar(
                 "nuevo", 20L, TipoEventoSeguridad.CONTRASENA_CAMBIADA, "Cambio obligatorio de primer ingreso (HU-044)");
@@ -96,6 +98,7 @@ class CambioContrasenaServiceTest {
         service.cambiarVoluntariamente(usuario, "Actual123!", "Nueva123!", CLIENTE);
 
         verify(usuario).setPasswordHash("hash-nuevo");
+        verify(caducidadContrasenaService).reiniciarVigencia(usuario);
         verify(usuarioRepository).save(usuario);
         verify(bitacoraSeguridadService).registrar(
                 "nuevo", 20L, TipoEventoSeguridad.CONTRASENA_CAMBIADA, "Cambio voluntario de contraseña (HU-045)");
@@ -186,5 +189,46 @@ class CambioContrasenaServiceTest {
         verify(bitacoraSeguridadService).registrar(
                 eq("nuevo"), eq(20L), eq(TipoEventoSeguridad.CAMBIO_CONTRASENA_FALLIDO), anyString());
         verify(usuarioRepository, never()).save(any());
+    }
+
+    // ---- HU-049 ----
+
+    @Test
+    void cambioPorCaducidadReiniciaVigenciaYRegistraHu049() {
+        usuarioConIdentidad();
+
+        when(usuario.getPasswordHash()).thenReturn("hash-actual");
+        when(caducidadContrasenaService.estaVencida(usuario)).thenReturn(true);
+        when(passwordEncoder.matches("Actual123!", "hash-actual")).thenReturn(true);
+        when(passwordEncoder.matches("Nueva123!", "hash-actual")).thenReturn(false);
+        when(validadorPoliticaContrasena.validar("Nueva123!")).thenReturn(List.of());
+        when(passwordEncoder.encode("Nueva123!")).thenReturn("hash-nuevo");
+
+        service.cambiarVoluntariamente(usuario, "Actual123!", "Nueva123!", CLIENTE);
+
+        verify(usuario).setPasswordHash("hash-nuevo");
+        verify(caducidadContrasenaService).reiniciarVigencia(usuario);
+        verify(usuarioRepository).save(usuario);
+        verify(bitacoraSeguridadService).registrar("nuevo", 20L,
+                                                   TipoEventoSeguridad.CONTRASENA_CAMBIADA,
+                                            "Cambio obligatorio por caducidad de contraseña (HU-049)"
+        );
+    }
+
+    @Test
+    void permiteReutilizarUnaContrasenaAnteriorSiNoEsLaActual() {
+        usuarioConIdentidad();
+
+        when(usuario.getPasswordHash()).thenReturn("hash-actual");
+        when(passwordEncoder.matches("Actual123!", "hash-actual")).thenReturn(true);
+        when(passwordEncoder.matches("Anterior123!", "hash-actual")).thenReturn(false);
+        when(validadorPoliticaContrasena.validar("Anterior123!")).thenReturn(List.of());
+        when(passwordEncoder.encode("Anterior123!")).thenReturn("hash-anterior-reutilizado");
+
+        service.cambiarVoluntariamente(usuario, "Actual123!", "Anterior123!", CLIENTE);
+
+        verify(usuario).setPasswordHash("hash-anterior-reutilizado");
+        verify(caducidadContrasenaService).reiniciarVigencia(usuario);
+        verify(usuarioRepository).save(usuario);
     }
 }
