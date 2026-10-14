@@ -3,7 +3,7 @@ import FormularioCambioContrasena from '../../components/auth/FormularioCambioCo
 import { useAuth } from '../../context/useAuth'
 import { paths } from '../../routes/paths'
 import { cambiarContrasena } from '../../services/authService'
-import styles from './PrimerIngresoPage.module.css'
+import styles from './ContrasenaVencidaPage.module.css'
 
 // HU-049: pantalla obligatoria cuando la contraseña normal ha vencido.
 // ProtectedRoute impide acceder al resto del sistema hasta realizar correctamente el cambio de contraseña.
