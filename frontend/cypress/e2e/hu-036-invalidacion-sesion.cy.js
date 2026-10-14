@@ -1,3 +1,25 @@
+// cy.visitarConSesion() intercepta GET /api/usuarios/:id por defecto (ver su
+// comentario en commands.js) para que el resto de la suite no choque con la
+// verificacion de sesion de HU-036. Aqui se necesita control total sobre esa
+// misma ruta (primero 200, despues 401/error de red) -- como Cypress aplica
+// el ULTIMO intercept registrado para una ruta, usar visitarConSesion()
+// haria que su intercept por defecto gane y tape el de esta prueba. Por eso
+// esta prueba arma la sesion directamente, sin pasar por ese comando.
+function visitarConSesionDeCampo(ruta) {
+    cy.visit(ruta, {
+        onBeforeLoad(win) {
+            win.sessionStorage.setItem('capris_token', 'jwt-prueba')
+            win.sessionStorage.setItem(
+                'capris_usuario',
+                JSON.stringify({
+                    id: 1,
+                    nombreCompleto: 'Andrey Melendez',
+                    rol: 'Usuario de Campo',
+                }),
+            )
+        },
+    })
+}
 
 describe('HU-036 - Invalidacion de sesion', () => {
     it('cierra la sesion cuando el backend invalida el JWT', () => {
@@ -26,11 +48,7 @@ describe('HU-036 - Invalidacion de sesion', () => {
             }
         }).as('validarSesion')
 
-        cy.visitarConSesion('/dashboard', {
-            id: 1,
-            nombreCompleto: 'Andrey Melendez',
-            rol: 'Usuario de Campo',
-        })
+        visitarConSesionDeCampo('/dashboard')
 
         // La primera validacion permite continuar.
         cy.wait('@validarSesion')
@@ -84,11 +102,7 @@ describe('HU-036 - Invalidacion de sesion', () => {
             }
         }).as('validarSesion')
 
-        cy.visitarConSesion('/dashboard', {
-            id: 1,
-            nombreCompleto: 'Andrey Melendez',
-            rol: 'Usuario de Campo',
-        })
+        visitarConSesionDeCampo('/dashboard')
 
         // Primera validación exitosa.
         cy.wait('@validarSesion')
