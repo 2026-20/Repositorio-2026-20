@@ -82,9 +82,14 @@ describe('HU-021 - Operar en modo sin conexion', () => {
         // llegue la opcion falla con "no tiene esa opcion" -- y si el select
         // se re-renderiza a mitad, con "elemento disabled". Por eso se espera
         // la opcion concreta, que es la senal real.
-        cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 10000 }).should('exist')
+        //
+        // Timeout largo (no el default de 4s ni 10s): cada sesion OPFS paga
+        // el costo completo de levantar un Worker + compilar wasm sin cache
+        // entre ellas, y en el runner de CI eso es mas lento que en local --
+        // con 10s este test flakeaba en CI aunque siempre pasaba en local.
+        cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 20000 }).should('exist')
         cy.get('#conteo-bodega').select('MEPRIN')
-        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 10000 }).should('exist')
+        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 20000 }).should('exist')
         cy.get('#conteo-articulo').select('ART1::123')
         cy.get('#conteo-cantidad').type('9')
         cy.contains('button', 'Registrar conteo').click()
