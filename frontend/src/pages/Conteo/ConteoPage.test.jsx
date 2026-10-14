@@ -12,6 +12,7 @@ import {
     registrarConteoLocal,
 } from '../../storage/conteosPendientesRepositorio.js'
 import { obtenerDetalleBodega, obtenerLotesBodega, obtenerRuta } from '../../storage/datosMaestrosRepositorio.js'
+import { registrarAccionLocal } from '../../storage/trazabilidadRepositorio.js'
 import ConteoPage from './ConteoPage'
 
 vi.mock('../../services/auditoriaService.js', () => ({
@@ -23,6 +24,10 @@ vi.mock('../../storage/conteosPendientesRepositorio.js', () => ({
     guardarJornadaIniciada: vi.fn(),
     obtenerConteosPendientes: vi.fn(),
     registrarConteoLocal: vi.fn(),
+}))
+
+vi.mock('../../storage/trazabilidadRepositorio.js', () => ({
+    registrarAccionLocal: vi.fn(),
 }))
 
 vi.mock('../../storage/datosMaestrosRepositorio.js', () => ({
@@ -75,6 +80,8 @@ describe('ConteoPage', () => {
         // son del formulario de conteo en si, no de HU-038 -- ver el
         // describe de abajo para los 4 estados del aseguramiento silencioso.
         estaJornadaIniciadaHoy.mockResolvedValue(true)
+        // HU-031: no es el foco de estas pruebas, solo necesita no rechazar.
+        registrarAccionLocal.mockResolvedValue('id-trazabilidad-generado')
     })
 
     afterEach(() => {
@@ -104,6 +111,14 @@ describe('ConteoPage', () => {
             })
         })
         expect(screen.getByRole('status')).toHaveTextContent('Conteo guardado en este dispositivo')
+
+        // HU-031: el conteo tambien queda trazado localmente.
+        expect(registrarAccionLocal).toHaveBeenCalledWith(7, {
+            tipoAccion: 'CONTEO_REGISTRADO',
+            codBod: 'MEPRIN',
+            resultado: 'EXITOSO',
+            detalle: 'Articulo sin lote: 8',
+        })
     })
 
     it('distingue dos articulos con el mismo codArt bajo contratos distintos', async () => {

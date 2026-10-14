@@ -9,4 +9,5 @@ export const paths = {
     sincronizacion: '/sincronizacion',
     miRuta: '/mi-ruta',
     conteo: '/conteo',
+    trazabilidad: '/trazabilidad',
 }

@@ -12,6 +12,7 @@ import { guardarJornadaIniciada } from './conteosPendientesRepositorio.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
 import { ErrorCambiosPendientes, ErrorSinConexion, sincronizarDatosMaestros } from './sincronizacionDatosMaestros.js'
 import { subirConteosPendientes } from './sincronizacionConteos.js'
+import { subirTrazabilidadPendiente } from './sincronizacionTrazabilidad.js'
 
 vi.mock('../services/auditoriaService.js', () => ({
     listarBodegas: vi.fn(),
@@ -31,6 +32,10 @@ vi.mock('./datosMaestrosRepositorio.js', () => ({
 
 vi.mock('./sincronizacionConteos.js', () => ({
     subirConteosPendientes: vi.fn(),
+}))
+
+vi.mock('./sincronizacionTrazabilidad.js', () => ({
+    subirTrazabilidadPendiente: vi.fn(),
 }))
 
 vi.mock('./conteosPendientesRepositorio.js', () => ({
@@ -54,6 +59,7 @@ describe('sincronizarDatosMaestros', () => {
         hayCambiosPendientesDeSubir.mockResolvedValue(false)
         obtenerMiRuta.mockResolvedValue([PARADA])
         subirConteosPendientes.mockResolvedValue(undefined)
+        subirTrazabilidadPendiente.mockResolvedValue(undefined)
         obtenerJornadaHoy.mockResolvedValue({ iniciada: false, iniciadaEn: null })
     })
 
@@ -179,6 +185,15 @@ describe('sincronizarDatosMaestros', () => {
 
         expect(subirConteosPendientes).toHaveBeenCalledWith(7, 'jwt-prueba')
         expect(ordenDeLlamadas).toEqual(['subir', 'revisar'])
+    })
+
+    it('HU-031: intenta subir la trazabilidad pendiente junto con los conteos', async () => {
+        listarBodegas.mockResolvedValue([])
+        reemplazarCatalogos.mockResolvedValue('2026-10-08T00:00:00.000Z')
+
+        await sincronizarDatosMaestros(7, 'jwt-prueba')
+
+        expect(subirTrazabilidadPendiente).toHaveBeenCalledWith(7, 'jwt-prueba')
     })
 
     it('HU-021: si la jornada de hoy ya esta iniciada, cachea el momento localmente', async () => {

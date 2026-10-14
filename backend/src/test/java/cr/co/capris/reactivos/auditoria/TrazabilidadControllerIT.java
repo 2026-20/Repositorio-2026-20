@@ -22,6 +22,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -155,10 +156,16 @@ class TrazabilidadControllerIT {
 						.content(cuerpoDeRequest("it-admin-2", TipoAccionTrazabilidad.INICIO_SESION)))
 				.andExpect(status().isCreated());
 
+		// Ve el registro del Usuario de Campo (it-admin-1) Y el propio
+		// (it-admin-2) -- el log de un Administrador no se filtra por usuario.
+		// hasItems (no containsInAnyOrder): otras IT de la suite comparten el
+		// mismo contenedor/esquema y pueden haber dejado sus propios registros
+		// de trazabilidad (ej. un login real en AutenticacionControllerIT) --
+		// lo que importa es que ESTOS dos aparezcan, no que sean los unicos.
 		mockMvc.perform(get("/api/auditoria/trazabilidad")
 						.header("Authorization", "Bearer " + tokenAdministrador))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[?(@.detalle == 'registro de prueba')].length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(2)));
+				.andExpect(jsonPath("$[*].tipoAccion").value(hasItems("CONTEO_REGISTRADO", "INICIO_SESION")));
 	}
 
 	@Test
