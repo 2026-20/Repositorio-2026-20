@@ -4,6 +4,8 @@ public record LoginResponse(
 		String token,
 		Long usuarioId,
 		String nombreCompleto,
+		String correo,
 		String rol,
-		boolean debeCambiarContrasena) {
+		boolean debeCambiarContrasena,
+		boolean contrasenaVencida) {
 }

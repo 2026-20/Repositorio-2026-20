@@ -8,6 +8,21 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
             statusCode: 204,
         }).as('logout')
 
+        // HU-022: Ajustes tambien consulta el perfil al montar. Sin este
+        // intercept, el JWT de prueba (no es uno real) sale hacia el backend
+        // real y falla a nivel de red -- antes quedaba oculto en un
+        // role="alert" que nadie revisaba, ahora (con la segunda barrera de
+        // deteccion de "sin conexion") se verfia como si no hubiera red.
+        cy.intercept('GET', '**/api/usuarios/perfil', {
+            statusCode: 200,
+            body: {
+                nombreCompleto: 'William A. Molina Quirós',
+                correo: 'william@capris.cr',
+                rol: 'Administrador',
+                empresa: 'CAPRIS Médica',
+            },
+        }).as('perfil')
+
         cy.visitarConSesion('/ajustes', { debeCambiarContrasena: false })
     })
 
@@ -253,7 +268,7 @@ describe('HU-045 - Cambio voluntario de contraseña', () => {
             cy.wait('@cambiarPasswordCorregido')
 
             cy.get('[role="status"]').should('contain', 'se cambió correctamente')
-            cy.get('[role="alert"]').should('not.exist')
+            cy.get('[role="dialog"] [role="alert"]').should('not.exist')
         })
     })
 })

@@ -35,6 +35,7 @@ public class RecuperacionContrasenaService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final ValidadorPoliticaContrasena validadorPoliticaContrasena;
+	private final CaducidadContrasenaService caducidadContrasenaService;
 
 	private final int otpExpiracionMinutos;
 	private final int otpIntentosMaximos;
@@ -52,12 +53,13 @@ public class RecuperacionContrasenaService {
 			PasswordEncoder passwordEncoder,
 			JwtService jwtService,
 			ValidadorPoliticaContrasena validadorPoliticaContrasena,
+			CaducidadContrasenaService caducidadContrasenaService,
 			@Value("${app.email.otp.expiracion-minutos:15}") int otpExpiracionMinutos,
 			@Value("${app.email.otp.intentos-maximos:3}") int otpIntentosMaximos,
 			@Value("${app.email.asincrono:true}") boolean emailAsincrono,
 			@Value("${app.email.otp.reenvio-espera-segundos:60}") int otpReenvioEsperaSegundos) {
 		this(usuarioRepository, tokenRecuperacionRepository, historialContrasenaService, bitacoraSeguridadService,
-				emailService, passwordEncoder, jwtService, validadorPoliticaContrasena, otpExpiracionMinutos,
+				emailService, passwordEncoder, jwtService, validadorPoliticaContrasena, caducidadContrasenaService, otpExpiracionMinutos,
 				otpIntentosMaximos, emailAsincrono, otpReenvioEsperaSegundos, Clock.systemUTC());
 	}
 
@@ -70,6 +72,7 @@ public class RecuperacionContrasenaService {
 			PasswordEncoder passwordEncoder,
 			JwtService jwtService,
 			ValidadorPoliticaContrasena validadorPoliticaContrasena,
+			CaducidadContrasenaService caducidadContrasenaService,
 			int otpExpiracionMinutos,
 			int otpIntentosMaximos,
 			boolean emailAsincrono,
@@ -83,6 +86,7 @@ public class RecuperacionContrasenaService {
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.validadorPoliticaContrasena = validadorPoliticaContrasena;
+		this.caducidadContrasenaService = caducidadContrasenaService;
 		this.otpExpiracionMinutos = otpExpiracionMinutos;
 		this.otpIntentosMaximos = otpIntentosMaximos;
 		this.emailAsincrono = emailAsincrono;
@@ -242,6 +246,7 @@ public class RecuperacionContrasenaService {
 			usuario.setEstado(EstadoUsuario.ACTIVO);
 			usuario.setPasswordTemporalExpiraEn(null);
 		}
+		caducidadContrasenaService.reiniciarVigencia(usuario);
 		usuarioRepository.save(usuario);
 
 		// Criterio 4: la sesión temporal es de UN solo uso -- al completar el

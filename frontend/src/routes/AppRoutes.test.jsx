@@ -10,7 +10,7 @@ import { AuthContext } from '../context/AuthContext'
 import { SincronizacionContext } from '../context/SincronizacionContext'
 import AppRoutes from './AppRoutes'
 
-function renderConSesion(entrada, rol = 'Administrador') {
+function renderConSesion(entrada, rol = 'Administrador', datosUsuario = {},) {
     return render(
         <AuthContext.Provider
             value={{
@@ -18,6 +18,7 @@ function renderConSesion(entrada, rol = 'Administrador') {
                 usuario: {
                     nombreCompleto: 'Persona de prueba',
                     rol,
+                    ...datosUsuario,
                 },
                 logout: vi.fn(),
             }}
@@ -39,6 +40,23 @@ describe('AppRoutes', () => {
 
         expect(
             await screen.findByRole('heading', { name: 'Accesos' }),
+        ).toBeInTheDocument()
+    })
+
+    it('redirige al cambio obligatorio cuando la contraseña esta vencida', async () => {
+        renderConSesion(
+            '/dashboard',
+            'Administrador',
+            {
+                debeCambiarContrasena: false,
+                contrasenaVencida: true,
+            },
+        )
+
+        expect(
+            await screen.findByRole('heading', {
+                name: 'Contraseña vencida',
+            }),
         ).toBeInTheDocument()
     })
 

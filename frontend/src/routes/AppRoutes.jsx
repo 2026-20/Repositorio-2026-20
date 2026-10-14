@@ -11,6 +11,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage'
 import LoginPage from '../pages/Login/LoginPage'
 import MiRutaPage from '../pages/Ruta/MiRutaPage'
 import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
+import ContrasenaVencidaPage from '../pages/Login/ContrasenaVencidaPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import SincronizacionPage from '../pages/Sync/SincronizacionPage'
 import UsersPage from '../pages/Admin/Users/UsersPage'
@@ -33,6 +34,16 @@ export default function AppRoutes() {
                     </ProtectedRoute>
                 }
             />
+
+            <Route
+                path={paths.contrasenaVencida}
+                element={
+                    <ProtectedRoute>
+                        <ContrasenaVencidaPage />
+                    </ProtectedRoute>
+                }
+            />
+
             <Route
                 path={paths.recuperarContrasena}
                 element={<RecuperarContrasena />}

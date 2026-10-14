@@ -58,6 +58,25 @@ public class UsuarioController {
 				.map(UsuarioResumenDTO::from).toList();
 	}
 
+	@GetMapping("/perfil")
+	public UsuarioResumenDTO consultarPerfil() {
+
+		Long usuarioId = contextoUsuarioActual.getUsuarioId();
+		Long empresaId = exigirEmpresaId();
+
+		if (usuarioId == null) {
+			throw new SesionNoValidaException("No hay sesion activa");
+		}
+
+		Usuario usuario = usuarioRepository
+				.findByIdAndEmpresaId(usuarioId, empresaId)
+				.orElseThrow(() ->
+						new AccesoNoAutorizadoException("No autorizado")
+				);
+
+		return UsuarioResumenDTO.from(usuario);
+	}
+
 	@GetMapping("/{id}")
 	public UsuarioResumenDTO detalle(@PathVariable Long id) {
 		Long empresaId = exigirEmpresaId();

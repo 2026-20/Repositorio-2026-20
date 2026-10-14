@@ -67,8 +67,10 @@ export function AuthProvider({ children }) {
         const usuarioAutenticado = {
             id: respuesta.usuarioId,
             nombreCompleto: respuesta.nombreCompleto,
+            correo: respuesta.correo,
             rol: respuesta.rol,
             debeCambiarContrasena: respuesta.debeCambiarContrasena,
+            contrasenaVencida: respuesta.contrasenaVencida,
             empresaNombre,
         }
 
@@ -131,22 +133,16 @@ export function AuthProvider({ children }) {
         }
     }, [token, usuario?.id])
 
-
-    // HU-044: el token no cambia al completar el cambio obligatorio (el backend
-    // vuelve a leer el estado del usuario en cada peticion); solo hay que bajar
-    // la bandera para que ProtectedRoute deje de mandarlo a esa pantalla.
+    // HU-044 / HU-049: despues de un cambio obligatorio exitoso, el usuario deja de tener
+    // pendiente tanto el primer ingreso como la caducidad de contraseña. El token no cambia
+    // (el backend vuelve a leer el estado del usuario en cada peticion); solo hay que bajar
+    // las banderas para que ProtectedRoute deje de mandarlo a esas pantallas.
     function marcarContrasenaCambiada() {
         const usuarioActualizado = {
-            ...usuario,
-            debeCambiarContrasena: false,
+            ...usuario, debeCambiarContrasena: false, contrasenaVencida: false,
         }
-
         setUsuario(usuarioActualizado)
-
-        sessionStorage.setItem(
-            'capris_usuario',
-            JSON.stringify(usuarioActualizado),
-        )
+        sessionStorage.setItem('capris_usuario', JSON.stringify(usuarioActualizado),)
     }
 
     async function logout() {

@@ -75,23 +75,41 @@ describe('LoginPage - logo por empresa', () => {
     })
 })
 
-// HU-044: quien entra con contraseña temporal aterriza en el cambio obligatorio,
-// no en el dashboard.
+// HU-044 / HU-049:
+// HU-044 tiene prioridad sobre la caducidad.
+// Si no es primer ingreso pero la contraseña venció, debe ir al cambio obligatorio por caducidad.
 describe('LoginPage - destino tras autenticarse', () => {
     function renderAutenticado(usuario) {
         vi.spyOn(authService, 'obtenerEmpresas').mockResolvedValue([])
 
         render(
             <AuthContext.Provider
-                value={{ login: vi.fn(), estaAutenticado: true, usuario }}
+                value={{
+                    login: vi.fn(),
+                    estaAutenticado: true,
+                    usuario,
+                }}
             >
                 <MemoryRouter initialEntries={['/login']}>
                     <Routes>
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/dashboard" element={<p>Dashboard</p>} />
+                        <Route
+                            path="/login"
+                            element={<LoginPage />}
+                        />
+
+                        <Route
+                            path="/dashboard"
+                            element={<p>Dashboard</p>}
+                        />
+
                         <Route
                             path="/primer-ingreso/cambiar-password"
-                            element={<p>Cambio obligatorio</p>}
+                            element={<p>Cambio primer ingreso</p>}
+                        />
+
+                        <Route
+                            path="/contrasena-vencida/cambiar-password"
+                            element={<p>Cambio por caducidad</p>}
                         />
                     </Routes>
                 </MemoryRouter>
@@ -100,15 +118,30 @@ describe('LoginPage - destino tras autenticarse', () => {
     }
 
     it('lleva al cambio obligatorio cuando la contraseña es temporal', () => {
-        renderAutenticado({ debeCambiarContrasena: true })
+        renderAutenticado({
+            debeCambiarContrasena: true,
+            contrasenaVencida: false,
+        })
 
-        expect(screen.getByText('Cambio obligatorio')).toBeInTheDocument()
+        expect(screen.getByText('Cambio primer ingreso'),).toBeInTheDocument()
     })
 
-    it('lleva al dashboard cuando la contraseña ya es propia', () => {
-        renderAutenticado({ debeCambiarContrasena: false })
+    it('lleva al cambio obligatorio cuando la contraseña esta vencida', () => {
+        renderAutenticado({debeCambiarContrasena: false, contrasenaVencida: true,})
 
-        expect(screen.getByText('Dashboard')).toBeInTheDocument()
+        expect(screen.getByText('Cambio por caducidad'),).toBeInTheDocument()})
+
+    it('prioriza el primer ingreso si tambien aparece la contraseña vencida', () => {
+        renderAutenticado({
+            debeCambiarContrasena: true,
+            contrasenaVencida: true,
+        })
+
+        expect(screen.getByText('Cambio primer ingreso'),).toBeInTheDocument()})
+
+    it('lleva al dashboard cuando no hay ningun cambio obligatorio pendiente', () => {
+        renderAutenticado({debeCambiarContrasena: false, contrasenaVencida: false,})
+        expect(screen.getByText('Dashboard'),).toBeInTheDocument()
     })
 })
 

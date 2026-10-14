@@ -9,6 +9,7 @@ import cr.co.capris.reactivos.usuario.Rol;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
 import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
+import cr.co.capris.reactivos.seguridad.CaducidadContrasenaService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,12 @@ class AutenticacionControllerTest {
     @Mock
     private BloqueoCuentaService bloqueoCuentaService;
 
+    @Mock
+    private CaducidadContrasenaService caducidadContrasenaService;
+
     private AutenticacionController controller;
+
+
 
     @BeforeEach
     void setUp() {
@@ -62,7 +68,8 @@ class AutenticacionControllerTest {
                 usuarioRepository,
                 passwordEncoder,
                 jwtService,
-                bloqueoCuentaService
+                bloqueoCuentaService,
+                caducidadContrasenaService
         );
     }
 
@@ -217,6 +224,8 @@ class AutenticacionControllerTest {
                 .thenReturn(10L);
         when(usuario.getNombreCompleto())
                 .thenReturn("William Molina");
+        when(usuario.getCorreo())
+                .thenReturn("william@capris.cr");
         when(usuario.getRol())
                 .thenReturn(rol);
         when(rol.getNombre())
@@ -230,6 +239,8 @@ class AutenticacionControllerTest {
                 .isEqualTo(10L);
         assertThat(respuesta.nombreCompleto())
                 .isEqualTo("William Molina");
+        assertThat(respuesta.correo())
+                .isEqualTo("william@capris.cr");
         assertThat(respuesta.rol())
                 .isEqualTo("Administrador");
         assertThat(respuesta.debeCambiarContrasena())

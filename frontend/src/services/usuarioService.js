@@ -77,3 +77,14 @@ export async function desbloquearUsuario(token, id) {
 
     return procesarRespuesta(response, true, token)
 }
+// HU-022: Consultar el perfil del usuario autenticado.
+export async function consultarPerfil(token) {
+    const response = await fetch(`${API_URL}/usuarios/perfil`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}

@@ -85,14 +85,15 @@ export default function LoginPage() {
     }
 
     if (estaAutenticado) {
-        // HU-044: con contraseña temporal, el primer destino es el cambio
-        // obligatorio, no el dashboard.
-        return (
-            <Navigate
-                to={usuario?.debeCambiarContrasena ? paths.primerIngreso : paths.dashboard}
-                replace
-            />
-        )
+        let destino = paths.dashboard
+
+        // HU-044 tiene prioridad: si es primer ingreso,debe cambiar primero la contraseña temporal.
+        if (usuario?.debeCambiarContrasena) {destino = paths.primerIngreso}
+
+        // HU-049: si la contraseña normal ya venció,debe cambiarla antes de acceder al sistema.
+        else if (usuario?.contrasenaVencida) {destino = paths.contrasenaVencida}
+
+        return (<Navigate to={destino} replace/>)
     }
 
     return (
