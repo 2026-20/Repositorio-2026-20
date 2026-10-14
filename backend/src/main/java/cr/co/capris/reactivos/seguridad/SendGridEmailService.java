@@ -14,6 +14,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /**
  * Envía el correo real vía la API HTTP de SendGrid (no SMTP). Solo se activa
@@ -34,6 +37,9 @@ import java.io.IOException;
 public class SendGridEmailService implements EmailService {
 
 	private static final Logger log = LoggerFactory.getLogger(SendGridEmailService.class);
+
+	private static final DateTimeFormatter FORMATO_FECHA =
+			DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", new Locale("es", "CR"));
 
 	private final SendGrid sendGrid;
 	private final String remitente;
@@ -65,6 +71,14 @@ public class SendGridEmailService implements EmailService {
 		enviar(correoDestino, nombreCompleto,
 				"Tus credenciales de acceso - CAPRIS Reactivos",
 				cuerpoCredenciales(nombreCompleto, nombreUsuario, contrasenaTemporal));
+	}
+
+	@Override
+	public void enviarAvisoCaducidadContrasena(
+			String correoDestino, String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes) {
+		enviar(correoDestino, nombreCompleto,
+				"Tu contraseña vence pronto - CAPRIS Reactivos",
+				cuerpoAvisoCaducidad(nombreCompleto, fechaVencimiento, diasRestantes));
 	}
 
 	private void enviar(String correoDestino, String nombreCompleto, String asunto, String cuerpo) {
@@ -107,6 +121,16 @@ public class SendGridEmailService implements EmailService {
 				+ "Usuario: " + nombreUsuario + "\n"
 				+ "Contraseña temporal: " + contrasenaTemporal + "\n\n"
 				+ "Te pedimos que la cambies en tu primer acceso.\n\n"
+				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
+	}
+
+	private String cuerpoAvisoCaducidad(String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes) {
+		String plural = diasRestantes == 1 ? "día" : "días";
+		return "Hola " + nombreCompleto + ",\n\n"
+				+ "Tu contraseña del Sistema de Gestión de Reactivos de CAPRIS Médica vence en "
+				+ diasRestantes + " " + plural + ", el " + fechaVencimiento.format(FORMATO_FECHA) + ".\n\n"
+				+ "Para no quedar bloqueado al iniciar sesión, cambiala antes de esa fecha desde "
+				+ "Ajustes > Contraseña dentro de la aplicación.\n\n"
 				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
 	}
 }

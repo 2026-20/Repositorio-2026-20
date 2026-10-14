@@ -66,6 +66,13 @@ app:
       intentos-maximos: 3    # criterio de aceptación 5
       reenvio-espera-segundos: 60 # botón "Reenviar código" en el paso del OTP
 
+  # HU-050: job diario que manda el aviso de vencimiento próximo de
+  # contraseña (5/3/1 días, ver AvisoCaducidadContrasenaScheduler). Formato
+  # cron de Spring (segundo minuto hora dia mes diaSemana) -- 7am del
+  # servidor por defecto.
+  aviso-caducidad:
+    cron: "0 0 7 * * *"
+
   # Autenticacion servidor-a-servidor para los endpoints internos de ingesta
   # (/api/auditoria/ingesta/**) -- no es un usuario con JWT, es el futuro
   # servidor puente FTP el que llama esto. Secreto de desarrollo local
