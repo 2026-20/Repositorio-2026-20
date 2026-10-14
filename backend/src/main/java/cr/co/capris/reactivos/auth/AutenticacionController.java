@@ -1,5 +1,8 @@
 package cr.co.capris.reactivos.auth;
 
+import cr.co.capris.reactivos.auditoria.ResultadoAccionTrazabilidad;
+import cr.co.capris.reactivos.auditoria.TipoAccionTrazabilidad;
+import cr.co.capris.reactivos.auditoria.TrazabilidadService;
 import cr.co.capris.reactivos.seguridad.CredencialesInvalidasException;
 import cr.co.capris.reactivos.seguridad.PasswordTemporalVencidaException;
 import cr.co.capris.reactivos.usuario.EstadoUsuario;
@@ -43,16 +46,19 @@ public class AutenticacionController {
 	private final JwtService jwtService;
 	private final BloqueoCuentaService bloqueoCuentaService;
 	private final CaducidadContrasenaService caducidadContrasenaService;
+	private final TrazabilidadService trazabilidadService;
 
 	public AutenticacionController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
 									JwtService jwtService, BloqueoCuentaService bloqueoCuentaService,
-									CaducidadContrasenaService caducidadContrasenaService) {
+									CaducidadContrasenaService caducidadContrasenaService,
+									TrazabilidadService trazabilidadService) {
 
 		this.usuarioRepository = usuarioRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
 		this.bloqueoCuentaService = bloqueoCuentaService;
 		this.caducidadContrasenaService = caducidadContrasenaService;
+		this.trazabilidadService = trazabilidadService;
 	}
 
 	@PostMapping("/login")
@@ -94,6 +100,19 @@ public class AutenticacionController {
 		bloqueoCuentaService.reiniciarIntentosTrasLoginExitoso(usuario);
 
 		String token = jwtService.generar(usuario.getId(), usuario.getEmpresa().getId(), usuario.getRol().getNombre());
+
+		// HU-031: solo el login exitoso se traza aqui -- un intento fallido ya
+		// queda cubierto por BloqueoCuentaService.registrarIntentoFallido (bitacora
+		// de seguridad), y no hay con que trazarlo aqui de todas formas: esta
+		// tabla exige un usuario y empresa validos (FK), que un intento fallido
+		// con credenciales equivocadas no siempre tiene.
+		trazabilidadService.registrar(
+				TipoAccionTrazabilidad.INICIO_SESION,
+				usuario.getId(),
+				usuario.getEmpresa().getId(),
+				null,
+				ResultadoAccionTrazabilidad.EXITOSO,
+				null);
 
 		return new LoginResponse(
 				token,
