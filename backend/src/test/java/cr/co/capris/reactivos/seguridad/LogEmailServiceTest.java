@@ -9,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
+import java.time.OffsetDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -59,5 +61,20 @@ class LogEmailServiceTest {
                 .contains("Ana Fernández Rojas")
                 .contains("afernandez")
                 .contains("Temp0ral!23x");
+    }
+
+    @Test
+    void enviarAvisoCaducidadContrasenaEscribeLosDiasYLaFechaEnElLog() {
+        OffsetDateTime fechaVencimiento = OffsetDateTime.parse("2026-11-15T10:00:00-06:00");
+
+        service.enviarAvisoCaducidadContrasena(
+                "ana.fernandez@caprismedica.co.cr", "Ana Fernández Rojas", fechaVencimiento, 5);
+
+        String mensaje = appender.list.get(0).getFormattedMessage();
+        assertThat(mensaje)
+                .contains("ana.fernandez@caprismedica.co.cr")
+                .contains("Ana Fernández Rojas")
+                .contains("5")
+                .contains(fechaVencimiento.toString());
     }
 }

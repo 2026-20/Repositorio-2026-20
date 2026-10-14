@@ -192,7 +192,8 @@ intentos.
 
 **Correo por interfaz intercambiable** — `EmailService` con tres
 implementaciones vía `app.email.proveedor` (la misma interfaz la usa también
-el alta de usuarios, para las credenciales iniciales):
+el alta de usuarios para las credenciales iniciales, y HU-050 para el aviso
+de vencimiento próximo de contraseña):
 - `log` (default): escribe el correo en la consola del backend. Así `mvn test`,
   `mvn verify` y levantar el proyecto en cualquier laptop **no necesitan API
   key**. CI nunca llama a ningún proveedor real.
@@ -215,6 +216,7 @@ para desarrollo):
 | `APP_EMAIL_SMTP_PASSWORD` | (vacío) | contraseña SMTP si el servidor exige autenticación |
 | `APP_EMAIL_REMITENTE` | `recuperacioncapris@hotmail.com` | dirección "de" del correo |
 | `APP_EMAIL_ASINCRONO` | `true` | envío del OTP en segundo plano (fire-and-forget, evita filtrar por temporización si el correo existe) — `false` solo en pruebas de integración |
+| `APP_AVISO_CADUCIDAD_CRON` | `0 0 7 * * *` (7am diario) | cron del job que manda el aviso de vencimiento próximo de contraseña (HU-050) |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | orígenes permitidos por CORS (probarlo también al dejar el backend en una URL distinta) |
 | `APP_JWT_SECRET` | (ya existía) | secreto de firma — en producción siempre por entorno |
 | `VITE_API_BASE_URL` (frontend) | `http://localhost:8080` | URL base del backend para el frontend |

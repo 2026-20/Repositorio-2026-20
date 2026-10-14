@@ -13,6 +13,9 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import java.io.UnsupportedEncodingException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Properties;
 
 /**
@@ -34,6 +37,9 @@ public class SmtpEmailService implements EmailService {
 	private static final Logger log = LoggerFactory.getLogger(SmtpEmailService.class);
 
 	private static final int TIMEOUT_MS = 10000;
+
+	private static final DateTimeFormatter FORMATO_FECHA =
+			DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", new Locale("es", "CR"));
 
 	private final JavaMailSenderImpl mailSender;
 	private final String remitente;
@@ -80,6 +86,14 @@ public class SmtpEmailService implements EmailService {
 				cuerpoCredenciales(nombreCompleto, nombreUsuario, contrasenaTemporal));
 	}
 
+	@Override
+	public void enviarAvisoCaducidadContrasena(
+			String correoDestino, String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes) {
+		enviar(correoDestino, nombreCompleto,
+				"Tu contraseña vence pronto - CAPRIS Reactivos",
+				cuerpoAvisoCaducidad(nombreCompleto, fechaVencimiento, diasRestantes));
+	}
+
 	private void enviar(String correoDestino, String nombreCompleto, String asunto, String cuerpo) {
 		try {
 			MimeMessage mensaje = mailSender.createMimeMessage();
@@ -109,6 +123,16 @@ public class SmtpEmailService implements EmailService {
 				+ "Usuario: " + nombreUsuario + "\n"
 				+ "Contraseña temporal: " + contrasenaTemporal + "\n\n"
 				+ "Te pedimos que la cambies en tu primer acceso.\n\n"
+				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
+	}
+
+	private String cuerpoAvisoCaducidad(String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes) {
+		String plural = diasRestantes == 1 ? "día" : "días";
+		return "Hola " + nombreCompleto + ",\n\n"
+				+ "Tu contraseña del Sistema de Gestión de Reactivos de CAPRIS Médica vence en "
+				+ diasRestantes + " " + plural + ", el " + fechaVencimiento.format(FORMATO_FECHA) + ".\n\n"
+				+ "Para no quedar bloqueado al iniciar sesión, cambiala antes de esa fecha desde "
+				+ "Ajustes > Contraseña dentro de la aplicación.\n\n"
 				+ "CAPRIS Médica - Sistema de Gestión de Reactivos";
 	}
 }

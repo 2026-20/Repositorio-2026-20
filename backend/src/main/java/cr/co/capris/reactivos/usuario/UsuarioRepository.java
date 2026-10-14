@@ -23,4 +23,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 	List<Usuario> findAllByEmpresaId(Long empresaId);
 
 	Optional<Usuario> findByIdAndEmpresaId(Long id, Long empresaId);
+
+	// HU-050: el aviso de vencimiento proximo solo aplica a cuentas activas
+	// (un PENDIENTE_PRIMER_INGRESO todavia no empezo su vigencia de 30 dias,
+	// ver CaducidadContrasenaService; un INACTIVO no puede iniciar sesion).
+	List<Usuario> findAllByEstado(EstadoUsuario estado);
 }

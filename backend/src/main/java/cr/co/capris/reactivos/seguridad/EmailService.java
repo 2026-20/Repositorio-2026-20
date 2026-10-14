@@ -1,5 +1,7 @@
 package cr.co.capris.reactivos.seguridad;
 
+import java.time.OffsetDateTime;
+
 /**
  * Contrato de envío de correo. Se definió como interfaz a propósito (mismo
  * patrón que ValidadorPoliticaContrasena) para que todas las HUs que mandan
@@ -27,4 +29,12 @@ public interface EmailService {
 	 * usuario deberá cambiar en su primer acceso.
 	 */
 	void enviarCredencialesIniciales(String correoDestino, String nombreCompleto, String nombreUsuario, String contrasenaTemporal);
+
+	/**
+	 * HU-050: aviso de que la contraseña esta por vencer. diasRestantes es
+	 * 5, 3 o 1 (ver TipoAvisoCaducidad) y fechaVencimiento es la fecha exacta
+	 * en que deja de ser valida (criterio 4).
+	 */
+	void enviarAvisoCaducidadContrasena(
+			String correoDestino, String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes);
 }

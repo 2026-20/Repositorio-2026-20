@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
+
 /**
  * Implementación para desarrollo local, pruebas y CI: en vez de enviar un
  * correo real, escribe el OTP en el log. Es la implementación por defecto
@@ -31,5 +33,12 @@ public class LogEmailService implements EmailService {
 	public void enviarCredencialesIniciales(String correoDestino, String nombreCompleto, String nombreUsuario, String contrasenaTemporal) {
 		log.warn("[EMAIL SIMULADO -- app.email.proveedor=log] Para {} ({}): credenciales iniciales -- usuario={}, contraseña temporal={}",
 				correoDestino, nombreCompleto, nombreUsuario, contrasenaTemporal);
+	}
+
+	@Override
+	public void enviarAvisoCaducidadContrasena(
+			String correoDestino, String nombreCompleto, OffsetDateTime fechaVencimiento, int diasRestantes) {
+		log.warn("[EMAIL SIMULADO -- app.email.proveedor=log] Para {} ({}): contraseña vence en {} dia(s), el {}",
+				correoDestino, nombreCompleto, diasRestantes, fechaVencimiento);
 	}
 }
