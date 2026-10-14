@@ -9,6 +9,7 @@ import cr.co.capris.reactivos.usuario.Rol;
 import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
 import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
+import cr.co.capris.reactivos.seguridad.CaducidadContrasenaService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,12 @@ class AutenticacionControllerTest {
     @Mock
     private BloqueoCuentaService bloqueoCuentaService;
 
+    @Mock
+    private CaducidadContrasenaService caducidadContrasenaService;
+
     private AutenticacionController controller;
+
+
 
     @BeforeEach
     void setUp() {
@@ -62,7 +68,8 @@ class AutenticacionControllerTest {
                 usuarioRepository,
                 passwordEncoder,
                 jwtService,
-                bloqueoCuentaService
+                bloqueoCuentaService,
+                caducidadContrasenaService
         );
     }
 

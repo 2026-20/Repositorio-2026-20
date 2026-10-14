@@ -16,15 +16,27 @@ export default function ProtectedRoute({ children, rolRequerido }) {
         return <Navigate to={paths.login} replace />
     }
 
-    // HU-044: mientras la contraseña temporal siga vigente, la unica pantalla
-    // accesible es la de cambio obligatorio, sin importar el rol.
+// HU-044 / HU-049:
+// HU-044 tiene prioridad. Si el usuario esta en primer ingreso,solo puede acceder a esa pantalla.
+// Si ya no esta en primer ingreso pero la contraseña normal vencio,solo puede acceder a la pantalla obligatoria de cambio por caducidad.
+
     const enPantallaDePrimerIngreso = ubicacion.pathname === paths.primerIngreso
 
-    if (usuario?.debeCambiarContrasena && !enPantallaDePrimerIngreso) {
-        return <Navigate to={paths.primerIngreso} replace />
+    const enPantallaDeCaducidad = ubicacion.pathname === paths.contrasenaVencida
+
+// HU-044: primer ingreso obligatorio.
+    if (usuario?.debeCambiarContrasena) {
+        if (!enPantallaDePrimerIngreso) {return <Navigate to={paths.primerIngreso} replace />}
     }
 
-    if (!usuario?.debeCambiarContrasena && enPantallaDePrimerIngreso) {
+// HU-049: contraseña vencida. Solo se evalua si ya no esta pendiente el primer ingreso.
+    else if (usuario?.contrasenaVencida) {
+        if (!enPantallaDeCaducidad) {return <Navigate to={paths.contrasenaVencida} replace />}
+    }
+
+// Si intenta entrar manualmente a alguna pantalla de cambio obligatorio
+// pero ya no tiene esa restriccion, vuelve al dashboard.
+    else if (enPantallaDePrimerIngreso || enPantallaDeCaducidad) {
         return <Navigate to={paths.dashboard} replace />
     }
 

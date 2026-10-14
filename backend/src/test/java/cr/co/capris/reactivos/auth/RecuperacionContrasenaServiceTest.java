@@ -44,6 +44,7 @@ class RecuperacionContrasenaServiceTest {
 	@Mock private PasswordEncoder passwordEncoder;
 	@Mock private JwtService jwtService;
 	@Mock private ValidadorPoliticaContrasena validadorPoliticaContrasena;
+	@Mock private CaducidadContrasenaService caducidadContrasenaService;
 
 	private RecuperacionContrasenaService service;
 	private Usuario usuario;
@@ -53,7 +54,7 @@ class RecuperacionContrasenaServiceTest {
 		service = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
+				validadorPoliticaContrasena, caducidadContrasenaService, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
 				OTP_REENVIO_ESPERA_SEGUNDOS);
 		usuario = construirUsuario(1L, "persona@capris.cr", "persona.prueba", "hash-actual");
 	}
@@ -88,7 +89,7 @@ class RecuperacionContrasenaServiceTest {
 		RecuperacionContrasenaService asincrono = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true,
+				validadorPoliticaContrasena, caducidadContrasenaService, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true,
 				OTP_REENVIO_ESPERA_SEGUNDOS);
 
 		when(usuarioRepository.findByCorreo("persona@capris.cr")).thenReturn(Optional.of(usuario));
@@ -108,7 +109,7 @@ class RecuperacionContrasenaServiceTest {
 		RecuperacionContrasenaService asincrono = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true,
+				validadorPoliticaContrasena, caducidadContrasenaService, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, true,
 				OTP_REENVIO_ESPERA_SEGUNDOS);
 
 		when(usuarioRepository.findByCorreo("persona@capris.cr")).thenReturn(Optional.of(usuario));
@@ -148,7 +149,7 @@ class RecuperacionContrasenaServiceTest {
 		RecuperacionContrasenaService conReloj = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
+				validadorPoliticaContrasena, caducidadContrasenaService,  OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
 				OTP_REENVIO_ESPERA_SEGUNDOS, Clock.fixed(ahora, ZoneOffset.UTC));
 
 		// se solicito el OTP anterior hace 10 segundos -- todavia dentro de los 60 de espera
@@ -174,7 +175,7 @@ class RecuperacionContrasenaServiceTest {
 		RecuperacionContrasenaService conReloj = new RecuperacionContrasenaService(
 				usuarioRepository, tokenRecuperacionRepository, historialContrasenaService,
 				bitacoraSeguridadService, emailService, passwordEncoder, jwtService,
-				validadorPoliticaContrasena, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
+				validadorPoliticaContrasena, caducidadContrasenaService, OTP_EXPIRACION_MINUTOS, OTP_INTENTOS_MAXIMOS, false,
 				OTP_REENVIO_ESPERA_SEGUNDOS, Clock.fixed(ahora, ZoneOffset.UTC));
 
 		// se solicito el OTP anterior hace 61 segundos -- ya paso la espera de 60
@@ -278,6 +279,7 @@ class RecuperacionContrasenaServiceTest {
 
 		verify(historialContrasenaService).registrarContrasenaReemplazada(usuario);
 		assertThat(usuario.getPasswordHash()).isEqualTo("nuevo-hash");
+		verify(caducidadContrasenaService).reiniciarVigencia(usuario);
 		verify(usuarioRepository).save(usuario);
 		verify(jwtService).revocarTokenRecuperacion("token-temporal");
 		verify(bitacoraSeguridadService).registrar(anyString(), eq(1L),

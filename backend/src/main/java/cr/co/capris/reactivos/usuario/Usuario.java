@@ -55,6 +55,9 @@ public class Usuario {
 	/** Solo aplica mientras estado == PENDIENTE_PRIMER_INGRESO (HU-044: vigencia de la clave temporal). */
 	private OffsetDateTime passwordTemporalExpiraEn;
 
+	/** HU-049: fecha limite de vigencia de la contraseña normal. */
+	private OffsetDateTime passwordExpiraEn;
+
 	/** HU-043: se reinicia a 0 en cada login exitoso. */
 	private int intentosFallidos;
 
@@ -143,6 +146,12 @@ public class Usuario {
 
 	public void setPasswordTemporalExpiraEn(OffsetDateTime passwordTemporalExpiraEn) {
 		this.passwordTemporalExpiraEn = passwordTemporalExpiraEn;
+	}
+
+	public OffsetDateTime getPasswordExpiraEn() {return passwordExpiraEn;}
+
+	public void setPasswordExpiraEn(OffsetDateTime passwordExpiraEn) {
+		this.passwordExpiraEn = passwordExpiraEn;
 	}
 
 	public int getIntentosFallidos() {

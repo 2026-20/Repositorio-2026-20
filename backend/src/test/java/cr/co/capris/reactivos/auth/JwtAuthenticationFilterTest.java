@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class JwtAuthenticationFilterTest {
 	private final JwtAuthenticationFilter filtro =
-			new JwtAuthenticationFilter(null, null, null, null);
+			new JwtAuthenticationFilter(null, null, null, null, null);
 	@Test
 	void tokenValidoSiNuncaSeRevocoNadaYElUsuarioSigueActivo() {
 		OffsetDateTime emitidoEn = OffsetDateTime.now();
@@ -80,5 +80,29 @@ class JwtAuthenticationFilterTest {
 	void unUsuarioActivoNoQuedaRestringidoPorLaReglaDePrimerIngreso() {
 		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
 				EstadoUsuario.ACTIVO, "GET", "/api/usuarios")).isFalse();
+	}
+
+	@Test
+	void contrasenaVencidaPermiteCambiarLaContrasena() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+				true, "POST", "/api/auth/cambiar-password")).isFalse();
+	}
+
+	@Test
+	void contrasenaVencidaPermiteCerrarSesion() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+						true, "POST", "/api/auth/logout")).isFalse();
+	}
+
+	@Test
+	void contrasenaVencidaBloqueaCualquierOtraRuta() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+						true, "GET", "/api/usuarios")).isTrue();
+	}
+
+	@Test
+	void contrasenaVigenteNoQuedaRestringidaPorHu049() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+						false, "GET", "/api/usuarios")).isFalse();
 	}
 }
