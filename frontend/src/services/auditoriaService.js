@@ -104,3 +104,37 @@ export async function iniciarJornada(token) {
 
     return procesarRespuesta(response, true, token)
 }
+
+/**
+ * HU-031: sincroniza un registro de trazabilidad generado offline.
+ * idIdempotencia lo genera el cliente al guardarlo localmente (ver
+ * trazabilidadRepositorio.js) y se reenvia tal cual aqui -- un reintento no
+ * duplica (ver TrazabilidadService en el backend).
+ */
+export async function registrarTrazabilidad(token, datos) {
+    const response = await fetch(`${API_URL}/auditoria/trazabilidad`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(datos),
+    })
+
+    return procesarRespuesta(response)
+}
+
+/**
+ * HU-031 criterio 4: consulta el log de trazabilidad, solo lectura. Un
+ * Administrador recibe el de toda su empresa; un Usuario de Campo, solo el
+ * propio (ver TrazabilidadController en el backend).
+ */
+export async function listarTrazabilidad(token) {
+    const response = await fetch(`${API_URL}/auditoria/trazabilidad`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    })
+
+    return procesarRespuesta(response)
+}

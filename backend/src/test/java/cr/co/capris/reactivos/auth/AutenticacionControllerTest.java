@@ -10,6 +10,9 @@ import cr.co.capris.reactivos.usuario.Usuario;
 import cr.co.capris.reactivos.usuario.UsuarioRepository;
 import cr.co.capris.reactivos.seguridad.BloqueoCuentaService;
 import cr.co.capris.reactivos.seguridad.CaducidadContrasenaService;
+import cr.co.capris.reactivos.auditoria.ResultadoAccionTrazabilidad;
+import cr.co.capris.reactivos.auditoria.TipoAccionTrazabilidad;
+import cr.co.capris.reactivos.auditoria.TrazabilidadService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,9 @@ class AutenticacionControllerTest {
     @Mock
     private CaducidadContrasenaService caducidadContrasenaService;
 
+    @Mock
+    private TrazabilidadService trazabilidadService;
+
     private AutenticacionController controller;
 
 
@@ -69,7 +75,8 @@ class AutenticacionControllerTest {
                 passwordEncoder,
                 jwtService,
                 bloqueoCuentaService,
-                caducidadContrasenaService
+                caducidadContrasenaService,
+                trazabilidadService
         );
     }
 
@@ -246,6 +253,8 @@ class AutenticacionControllerTest {
         assertThat(respuesta.debeCambiarContrasena())
                 .isFalse();
         verify(bloqueoCuentaService).reiniciarIntentosTrasLoginExitoso(usuario);
+        verify(trazabilidadService).registrar(
+                TipoAccionTrazabilidad.INICIO_SESION, 10L, 1L, null, ResultadoAccionTrazabilidad.EXITOSO, null);
     }
 
     //Prueba contraseña temporal vencida

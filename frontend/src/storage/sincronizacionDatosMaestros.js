@@ -2,6 +2,7 @@ import { listarBodegas, listarDetalleBodega, listarLotesBodega, obtenerJornadaHo
 import { hayCambiosPendientesDeSubir } from './cambiosPendientes.js'
 import { reemplazarCatalogos } from './datosMaestrosRepositorio.js'
 import { subirConteosPendientes } from './sincronizacionConteos.js'
+import { subirTrazabilidadPendiente } from './sincronizacionTrazabilidad.js'
 import { guardarJornadaIniciada } from './conteosPendientesRepositorio.js'
 
 export class ErrorSinConexion extends Error {
@@ -66,6 +67,12 @@ export async function sincronizarDatosMaestros(usuarioId, token) {
     // lanza (ver subirConteosPendientes): si falla por conexion real, lo
     // que no se pudo subir sigue pendiente y el chequeo de abajo lo detecta.
     await subirConteosPendientes(usuarioId, token)
+
+    // HU-031 criterio 6: igual que los conteos, sube la trazabilidad
+    // registrada offline. No bloquea nada si falla (mismo motivo que
+    // subirConteosPendientes) -- la trazabilidad es un registro de
+    // auditoria, no debe impedir que el usuario siga trabajando.
+    await subirTrazabilidadPendiente(usuarioId, token)
 
     if (await hayCambiosPendientesDeSubir(usuarioId)) {
         throw new ErrorCambiosPendientes()

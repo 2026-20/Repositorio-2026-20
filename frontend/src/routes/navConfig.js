@@ -38,7 +38,7 @@ export const NAV_ITEMS = [
         label: 'Reportes',
         icon: 'reportes',
         disponible: false,
-        descripcion: 'Transmisión al ERP, trazabilidad y reportes (F04)',
+        descripcion: 'Transmisión al ERP y reportes (F04)',
     },
     {
         label: 'Sincronización',

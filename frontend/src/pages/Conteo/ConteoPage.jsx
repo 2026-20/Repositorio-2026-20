@@ -11,6 +11,7 @@ import {
     registrarConteoLocal,
 } from '../../storage/conteosPendientesRepositorio.js'
 import { obtenerDetalleBodega, obtenerLotesBodega, obtenerRuta } from '../../storage/datosMaestrosRepositorio.js'
+import { registrarAccionLocal } from '../../storage/trazabilidadRepositorio.js'
 import styles from './ConteoPage.module.css'
 
 // Un mismo codArt puede repetirse en la misma bodega bajo dos contratos
@@ -204,6 +205,17 @@ export default function ConteoPage() {
                 cantidadFisica: Number(cantidadFisica),
                 observaciones: observaciones || null,
             })
+
+            // HU-031 criterio 1/6: se traza en el mismo momento en que el
+            // conteo se guarda localmente (no cuando se sincroniza), para que
+            // la hora del registro sea la real, aunque todavia no haya señal.
+            await registrarAccionLocal(usuario.id, {
+                tipoAccion: 'CONTEO_REGISTRADO',
+                codBod: codBodSeleccionado,
+                resultado: 'EXITOSO',
+                detalle: `${articuloSeleccionado.desArt ?? articuloSeleccionado.codArt}: ${cantidadFisica}`,
+            })
+
             setMensajeExito(true)
             limpiarFormularioDeConteo()
             await actualizarContadorPendientes()

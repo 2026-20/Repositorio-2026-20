@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import FormularioCambioContrasena from '../../components/auth/FormularioCambioContrasena'
 import Modal from '../../components/feedback/Modal'
 import Icon from '../../components/ui/Icon'
 import { useAuth } from '../../context/useAuth'
 import { useConectividad } from '../../hooks/useConectividad'
 import { useTheme } from '../../hooks/useTheme'
+import { paths } from '../../routes/paths'
 import { cambiarContrasena } from '../../services/authService'
 import styles from './AjustesPage.module.css'
 import { consultarPerfil } from '../../services/usuarioService'
@@ -185,6 +187,19 @@ export default function AjustesPage() {
                         </button>
                     ))}
                 </div>
+            </section>
+
+            <section className={styles.seccion}>
+                <h2 className={styles.tituloSeccion}>Trazabilidad</h2>
+
+                <p className={styles.descripcion}>
+                    Consultá el registro de acciones realizadas: inicio de sesión, conteos
+                    registrados y las demás que se vayan agregando.
+                </p>
+
+                <Link to={paths.trazabilidad} className={styles.botonAbrirModal}>
+                    Ver registro de trazabilidad
+                </Link>
             </section>
 
             <section className={styles.seccion}>

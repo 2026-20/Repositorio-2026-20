@@ -14,6 +14,7 @@ import PrimerIngresoPage from '../pages/Login/PrimerIngresoPage'
 import ContrasenaVencidaPage from '../pages/Login/ContrasenaVencidaPage'
 import RecuperarContrasena from '../pages/recuperacionContrasena/RecuperarContrasena'
 import SincronizacionPage from '../pages/Sync/SincronizacionPage'
+import TrazabilidadPage from '../pages/Trazabilidad/TrazabilidadPage'
 import UsersPage from '../pages/Admin/Users/UsersPage'
 import ProtectedRoute from './ProtectedRoute'
 import { paths } from './paths'
@@ -88,6 +89,11 @@ export default function AppRoutes() {
                 <Route
                     path={paths.conteo}
                     element={<ConteoPage />}
+                />
+
+                <Route
+                    path={paths.trazabilidad}
+                    element={<TrazabilidadPage />}
                 />
             </Route>
 

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../context/AuthContext'
 import * as authService from '../../services/authService'
@@ -14,9 +15,11 @@ const PERFIL_DE_PRUEBA = {
 
 function renderAjustes(usuario = { nombreCompleto: 'William Molina' }) {
     return render(
-        <AuthContext.Provider value={{ token: 'jwt-prueba', usuario }}>
-            <AjustesPage />
-        </AuthContext.Provider>,
+        <MemoryRouter>
+            <AuthContext.Provider value={{ token: 'jwt-prueba', usuario }}>
+                <AjustesPage />
+            </AuthContext.Provider>
+        </MemoryRouter>,
     )
 }
 
@@ -61,6 +64,17 @@ describe('AjustesPage', () => {
 
         expect(document.documentElement.getAttribute('data-theme')).toBe('light')
         expect(localStorage.getItem('capris_tema')).toBe('claro')
+    })
+})
+
+// HU-031: el acceso a trazabilidad vive aqui (y no en el menu principal) a
+// proposito, para no sumar un icono mas al nav.
+describe('AjustesPage - trazabilidad', () => {
+    it('ofrece un enlace al registro de trazabilidad', () => {
+        renderAjustes()
+
+        const enlace = screen.getByRole('link', { name: 'Ver registro de trazabilidad' })
+        expect(enlace).toHaveAttribute('href', '/trazabilidad')
     })
 })
 
