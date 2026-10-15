@@ -34,11 +34,28 @@ export async function subirConteosPendientes(usuarioId, token) {
                 observaciones: conteo.observaciones,
             })
             await marcarConteoSincronizado(usuarioId, conteo.idempotenciaKey)
-        } catch (error) {
+        }
+        catch (error) {
+            // HU-036: detener los envios si la sesion fue invalidada.
+            if (
+                error.status === 401 &&
+                error.codigo === 'SESION_NO_VALIDA'
+            ) {
+                return
+            }
+
+            // Sin conexion: conservar los conteos para reintentar.
             if (error.status === undefined) {
                 return
             }
-            await marcarConteoConError(usuarioId, conteo.idempotenciaKey, error.message)
+
+            // Otros errores: registrar el motivo del rechazo.
+            await marcarConteoConError(
+                usuarioId,
+                conteo.idempotenciaKey,
+                error.message
+            )
         }
+
     }
 }

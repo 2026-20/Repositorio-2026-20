@@ -8,6 +8,7 @@ import {
     obtenerConteosPendientes,
     registrarConteoLocal,
 } from './conteosPendientesRepositorio.js'
+import { notificarSesionInvalidada } from '../services/sesionInvalidada.js'
 
 // Usuarios "aleatorios" por ejecucion para no chocar con datos de una
 // corrida anterior en el mismo perfil de Chromium (ver datosMaestrosRepositorio.browser.test.js).
@@ -105,4 +106,39 @@ describe('conteosPendientesRepositorio', () => {
 
         await expect(Promise.all([escritura, lectura])).resolves.toBeDefined()
     })
+
+    it('HU-036: conserva los conteos pendientes al invalidar la sesión', async () => {
+        const idempotenciaKey = await registrarConteoLocal(
+            USUARIO_A,
+            CONTEO,
+        )
+
+        const pendientesAntes = await obtenerConteosPendientes(
+            USUARIO_A,
+        )
+
+        const conteoAntes = pendientesAntes.find(
+            (conteo) => conteo.idempotenciaKey === idempotenciaKey,
+        )
+
+        expect(conteoAntes).toBeDefined()
+        expect(conteoAntes.sincronizado).toBe(false)
+
+        // Simular la notificación de sesión invalidada.
+        notificarSesionInvalidada('jwt-prueba')
+
+        const pendientesDespues = await obtenerConteosPendientes(
+            USUARIO_A,
+        )
+
+        const conteoDespues = pendientesDespues.find(
+            (conteo) => conteo.idempotenciaKey === idempotenciaKey,
+        )
+
+        expect(conteoDespues).toBeDefined()
+        expect(conteoDespues.sincronizado).toBe(false)
+        expect(conteoDespues.cantidadFisica).toBe('9')
+        expect(conteoDespues.codArt).toBe('ART1')
+    })
+
 })

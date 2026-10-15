@@ -104,4 +104,35 @@ describe('subirConteosPendientes', () => {
         expect(marcarConteoSincronizado).not.toHaveBeenCalled()
         expect(marcarConteoConError).not.toHaveBeenCalled()
     })
+
+    it('HU-036: detiene la sincronizacion si la sesion fue invalidada', async () => {
+        obtenerConteosPendientes.mockResolvedValue([
+            CONTEO_A,
+            CONTEO_B,
+        ])
+
+        const errorSesion = Object.assign(
+            new Error('No hay sesion activa'),
+            {
+                status: 401,
+                codigo: 'SESION_NO_VALIDA',
+            },
+        )
+
+        registrarConteo.mockRejectedValueOnce(errorSesion)
+
+        await subirConteosPendientes(7, 'jwt-prueba')
+
+        // Solo se intenta enviar el primer conteo.
+        expect(registrarConteo).toHaveBeenCalledTimes(1)
+
+        // Ningun conteo se marca como sincronizado.
+        expect(marcarConteoSincronizado)
+            .not.toHaveBeenCalled()
+
+        // El rechazo de sesion no modifica el conteo.
+        expect(marcarConteoConError)
+            .not.toHaveBeenCalled()
+    })
+
 })
