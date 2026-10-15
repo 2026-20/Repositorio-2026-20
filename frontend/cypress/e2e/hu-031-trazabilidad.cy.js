@@ -46,6 +46,11 @@ describe('HU-031 - Trazabilidad de acciones del usuario', () => {
         cy.intercept('POST', '**/api/auditoria/trazabilidad', { statusCode: 200, body: { id: 1 } }).as(
             'registrarTrazabilidad',
         )
+        // La sincronizacion tambien sube el conteo que se registro antes --
+        // sin interceptar esto, la llamada real con el JWT de prueba cae al
+        // backend real y, desde HU-036, un 401 real cierra la sesion a mitad
+        // de la prueba (ver el comentario de cypress/support/e2e.js).
+        cy.intercept('POST', '**/api/auditoria/conteos', { statusCode: 201, body: { id: 1 } }).as('registrarConteo')
         // Usuario nuevo para Cypress -- sin cache local de jornada previa
         // (ver conteosPendientesRepositorio.estaJornadaIniciadaHoy), asi que
         // ConteoPage de todas formas la confirma contra el backend.
