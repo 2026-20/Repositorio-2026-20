@@ -35,16 +35,6 @@ export const NAV_ITEMS = [
         descripcion: 'Umbrales de desabastecimiento y vencimiento (F05)',
     },
     {
-        // HU-031: la trazabilidad (inicio de sesion, conteos) ya existe --
-        // se separa de "Reportes" (que sigue sin existir: transmision al
-        // ERP y reportes propiamente dichos) para no insinuar que esas
-        // otras cosas tambien estan listas.
-        label: 'Trazabilidad',
-        path: paths.trazabilidad,
-        icon: 'reportes',
-        disponible: true,
-    },
-    {
         label: 'Reportes',
         icon: 'reportes',
         disponible: false,

@@ -125,11 +125,13 @@ describe('HU-031 - Trazabilidad de acciones del usuario', () => {
         cy.get('main').find('button').should('not.exist')
     })
 
-    it('se puede llegar a la pantalla de trazabilidad desde el menu de navegacion', () => {
+    // No tiene icono propio en el menu principal a proposito (para no sumar
+    // uno mas al nav) -- el acceso vive en Ajustes.
+    it('se puede llegar a la pantalla de trazabilidad desde Ajustes', () => {
         cy.intercept('GET', '**/api/auditoria/trazabilidad', { statusCode: 200, body: [] }).as('listarTrazabilidad')
 
-        cy.visitarConSesion('/conteo', usuarioDeCampo(203))
-        cy.contains('a', 'Trazabilidad').click()
+        cy.visitarConSesion('/ajustes', usuarioDeCampo(203))
+        cy.contains('a', 'Ver registro de trazabilidad').click()
 
         cy.url().should('include', '/trazabilidad')
         cy.contains('Todavía no hay registros de trazabilidad.').should('be.visible')

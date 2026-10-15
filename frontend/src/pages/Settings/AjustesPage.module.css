@@ -47,6 +47,9 @@
 }
 
 .botonAbrirModal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: var(--touch-target-min);
     padding: var(--space-3) var(--space-5);
     border: none;
@@ -55,6 +58,7 @@
     color: #ffffff;
     font: inherit;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
 }
 
