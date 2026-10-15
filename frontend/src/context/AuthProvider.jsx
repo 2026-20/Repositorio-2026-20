@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     cerrarSesion,
     iniciarSesion,
@@ -91,6 +91,14 @@ export function AuthProvider({ children }) {
         return respuesta
     }
 
+    // Persiste entre las dos invocaciones del efecto que hace StrictMode al
+    // montar (a diferencia de "activo", que es una variable nueva por cada
+    // invocacion): sin esto, ese doble-invoke dispara dos GET reales a
+    // /api/usuarios/:id casi en simultaneo, y si el segundo responde 401
+    // antes de que el primero termine, cierra la sesion con un 401 que en
+    // realidad era "ruido" del propio doble-invoke, no una invalidacion real.
+    const comprobandoSesionRef = useRef(false)
+
     useEffect(() => {
         if (!token || !usuario?.id) {
             return
@@ -99,10 +107,11 @@ export function AuthProvider({ children }) {
         let activo = true
 
         async function comprobarSesion() {
-            if (!activo || !navigator.onLine) {
+            if (!activo || !navigator.onLine || comprobandoSesionRef.current) {
                 return
             }
 
+            comprobandoSesionRef.current = true
             try {
                 await validarSesion(token, usuario.id)
             } catch (error) {
@@ -115,6 +124,8 @@ export function AuthProvider({ children }) {
                         error.message,
                     )
                 }
+            } finally {
+                comprobandoSesionRef.current = false
             }
         }
 
