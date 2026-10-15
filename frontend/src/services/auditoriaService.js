@@ -1,29 +1,8 @@
 import { API_BASE_URL } from './apiBaseUrl.js'
+import { procesarRespuesta } from './procesarRespuesta.js'
 
 const API_URL = `${API_BASE_URL}/api`
 
-async function procesarRespuesta(response) {
-    let datos = null
-
-    try {
-        datos = await response.json()
-    } catch {
-        datos = null
-    }
-
-    if (!response.ok) {
-        const mensaje =
-            datos?.mensaje ?? 'No fue posible completar la solicitud'
-
-        const error = new Error(mensaje)
-        error.codigo = datos?.codigo
-        error.status = response.status
-
-        throw error
-    }
-
-    return datos
-}
 
 /** HU-003: catalogo de bodegas (ver BodegaConsultaController en el backend). */
 export async function listarBodegas(token) {
@@ -33,7 +12,7 @@ export async function listarBodegas(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /** HU-003: articulos esperados en la bodega, con su cantidad teorica. */
@@ -47,7 +26,7 @@ export async function listarDetalleBodega(token, codBod) {
         },
     )
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /** HU-003: lotes y vencimientos de la bodega. */
@@ -61,7 +40,7 @@ export async function listarLotesBodega(token, codBod) {
         },
     )
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /**
@@ -75,7 +54,7 @@ export async function obtenerMiRuta(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /**
@@ -94,7 +73,7 @@ export async function registrarConteo(token, datos) {
         body: JSON.stringify(datos),
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /**
@@ -111,7 +90,7 @@ export async function obtenerJornadaHoy(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
 
 /** HU-038: confirma el inicio de jornada de hoy (ver ConteoPage). */
@@ -123,5 +102,5 @@ export async function iniciarJornada(token) {
         },
     })
 
-    return procesarRespuesta(response)
+    return procesarRespuesta(response, true, token)
 }
