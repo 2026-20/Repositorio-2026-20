@@ -65,11 +65,15 @@ describe('HU-031 - Trazabilidad de acciones del usuario', () => {
         // (jornada local, ruta, cola pendiente) y cada una paga el costo
         // completo de levantar un Worker + compilar wasm sin cache entre
         // ellas (mismo comentario que hu-021-modo-sin-conexion.cy.js).
-        cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 20000 }).should('exist')
+        cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 40000 }).should('exist')
         cy.get('#conteo-bodega').select('MEPRIN')
-        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 20000 }).should('exist')
+        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 40000 }).should('exist')
         cy.get('#conteo-articulo').select('ART1::123')
-        cy.get('#conteo-cantidad').type('9')
+        // be.enabled antes de escribir: en CI, el campo puede quedar
+        // deshabilitado un instante de mas mientras React re-renderiza tras
+        // seleccionar el articulo -- un type() sin esta espera puede caer
+        // justo en ese instante (visto una vez en CI, nunca en local).
+        cy.get('#conteo-cantidad').should('be.enabled').type('9')
         cy.contains('button', 'Registrar conteo').click()
         cy.contains('Conteo guardado en este dispositivo').should('be.visible')
 
