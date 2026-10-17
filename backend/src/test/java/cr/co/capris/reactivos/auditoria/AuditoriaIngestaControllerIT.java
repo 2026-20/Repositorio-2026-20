@@ -42,6 +42,12 @@ class AuditoriaIngestaControllerIT {
 	@Autowired
 	private BodegaRepository bodegaRepository;
 
+	@Autowired
+	private ResultadoVisitaRepository resultadoVisitaRepository;
+
+	@Autowired
+	private cr.co.capris.reactivos.usuario.UsuarioRepository usuarioRepository;
+
 	@Value("${app.auditoria.ingesta.api-key}")
 	private String apiKey;
 
@@ -107,6 +113,38 @@ class AuditoriaIngestaControllerIT {
 						.header("X-Nombre-Archivo", "archivo_sin_el_patron_esperado.xml")
 						.contentType(MediaType.APPLICATION_XML)
 						.content(fixture("med_wmolina_A2070000_20260724_cai_det_mov_2026-07-24_1640_1.xml")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"));
+	}
+
+	// asignarAUsuario: uso del simulador de ingesta (ftp-gateway) para
+	// pruebas manuales/demos -- ver javadoc de AuditoriaIngestaController.
+	@Test
+	void conAsignarAUsuarioLasVisitasDelArchivoQuedanAsignadas() throws Exception {
+		Long idAmelendez = usuarioRepository.findByUsername("amelendez").orElseThrow().getId();
+
+		mockMvc.perform(post("/api/auditoria/ingesta/estados-visita")
+						.param("asignarAUsuario", "amelendez")
+						.header("X-Internal-Api-Key", apiKey)
+						.header("X-Nombre-Archivo", "cai_est_vis.xml")
+						.contentType(MediaType.APPLICATION_XML)
+						.content(fixture("med_wmolina_cai_est_vis.xml")))
+				.andExpect(status().isOk());
+
+		ResultadoVisita visita = resultadoVisitaRepository
+				.findByNumConAndCodBod("0432025114200211-00-13585", "A2060000")
+				.orElseThrow();
+		assertThat(visita.getAsignadoAUsuarioId()).isEqualTo(idAmelendez);
+	}
+
+	@Test
+	void conAsignarAUsuarioQueNoExisteResponde400() throws Exception {
+		mockMvc.perform(post("/api/auditoria/ingesta/estados-visita")
+						.param("asignarAUsuario", "no-existe-este-usuario")
+						.header("X-Internal-Api-Key", apiKey)
+						.header("X-Nombre-Archivo", "cai_est_vis.xml")
+						.contentType(MediaType.APPLICATION_XML)
+						.content(fixture("med_wmolina_cai_est_vis.xml")))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"));
 	}

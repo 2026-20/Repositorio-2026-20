@@ -102,7 +102,7 @@ class ReenviadorAlBackendTest {
 
 	@Test
 	void reenviarManualDevuelveFallaSinLlamarAlBackendCuandoElNombreNoSeReconoce() {
-		var resultado = reenviador.reenviarManual(new ByteArrayInputStream(new byte[0]), "archivo_random.xml");
+		var resultado = reenviador.reenviarManual(new ByteArrayInputStream(new byte[0]), "archivo_random.xml", null);
 
 		assertThat(resultado.exito()).isFalse();
 		assertThat(resultado.endpoint()).isNull();
@@ -115,12 +115,75 @@ class ReenviadorAlBackendTest {
 				new ReenviadorAlBackend("http://localhost:1", "clave-de-prueba", 1, 1);
 
 		var resultado = reenviadorConBackendInalcanzable.reenviarManual(
-				new ByteArrayInputStream(new byte[0]), "med_wmolina_cai_bod.xml");
+				new ByteArrayInputStream(new byte[0]), "med_wmolina_cai_bod.xml", null);
 
 		assertThat(resultado.exito()).isFalse();
 		assertThat(resultado.endpoint()).isEqualTo("bodegas");
 		assertThat(resultado.statusBackend()).isNull();
 		assertThat(resultado.cuerpo()).contains("No fue posible contactar al backend");
+	}
+
+	// asignarAUsuario: verifica contra un servidor HTTP real (liviano, de
+	// JDK, sin dependencias nuevas) que el query param llega tal cual --
+	// un mock no probaria la construccion real de la URI.
+	@Test
+	void reenviarManualAgregaElQueryParamAsignarAUsuarioCuandoSeIndica() throws Exception {
+		CapturadorDePeticion servidor = new CapturadorDePeticion();
+		try {
+			ReenviadorAlBackend reenviadorLocal = new ReenviadorAlBackend(
+					"http://localhost:" + servidor.puerto(), "clave-de-prueba", 5, 5);
+
+			reenviadorLocal.reenviarManual(
+					new ByteArrayInputStream(new byte[0]), "med_wmolina_cai_est_vis.xml", "amelendez");
+
+			assertThat(servidor.ultimaRutaConQuery()).isEqualTo("/api/auditoria/ingesta/estados-visita?asignarAUsuario=amelendez");
+		} finally {
+			servidor.detener();
+		}
+	}
+
+	@Test
+	void reenviarManualNoAgregaElQueryParamCuandoAsignarAUsuarioEsNuloOVacio() throws Exception {
+		CapturadorDePeticion servidor = new CapturadorDePeticion();
+		try {
+			ReenviadorAlBackend reenviadorLocal = new ReenviadorAlBackend(
+					"http://localhost:" + servidor.puerto(), "clave-de-prueba", 5, 5);
+
+			reenviadorLocal.reenviarManual(new ByteArrayInputStream(new byte[0]), "med_wmolina_cai_bod.xml", "  ");
+
+			assertThat(servidor.ultimaRutaConQuery()).isEqualTo("/api/auditoria/ingesta/bodegas");
+		} finally {
+			servidor.detener();
+		}
+	}
+
+	/** Servidor HTTP minimo (JDK, sin dependencias nuevas) que solo guarda la ultima ruta+query recibida. */
+	private static class CapturadorDePeticion {
+		private final com.sun.net.httpserver.HttpServer servidor;
+		private volatile String ultimaRutaConQuery;
+
+		CapturadorDePeticion() throws IOException {
+			servidor = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("localhost", 0), 0);
+			servidor.createContext("/", intercambio -> {
+				String query = intercambio.getRequestURI().getQuery();
+				ultimaRutaConQuery = intercambio.getRequestURI().getPath() + (query != null ? "?" + query : "");
+				intercambio.sendResponseHeaders(200, 0);
+				intercambio.close();
+			});
+			servidor.start();
+		}
+
+		int puerto() {
+			return servidor.getAddress().getPort();
+		}
+
+		String ultimaRutaConQuery() {
+			return ultimaRutaConQuery;
+		}
+
+		void detener() {
+			servidor.stop(0);
+		}
 	}
 
 	private static class InputStreamRastreable extends ByteArrayInputStream {

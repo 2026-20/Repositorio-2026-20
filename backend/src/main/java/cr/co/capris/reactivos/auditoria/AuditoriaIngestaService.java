@@ -6,12 +6,15 @@ import cr.co.capris.reactivos.auditoria.xml.EstadoVisitaXml;
 import cr.co.capris.reactivos.auditoria.xml.LoteBodegaXml;
 import cr.co.capris.reactivos.auditoria.xml.LoteMovimientoXml;
 import cr.co.capris.reactivos.auditoria.xml.MovimientoPendienteXml;
+import cr.co.capris.reactivos.usuario.Usuario;
+import cr.co.capris.reactivos.usuario.UsuarioRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -67,6 +70,7 @@ public class AuditoriaIngestaService {
 	private final LoteBodegaRepository loteBodegaRepository;
 	private final MovimientoPendienteRepository movimientoPendienteRepository;
 	private final LoteMovimientoRepository loteMovimientoRepository;
+	private final UsuarioRepository usuarioRepository;
 
 	public AuditoriaIngestaService(
 			AuditoriaXmlParser parser,
@@ -77,7 +81,8 @@ public class AuditoriaIngestaService {
 			DetalleBodegaRepository detalleBodegaRepository,
 			LoteBodegaRepository loteBodegaRepository,
 			MovimientoPendienteRepository movimientoPendienteRepository,
-			LoteMovimientoRepository loteMovimientoRepository) {
+			LoteMovimientoRepository loteMovimientoRepository,
+			UsuarioRepository usuarioRepository) {
 		this.parser = parser;
 		this.mapper = mapper;
 		this.filaTransaccional = filaTransaccional;
@@ -87,6 +92,7 @@ public class AuditoriaIngestaService {
 		this.loteBodegaRepository = loteBodegaRepository;
 		this.movimientoPendienteRepository = movimientoPendienteRepository;
 		this.loteMovimientoRepository = loteMovimientoRepository;
+		this.usuarioRepository = usuarioRepository;
 	}
 
 	public ResultadoIngesta ingestarBodegas(InputStream entrada, String origen) {
@@ -107,18 +113,46 @@ public class AuditoriaIngestaService {
 		});
 	}
 
-	public ResultadoIngesta ingestarEstadosVisita(InputStream entrada, String origen) {
+	/**
+	 * asignarAUsuario (opcional, username -- NO es cod_usu del XML, ver
+	 * javadoc de Bodega sobre por que ese campo no sirve para esto): uso
+	 * exclusivo del simulador de ingesta (ver ftp-gateway) para pruebas
+	 * manuales/demos -- deja asignar de una vez las visitas de este archivo
+	 * a un usuario de prueba conocido, sin tener que ingestar y despues ir
+	 * a VisitaController.asignar() fila por fila. El flujo real del FTP
+	 * (ReenviadorAlBackend.reenviar) nunca manda este parametro -- cuando
+	 * el ERP mande la asignacion real de rutas (ver SERVIDOR_PUENTE_FTP.md),
+	 * esto deja de hacer falta.
+	 */
+	public ResultadoIngesta ingestarEstadosVisita(InputStream entrada, String origen, String asignarAUsuario) {
+		Long usuarioAsignadoId = resolverUsuarioParaAsignacionDePrueba(asignarAUsuario);
 		List<EstadoVisitaXml> filas = parser.leerEstadosVisita(entrada, origen);
 		return procesarFilas(filas, origen, xml -> {
 			ResultadoVisita nuevo = mapper.aEntidad(xml);
+			if (usuarioAsignadoId != null) {
+				nuevo.asignar(usuarioAsignadoId, LocalDate.now());
+			}
 			resultadoVisitaRepository.findByNumConAndCodBod(nuevo.getNumCon(), nuevo.getCodBod())
 					.ifPresentOrElse(
 							existente -> {
 								existente.actualizarDatosDelErp(nuevo);
+								if (usuarioAsignadoId != null) {
+									existente.asignar(usuarioAsignadoId, LocalDate.now());
+								}
 								resultadoVisitaRepository.save(existente);
 							},
 							() -> resultadoVisitaRepository.save(nuevo));
 		});
+	}
+
+	private Long resolverUsuarioParaAsignacionDePrueba(String asignarAUsuario) {
+		if (asignarAUsuario == null || asignarAUsuario.isBlank()) {
+			return null;
+		}
+		Usuario usuario = usuarioRepository.findByUsername(asignarAUsuario)
+				.orElseThrow(() -> new IllegalArgumentException(
+						"No existe el usuario de prueba \"" + asignarAUsuario + "\" para asignarle esta ingesta"));
+		return usuario.getId();
 	}
 
 	public ResultadoIngesta ingestarDetalleBodega(InputStream entrada, String origen) {

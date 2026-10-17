@@ -31,7 +31,7 @@ class SimuladorIngestaControllerTest {
 		var archivo = new MockMultipartFile(
 				"archivo", "cualquier-nombre-local.xml", "application/xml", "<ROWSET></ROWSET>".getBytes());
 
-		var resultado = controller.ingestar(archivo, "med_wmolina_cai_det_bod.xml");
+		var resultado = controller.ingestar(archivo, "med_wmolina_cai_det_bod.xml", null);
 
 		assertThat(resultado.endpoint()).isEqualTo("detalle-bodega");
 	}
@@ -41,9 +41,21 @@ class SimuladorIngestaControllerTest {
 		var archivo = new MockMultipartFile(
 				"archivo", "original.xml", "application/xml", "<ROWSET></ROWSET>".getBytes());
 
-		var resultado = controller.ingestar(archivo, "archivo_random.xml");
+		var resultado = controller.ingestar(archivo, "archivo_random.xml", null);
 
 		assertThat(resultado.exito()).isFalse();
 		assertThat(resultado.cuerpo()).contains("no reconocido");
+	}
+
+	// asignarAUsuario: el campo es opcional en el formulario (ver
+	// index.html) -- el controller tiene que aceptar que no venga.
+	@Test
+	void funcionaSinAsignarAUsuario() throws Exception {
+		var archivo = new MockMultipartFile(
+				"archivo", "original.xml", "application/xml", "<ROWSET></ROWSET>".getBytes());
+
+		var resultado = controller.ingestar(archivo, "med_wmolina_cai_bod.xml", null);
+
+		assertThat(resultado.endpoint()).isEqualTo("bodegas");
 	}
 }

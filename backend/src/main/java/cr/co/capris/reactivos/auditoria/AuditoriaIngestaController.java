@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -22,6 +23,10 @@ import java.io.IOException;
  * secuencia) -- si no calza, falla con 400 (ver GlobalExceptionHandler,
  * IllegalArgumentException). Para los demas es solo una etiqueta para los
  * logs, cualquier texto sirve.
+ *
+ * estados-visita acepta ademas un parametro opcional asignarAUsuario, solo
+ * para pruebas manuales/demos (ver javadoc del metodo y del simulador en
+ * ftp-gateway) -- el flujo real del FTP nunca lo manda.
  */
 @RestController
 @RequestMapping("/api/auditoria/ingesta")
@@ -41,10 +46,15 @@ public class AuditoriaIngestaController {
 		return ingestaService.ingestarBodegas(request.getInputStream(), nombreArchivo);
 	}
 
+	// asignarAUsuario: solo para pruebas manuales/demos via el simulador de
+	// ingesta (ftp-gateway) -- ver javadoc de
+	// AuditoriaIngestaService.ingestarEstadosVisita.
 	@PostMapping("/estados-visita")
 	public ResultadoIngesta estadosVisita(
-			HttpServletRequest request, @RequestHeader(HEADER_NOMBRE_ARCHIVO) String nombreArchivo) throws IOException {
-		return ingestaService.ingestarEstadosVisita(request.getInputStream(), nombreArchivo);
+			HttpServletRequest request,
+			@RequestHeader(HEADER_NOMBRE_ARCHIVO) String nombreArchivo,
+			@RequestParam(required = false) String asignarAUsuario) throws IOException {
+		return ingestaService.ingestarEstadosVisita(request.getInputStream(), nombreArchivo, asignarAUsuario);
 	}
 
 	@PostMapping("/detalle-bodega")
