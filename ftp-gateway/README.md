@@ -104,6 +104,24 @@ rutas/auditores (ver `docs/SERVIDOR_PUENTE_FTP.md`, pregunta 1.1.1) -- es
 un atajo deliberadamente temporal sobre el endpoint real de ingesta, no
 una simulacion aparte.
 
+### Carga rapida con los datos de prueba del repo
+
+El formulario tiene un checkbox "Usar los datos de prueba del repo (sin
+subir archivos)". Al marcarlo se ocultan los campos de archivo y basta con
+escribir un username en "Asignar a este usuario" (aqui es obligatorio) --
+el boton reenvia los 4 XML ya empacados en
+`src/main/resources/datos-prueba/` (copia de los mismos 4 de
+`backend/src/test/resources/auditoria/xmls/`: bodegas, detalle, lotes y
+estados-visita) por el mismo camino que el formulario normal, asignando
+las visitas al usuario indicado.
+
+Pensado para agilizar pruebas de usabilidad repetidas: sin esto, dejar
+lista una bodega para un usuario de prueba distinto implica subir 4
+archivos a mano cada vez. `cai_det_bod`/`cai_lot_bod` tienen ~1960/~1690
+filas y se ingestan fila por fila en transacciones separadas (ver javadoc
+de `AuditoriaFilaTransaccional` en el backend), asi que esta llamada puede
+tardar decenas de segundos -- es esperado, no un cuelgue.
+
 ## Tests
 
 ```bash
