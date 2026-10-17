@@ -98,6 +98,19 @@
             </p>
         </div>
 
+        <div>
+            <label for="asignarAUsuario">Asignar a este usuario (opcional)</label><br />
+            <input type="text" id="asignarAUsuario" name="asignarAUsuario" placeholder="ej. amelendez" />
+            <p class="ayuda">
+                Solo aplica a <code>cai_est_vis</code> (estados-visita). Username de un usuario que ya
+                exista en el sistema — <strong>no</strong> tiene que ver con <code>cod_usu</code> del XML
+                (ese campo es quien exportó el archivo del ERP, no el auditor de campo; ver javadoc de
+                <code>Bodega</code> en el backend). Pensado solo para pruebas/demos: deja cargarle datos a
+                un usuario conocido sin pasar por la asignación manual de HU-037 fila por fila. Dejar vacío
+                para el comportamiento normal (sin asignar nada).
+            </p>
+        </div>
+
         <button type="submit" id="boton">Enviar al backend</button>
     </form>
 
@@ -112,6 +125,7 @@
     <script>
         const campoArchivo = document.getElementById('archivo')
         const campoNombre = document.getElementById('nombreArchivo')
+        const campoAsignarAUsuario = document.getElementById('asignarAUsuario')
         const formulario = document.getElementById('formulario')
         const boton = document.getElementById('boton')
         const resultado = document.getElementById('resultado')
@@ -136,6 +150,9 @@
             const datos = new FormData()
             datos.append('archivo', campoArchivo.files[0])
             datos.append('nombreArchivo', campoNombre.value)
+            if (campoAsignarAUsuario.value.trim()) {
+                datos.append('asignarAUsuario', campoAsignarAUsuario.value.trim())
+            }
 
             try {
                 const respuesta = await fetch('/simulador/ingesta', { method: 'POST', body: datos })

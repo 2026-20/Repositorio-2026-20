@@ -44,9 +44,10 @@ public class SimuladorIngestaController {
     @PostMapping("/simulador/ingesta")
     public ReenviadorAlBackend.ResultadoReenvio ingestar(
             @RequestParam("archivo") MultipartFile archivo,
-            @RequestParam("nombreArchivo") String nombreArchivo) throws IOException {
+            @RequestParam("nombreArchivo") String nombreArchivo,
+            @RequestParam(value = "asignarAUsuario", required = false) String asignarAUsuario) throws IOException {
         try (InputStream contenido = archivo.getInputStream()) {
-            return reenviador.reenviarManual(contenido, nombreArchivo);
+            return reenviador.reenviarManual(contenido, nombreArchivo, asignarAUsuario);
         }
     }
 }

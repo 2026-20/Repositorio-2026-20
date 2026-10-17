@@ -78,7 +78,9 @@ public class ReenviadorAlBackend {
 		}
 
 		try (InputStream contenido = mensaje.getPayload()) {
-			enviarHttp(contenido, nombreArchivo, endpoint);
+			// El flujo real del FTP nunca asigna a un usuario de prueba --
+			// eso es solo para el simulador (ver javadoc de reenviarManual).
+			enviarHttp(contenido, nombreArchivo, endpoint, null);
 			log.info("{}: reenviado correctamente a /api/auditoria/ingesta/{}", nombreArchivo, endpoint);
 		} catch (RestClientException | IOException e) {
 			log.error("{}: fallo al reenviar a /api/auditoria/ingesta/{}", nombreArchivo, endpoint, e);
@@ -102,8 +104,12 @@ public class ReenviadorAlBackend {
 	 * simulador (ver SimuladorIngestaController) -- sin sesion FTP que
 	 * cerrar, y devolviendo el detalle de la respuesta del backend en vez de
 	 * solo loguearlo, para que quien prueba vea el resultado real.
+	 *
+	 * asignarAUsuario (opcional): se reenvia tal cual al backend como query
+	 * param, solo tiene efecto si el archivo termina en /estados-visita
+	 * (ver AuditoriaIngestaController en el backend).
 	 */
-	public ResultadoReenvio reenviarManual(InputStream contenido, String nombreArchivo) {
+	public ResultadoReenvio reenviarManual(InputStream contenido, String nombreArchivo, String asignarAUsuario) {
 		String endpoint = endpointPara(nombreArchivo);
 		if (endpoint == null) {
 			return new ResultadoReenvio(false, null, null,
@@ -112,7 +118,7 @@ public class ReenviadorAlBackend {
 		}
 
 		try {
-			ResponseEntity<String> respuesta = enviarHttp(contenido, nombreArchivo, endpoint);
+			ResponseEntity<String> respuesta = enviarHttp(contenido, nombreArchivo, endpoint, asignarAUsuario);
 			log.info("{}: reenviado manualmente (simulador) a /api/auditoria/ingesta/{}", nombreArchivo, endpoint);
 			return new ResultadoReenvio(true, endpoint, respuesta.getStatusCode().value(), respuesta.getBody());
 		} catch (RestClientResponseException e) {
@@ -126,12 +132,27 @@ public class ReenviadorAlBackend {
 		}
 	}
 
-	private ResponseEntity<String> enviarHttp(InputStream contenido, String nombreArchivo, String endpoint) {
-		return restClient.post()
-				.uri("/api/auditoria/ingesta/{endpoint}", endpoint)
+	/**
+	 * asignarAUsuario (opcional, solo usado por reenviarManual): el backend
+	 * solo lee este query param en /estados-visita (ver
+	 * AuditoriaIngestaController) -- mandarlo igual para los otros 5
+	 * endpoints no causa error, Spring simplemente lo ignora si el metodo
+	 * del controller no lo declara.
+	 */
+	private ResponseEntity<String> enviarHttp(
+			InputStream contenido, String nombreArchivo, String endpoint, String asignarAUsuario) {
+		RestClient.RequestBodySpec request = restClient.post()
+				.uri(uriBuilder -> {
+					var builder = uriBuilder.path("/api/auditoria/ingesta/{endpoint}");
+					if (asignarAUsuario != null && !asignarAUsuario.isBlank()) {
+						builder.queryParam("asignarAUsuario", asignarAUsuario);
+					}
+					return builder.build(endpoint);
+				})
 				.header(HEADER_API_KEY, apiKey)
 				.header(HEADER_NOMBRE_ARCHIVO, nombreArchivo)
-				.contentType(MediaType.APPLICATION_XML)
+				.contentType(MediaType.APPLICATION_XML);
+		return request
 				.body(new InputStreamResource(contenido))
 				.retrieve()
 				.toEntity(String.class);

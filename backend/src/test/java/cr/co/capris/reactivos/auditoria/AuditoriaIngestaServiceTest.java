@@ -69,6 +69,9 @@ class AuditoriaIngestaServiceTest {
     @Mock
     private LoteMovimientoRepository loteMovimientoRepository;
 
+    @Mock
+    private cr.co.capris.reactivos.usuario.UsuarioRepository usuarioRepository;
+
     private InputStream entradaCualquiera;
 
     private AuditoriaIngestaService service;
@@ -88,7 +91,8 @@ class AuditoriaIngestaServiceTest {
                 detalleBodegaRepository,
                 loteBodegaRepository,
                 movimientoPendienteRepository,
-                loteMovimientoRepository);
+                loteMovimientoRepository,
+                usuarioRepository);
 
         logger = (Logger) LoggerFactory.getLogger(AuditoriaIngestaService.class);
         appender = new ListAppender<>();
@@ -162,11 +166,85 @@ class AuditoriaIngestaServiceTest {
         when(parser.leerEstadosVisita(any(), any())).thenReturn(List.of(nuevoSnapshot));
         when(resultadoVisitaRepository.findByNumConAndCodBod("12555", "A1")).thenReturn(Optional.of(existente));
 
-        service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml");
+        service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml", null);
 
         // Se reusa la MISMA instancia (no se reemplaza por una nueva vacia).
         verify(resultadoVisitaRepository).save(existente);
         assertThat(existente.getAprobacionTipo1()).isEqualTo("ya revisado por un administrador");
+    }
+
+    // --- asignarAUsuario (simulador de ingesta, pruebas manuales) ---
+
+    private EstadoVisitaXml estadoVisitaDePrueba() {
+        return EstadoVisitaXml.desdeFila(Map.of(
+                "CE_COD_ORG", "MED", "CE_COD_USU", "WMOLINA", "CE_ESTADO", "PEND",
+                "CE_DES_EST", "PENDIENTE", "CE_COD_BOD", "A1", "CE_LIC_PUB", "lic",
+                "CE_COD_INS", "ins", "CE_COD_CLI", "cli", "CE_NUM_CON", "12555", "CE_OBJ_CON", "obj"));
+    }
+
+    private cr.co.capris.reactivos.usuario.Usuario usuarioDePrueba(long id, String username) {
+        cr.co.capris.reactivos.usuario.Usuario usuario = new cr.co.capris.reactivos.usuario.Usuario(
+                "Usuario de prueba", "1-1111-1111", "prueba@capris.cr", username, "hash",
+                cr.co.capris.reactivos.usuario.EstadoUsuario.ACTIVO,
+                new cr.co.capris.reactivos.usuario.Rol("Usuario de Campo"),
+                new cr.co.capris.reactivos.usuario.Empresa("CAPRIS Médica"), null);
+        org.springframework.test.util.ReflectionTestUtils.setField(usuario, "id", id);
+        return usuario;
+    }
+
+    @Test
+    void siSeIndicaAsignarAUsuarioUnaVisitaNuevaQuedaAsignada() {
+        when(parser.leerEstadosVisita(any(), any())).thenReturn(List.of(estadoVisitaDePrueba()));
+        when(resultadoVisitaRepository.findByNumConAndCodBod("12555", "A1")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByUsername("amelendez")).thenReturn(Optional.of(usuarioDePrueba(7L, "amelendez")));
+
+        service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml", "amelendez");
+
+        org.mockito.ArgumentCaptor<ResultadoVisita> capturado = org.mockito.ArgumentCaptor.forClass(ResultadoVisita.class);
+        verify(resultadoVisitaRepository).save(capturado.capture());
+        assertThat(capturado.getValue().getAsignadoAUsuarioId()).isEqualTo(7L);
+        assertThat(capturado.getValue().getFechaAsignada()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void siSeIndicaAsignarAUsuarioUnaVisitaExistenteQuedaReasignada() {
+        ResultadoVisita existente = new ResultadoVisita(
+                "MED", "WMOLINA", "PEND", "PENDIENTE", "A1", "lic", "ins", "cli", "12555", "obj");
+        existente.asignar(1L, LocalDate.now().minusDays(5));
+
+        when(parser.leerEstadosVisita(any(), any())).thenReturn(List.of(estadoVisitaDePrueba()));
+        when(resultadoVisitaRepository.findByNumConAndCodBod("12555", "A1")).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findByUsername("arcea")).thenReturn(Optional.of(usuarioDePrueba(8L, "arcea")));
+
+        service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml", "arcea");
+
+        assertThat(existente.getAsignadoAUsuarioId()).isEqualTo(8L);
+        assertThat(existente.getFechaAsignada()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void sinAsignarAUsuarioNoTocaLaAsignacionExistente() {
+        ResultadoVisita existente = new ResultadoVisita(
+                "MED", "WMOLINA", "PEND", "PENDIENTE", "A1", "lic", "ins", "cli", "12555", "obj");
+        existente.asignar(1L, LocalDate.parse("2026-01-01"));
+
+        when(parser.leerEstadosVisita(any(), any())).thenReturn(List.of(estadoVisitaDePrueba()));
+        when(resultadoVisitaRepository.findByNumConAndCodBod("12555", "A1")).thenReturn(Optional.of(existente));
+
+        service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml", null);
+
+        assertThat(existente.getAsignadoAUsuarioId()).isEqualTo(1L);
+        assertThat(existente.getFechaAsignada()).isEqualTo(LocalDate.parse("2026-01-01"));
+    }
+
+    @Test
+    void siElUsuarioDePruebaNoExisteLanzaExcepcionClara() {
+        when(usuarioRepository.findByUsername("no-existe")).thenReturn(Optional.empty());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> service.ingestarEstadosVisita(entradaCualquiera, "cai_est_vis.xml", "no-existe"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(resultadoVisitaRepository, never()).save(any());
     }
 
     @Test

@@ -82,6 +82,28 @@ No dejar este perfil activo fuera de un ambiente de pruebas: el endpoint
 `/simulador/ingesta` no tiene autenticacion propia (mas alla de la que ya
 hace el backend con la API key interna) y dispara escrituras reales.
 
+### Asignar la ingesta a un usuario de prueba conocido
+
+El formulario tiene un campo opcional "Asignar a este usuario" (username,
+ej. `amelendez`). Solo aplica cuando el archivo se rutea a
+`estados-visita` (`cai_est_vis`): si se completa, cada visita de ese
+archivo queda asignada a ese usuario para hoy (mismo mecanismo que
+`VisitaController.asignar()` de HU-037), sin pasar por la asignacion
+manual fila por fila.
+
+Pensado para pruebas de usabilidad/demos: deja cargarle datos de prueba
+(repetidos entre si, da igual) a distintos usuarios conocidos del sistema,
+para demostrar que cada uno carga su propia informacion al iniciar sesion.
+El username **no tiene que ver con `cod_usu`** del XML -- ese campo es
+quien exporto el archivo desde el ERP, no el auditor de campo real (ver
+javadoc de `Bodega` en el backend). Dejar el campo vacio para el
+comportamiento normal de siempre (sin asignar nada).
+
+Esto deja de hacer falta el dia que el ERP mande la asignacion real de
+rutas/auditores (ver `docs/SERVIDOR_PUENTE_FTP.md`, pregunta 1.1.1) -- es
+un atajo deliberadamente temporal sobre el endpoint real de ingesta, no
+una simulacion aparte.
+
 ## Tests
 
 ```bash
