@@ -1,0 +1,78 @@
+.stepper {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+}
+
+.boton {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    border: 1px solid var(--color-primary-border);
+    border-radius: var(--radius-full);
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+    cursor: pointer;
+    transition:
+        transform 120ms var(--ease-out),
+        background-color 150ms ease,
+        border-color 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .boton:hover:not(:disabled) {
+        border-color: var(--color-primary);
+    }
+}
+
+.boton:active:not(:disabled) {
+    transform: scale(0.92);
+}
+
+.boton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.boton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.valor {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-heading);
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.valor::-webkit-outer-spin-button,
+.valor::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+}
+
+.valor:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .boton {
+        transition: background-color 150ms ease, border-color 150ms ease;
+    }
+
+    .boton:active:not(:disabled) {
+        transform: none;
+    }
+}

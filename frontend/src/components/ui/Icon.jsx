@@ -1,5 +1,7 @@
 import {
+    AlertTriangle,
     Bell,
+    Check,
     ChevronRight,
     ClipboardList,
     Eye,
@@ -8,7 +10,10 @@ import {
     Home,
     Lock,
     LogOut,
+    Minus,
     Moon,
+    PackageSearch,
+    Plus,
     RefreshCw,
     Route,
     Settings,
@@ -41,6 +46,11 @@ const ICONOS = {
     cerrar: X,
     sync: RefreshCw,
     ruta: Route,
+    menos: Minus,
+    mas: Plus,
+    verificado: Check,
+    alerta: AlertTriangle,
+    paquete: PackageSearch,
 }
 
 export default function Icon({ name, size = 20, className }) {

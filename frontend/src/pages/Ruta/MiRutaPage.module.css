@@ -116,11 +116,25 @@
     gap: var(--space-3);
     height: 100%;
     min-height: var(--touch-target-min);
+    border-radius: var(--radius-lg);
 }
 
 /* Contrato activo: borde azul primario (#0f426e en modo claro). */
 .tarjetaActiva {
     border: 2px solid var(--color-primary);
+    background: linear-gradient(135deg, var(--color-primary-bg), var(--color-surface) 65%);
+}
+
+.iconoTarjeta {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
 }
 
 .principal {

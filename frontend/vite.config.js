@@ -28,7 +28,15 @@ const httpsConfigLocal =
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: { https: httpsConfigLocal },
+  server: {
+    https: httpsConfigLocal,
+    // Rama experimental (sprint3-conteo-widgets): deja usar VITE_API_BASE_URL=''
+    // para que el fetch vaya a una ruta relativa y Vite la reenvie al backend
+    // del lado del servidor -- evita tener que agregar este puerto al
+    // allowlist de CORS del backend compartido (ver WebConfig.java), que
+    // sigue sirviendo la sesion de pruebas real en el puerto 5173.
+    proxy: { '/api': 'http://localhost:8080' },
+  },
   preview: { https: httpsConfigLocal },
   // Vite descubre estas dependencias de wa-sqlite recien a mitad de la
   // corrida de las pruebas "browser" (OPFS) y las reoptimiza, lo que fuerza
