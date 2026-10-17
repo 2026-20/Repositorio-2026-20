@@ -71,6 +71,9 @@
         #resultado.error { border-color: var(--error); background: rgba(179, 38, 30, 0.08); }
         .endpoints { font-size: 0.8rem; color: var(--texto-tenue); margin-top: 24px; }
         .endpoints code { background: var(--superficie); padding: 1px 4px; border-radius: 4px; }
+        .campoCheckbox { display: flex; align-items: flex-start; gap: 8px; }
+        .campoCheckbox input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; }
+        .campoCheckbox label { font-weight: 600; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -82,24 +85,37 @@
     </p>
 
     <form id="formulario">
-        <div>
-            <label for="archivo">Archivo XML</label><br />
-            <input type="file" id="archivo" name="archivo" accept=".xml" required />
+        <div class="campoCheckbox">
+            <input type="checkbox" id="cargaRapida" name="cargaRapida" />
+            <label for="cargaRapida">Usar los datos de prueba del repo (sin subir archivos)</label>
+        </div>
+        <p class="ayuda" id="ayudaCargaRapida">
+            Reenvía los mismos 4 XML de siempre (bodegas, detalle, lotes y estados-visita) sin tener que
+            elegirlos a mano — solo hace falta el usuario abajo. Incluye los 2 archivos de catálogo
+            (~1960 y ~1690 filas, una transacción por fila), así que puede tardar bastante
+            (decenas de segundos) en terminar; no es que se haya colgado.
+        </p>
+
+        <div id="camposArchivo">
+            <div>
+                <label for="archivo">Archivo XML</label><br />
+                <input type="file" id="archivo" name="archivo" accept=".xml" />
+            </div>
+
+            <div>
+                <label for="nombreArchivo">Nombre de archivo a enviar</label><br />
+                <input type="text" id="nombreArchivo" name="nombreArchivo" />
+                <p class="ayuda">
+                    Se precarga con el nombre real del archivo elegido, pero es editable — el endpoint se
+                    decide por este nombre (substring), no por el contenido. Para <code>cai_det_mov</code> y
+                    <code>cai_lot_mov</code> además tiene que calzar el patrón
+                    <code>org_usuario_bodega_fechaCorta_cai_{det|lot}_mov_YYYY-MM-DD_HHmm_secuencia.xml</code>.
+                </p>
+            </div>
         </div>
 
         <div>
-            <label for="nombreArchivo">Nombre de archivo a enviar</label><br />
-            <input type="text" id="nombreArchivo" name="nombreArchivo" required />
-            <p class="ayuda">
-                Se precarga con el nombre real del archivo elegido, pero es editable — el endpoint se
-                decide por este nombre (substring), no por el contenido. Para <code>cai_det_mov</code> y
-                <code>cai_lot_mov</code> además tiene que calzar el patrón
-                <code>org_usuario_bodega_fechaCorta_cai_{det|lot}_mov_YYYY-MM-DD_HHmm_secuencia.xml</code>.
-            </p>
-        </div>
-
-        <div>
-            <label for="asignarAUsuario">Asignar a este usuario (opcional)</label><br />
+            <label for="asignarAUsuario">Asignar a este usuario<span id="asignarAUsuarioObligatorio"> (opcional)</span></label><br />
             <input type="text" id="asignarAUsuario" name="asignarAUsuario" placeholder="ej. amelendez" />
             <p class="ayuda">
                 Solo aplica a <code>cai_est_vis</code> (estados-visita). Username de un usuario que ya
@@ -107,7 +123,8 @@
                 (ese campo es quien exportó el archivo del ERP, no el auditor de campo; ver javadoc de
                 <code>Bodega</code> en el backend). Pensado solo para pruebas/demos: deja cargarle datos a
                 un usuario conocido sin pasar por la asignación manual de HU-037 fila por fila. Dejar vacío
-                para el comportamiento normal (sin asignar nada).
+                para el comportamiento normal (sin asignar nada) — obligatorio si se usan los datos de
+                prueba del repo, porque ahí el único propósito es asignarlos a alguien.
             </p>
         </div>
 
@@ -123,12 +140,30 @@
     </p>
 
     <script>
+        const campoCargaRapida = document.getElementById('cargaRapida')
+        const ayudaCargaRapida = document.getElementById('ayudaCargaRapida')
+        const camposArchivo = document.getElementById('camposArchivo')
         const campoArchivo = document.getElementById('archivo')
         const campoNombre = document.getElementById('nombreArchivo')
         const campoAsignarAUsuario = document.getElementById('asignarAUsuario')
+        const asignarAUsuarioObligatorio = document.getElementById('asignarAUsuarioObligatorio')
         const formulario = document.getElementById('formulario')
         const boton = document.getElementById('boton')
         const resultado = document.getElementById('resultado')
+
+        // En modo carga rapida no hay archivo que elegir -- se ocultan esos
+        // campos y se vuelve obligatorio el usuario, que es el unico dato
+        // que tiene sentido pedir en ese modo (ver ingestarDatosDePrueba).
+        function actualizarModoCargaRapida() {
+            const activo = campoCargaRapida.checked
+            camposArchivo.style.display = activo ? 'none' : ''
+            ayudaCargaRapida.style.display = activo ? '' : 'none'
+            campoArchivo.required = !activo
+            campoNombre.required = !activo
+            asignarAUsuarioObligatorio.style.display = activo ? 'none' : ''
+        }
+        campoCargaRapida.addEventListener('change', actualizarModoCargaRapida)
+        actualizarModoCargaRapida()
 
         // Precarga el nombre real, pero no lo pisa si ya se edito a mano.
         let nombreEditadoAMano = false
@@ -141,22 +176,35 @@
 
         formulario.addEventListener('submit', async (evento) => {
             evento.preventDefault()
-            if (!campoArchivo.files[0]) return
 
-            boton.disabled = true
-            boton.textContent = 'Enviando…'
-            resultado.style.display = 'none'
-
-            const datos = new FormData()
-            datos.append('archivo', campoArchivo.files[0])
-            datos.append('nombreArchivo', campoNombre.value)
-            if (campoAsignarAUsuario.value.trim()) {
-                datos.append('asignarAUsuario', campoAsignarAUsuario.value.trim())
+            const modoRapido = campoCargaRapida.checked
+            if (!modoRapido && !campoArchivo.files[0]) return
+            if (modoRapido && !campoAsignarAUsuario.value.trim()) {
+                campoAsignarAUsuario.focus()
+                return
             }
 
+            boton.disabled = true
+            boton.textContent = modoRapido ? 'Cargando datos de prueba (puede tardar)…' : 'Enviando…'
+            resultado.style.display = 'none'
+
             try {
-                const respuesta = await fetch('/simulador/ingesta', { method: 'POST', body: datos })
-                const cuerpo = await respuesta.json()
+                let cuerpo
+                if (modoRapido) {
+                    const datos = new URLSearchParams()
+                    datos.append('asignarAUsuario', campoAsignarAUsuario.value.trim())
+                    const respuesta = await fetch('/simulador/ingesta-rapida', { method: 'POST', body: datos })
+                    cuerpo = await respuesta.json()
+                } else {
+                    const datos = new FormData()
+                    datos.append('archivo', campoArchivo.files[0])
+                    datos.append('nombreArchivo', campoNombre.value)
+                    if (campoAsignarAUsuario.value.trim()) {
+                        datos.append('asignarAUsuario', campoAsignarAUsuario.value.trim())
+                    }
+                    const respuesta = await fetch('/simulador/ingesta', { method: 'POST', body: datos })
+                    cuerpo = await respuesta.json()
+                }
 
                 resultado.className = cuerpo.exito ? 'exito' : 'error'
                 resultado.textContent = JSON.stringify(cuerpo, null, 2)
