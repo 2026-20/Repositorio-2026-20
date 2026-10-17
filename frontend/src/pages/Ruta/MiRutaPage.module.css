@@ -88,6 +88,15 @@
     list-style: none;
 }
 
+/* Sin esto, el grid item crece para acomodar texto largo sin romper
+   (p. ej. el numero de contrato de .subtitulo) en vez de dejar que .titulo
+   y .subtitulo lo trunquen -- min-width:auto es el default de los grid
+   items, y su minimo de contenido ignora el white-space:nowrap de adentro,
+   empujando toda la pagina (y hasta el navbar) a desplazarse horizontal. */
+.cuadricula > li {
+    min-width: 0;
+}
+
 @media (min-width: 768px) {
     .cuadricula {
         grid-template-columns: repeat(2, 1fr);
@@ -132,8 +141,12 @@
 }
 
 .subtitulo {
+    max-width: 100%;
+    overflow: hidden;
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .insignia {
