@@ -1,5 +1,7 @@
 package cr.co.capris.reactivos.auditoria;
 
+import cr.co.capris.reactivos.seguridad.AccesoNoAutorizadoException;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,18 +18,20 @@ import java.util.Optional;
  * HU-038 criterio 4: no se acepta un conteo si el usuario no confirmo el
  * inicio de jornada hoy (ver JornadaService).
  *
+ * HU-007: corregir() actualiza el MISMO registro (no crea uno nuevo) -- ver
+ * javadoc de ConteoFisico.corregir() sobre por que, a diferencia de
+ * BitacoraSeguridad/RegistroTrazabilidad, este si se muta. Solo el usuario
+ * que registro el conteo puede corregirlo.
+ *
  * Deliberadamente NO resuelto aqui (para quien implemente las HUs que
  * siguen):
  *   - HU-025/026 (guardar avance parcial / reanudar): esto asume que cada
  *     ConteoFisico que llega ya esta "terminado" del lado del cliente. El
  *     borrador mientras el usuario cuenta vive en el almacenamiento local
  *     de la PWA (wa-sqlite/OPFS), no aqui.
- *   - HU-007 (corregir conteo ya registrado): hoy no hay "actualizar" --
- *     solo registrar(). Si se corrige, es decision de quien implemente esa
- *     HU si se actualiza el mismo registro o se crea uno nuevo con
- *     trazabilidad del cambio.
  *   - HU-040/041 (validar y enviar al ERP): esto solo persiste el conteo
- *     localmente, no arma ni envia nada al ERP.
+ *     localmente, no arma ni envia nada al ERP -- por eso ConteoFisico.transmitido
+ *     siempre queda en false hoy (ver su javadoc).
  */
 @Service
 public class ConteoFisicoService {
@@ -67,5 +71,23 @@ public class ConteoFisicoService {
 				usuarioId,
 				request.observaciones(),
 				OffsetDateTime.now()));
+	}
+
+	// HU-007: corrige un conteo ya registrado. No existe (404), pertenece a
+	// otro usuario (403, criterio implicito de "mi" conteo), o ya esta
+	// transmitido (409, criterio 3 -- ver ConteoFisico.corregir()) son los
+	// tres motivos de rechazo; la validacion de cantidad (criterio 4) la
+	// aplica el propio metodo corregir() de la entidad.
+	@Transactional
+	public ConteoFisico corregir(Long id, CorregirConteoRequest request, Long usuarioId) {
+		ConteoFisico conteo = conteoFisicoRepository.findById(id)
+				.orElseThrow(() -> new ConteoFisicoNoEncontradoException("No existe el conteo solicitado"));
+
+		if (!conteo.getUsuarioId().equals(usuarioId)) {
+			throw new AccesoNoAutorizadoException("No autorizado para corregir este conteo");
+		}
+
+		conteo.corregir(request.cantidadFisica(), request.observaciones());
+		return conteoFisicoRepository.save(conteo);
 	}
 }

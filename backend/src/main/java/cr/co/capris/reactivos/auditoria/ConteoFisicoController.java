@@ -9,7 +9,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,7 +22,8 @@ import java.util.List;
 /**
  * HU-005 (registrar) / HU-008 (resumen de avance, consulta basica -- el
  * resumen "en tiempo real sin recargar" que pide el criterio 2 de esa HU
- * es trabajo de frontend una vez tiene esta lista, no de este endpoint).
+ * es trabajo de frontend una vez tiene esta lista, no de este endpoint) /
+ * HU-007 (corregir, ver ConteoFisicoService.corregir).
  *
  * Sin filtro de empresa todavia -- ver SUPUESTO en Bodega.empresaId
  * (HU-004 pendiente de resolver el mapeo cod_org -> empresa).
@@ -57,6 +60,14 @@ public class ConteoFisicoController {
 		return conteoFisicoRepository.findAllByCodBod(codBod).stream()
 				.map(this::aDto)
 				.toList();
+	}
+
+	/** HU-007: corrige un conteo ya registrado (ver ConteoFisicoService.corregir). */
+	@PutMapping("/{id}")
+	public ResponseEntity<ConteoFisicoResumenDTO> corregir(
+			@PathVariable Long id, @Valid @RequestBody CorregirConteoRequest request) {
+		ConteoFisico conteo = conteoFisicoService.corregir(id, request, contextoUsuarioActual.getUsuarioId());
+		return ResponseEntity.ok(aDto(conteo));
 	}
 
 	private ConteoFisicoResumenDTO aDto(ConteoFisico conteo) {

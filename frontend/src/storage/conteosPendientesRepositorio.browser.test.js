@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    corregirConteoLocal,
     estaJornadaIniciadaHoy,
     guardarJornadaIniciada,
     marcarConteoConError,
@@ -80,6 +81,37 @@ describe('conteosPendientesRepositorio', () => {
         await registrarConteoLocal(USUARIO_A, CONTEO)
 
         expect(await obtenerConteosPendientes(USUARIO_B)).toEqual([])
+    })
+
+    // HU-007: corregir un conteo que todavia no se sincronizo.
+    describe('corregirConteoLocal', () => {
+        it('actualiza la cantidad fisica y las observaciones del mismo registro', async () => {
+            const idempotenciaKey = await registrarConteoLocal(USUARIO_A, CONTEO)
+
+            await corregirConteoLocal(USUARIO_A, idempotenciaKey, {
+                cantidadFisica: 11,
+                observaciones: 'Recontado, estaba completo',
+            })
+
+            const pendientes = await obtenerConteosPendientes(USUARIO_A)
+            const corregido = pendientes.find((c) => c.idempotenciaKey === idempotenciaKey)
+
+            expect(corregido.cantidadFisica).toBe('11')
+            expect(corregido.observaciones).toBe('Recontado, estaba completo')
+            expect(corregido.sincronizado).toBe(false)
+        })
+
+        it('no corrige un conteo que ya se sincronizo', async () => {
+            const idempotenciaKey = await registrarConteoLocal(USUARIO_A, CONTEO)
+            await marcarConteoSincronizado(USUARIO_A, idempotenciaKey)
+
+            await corregirConteoLocal(USUARIO_A, idempotenciaKey, { cantidadFisica: 99, observaciones: null })
+
+            const pendientes = await obtenerConteosPendientes(USUARIO_A)
+            const conteo = pendientes.find((c) => c.idempotenciaKey === idempotenciaKey)
+
+            expect(conteo.cantidadFisica).toBe('9')
+        })
     })
 
     describe('jornada local', () => {

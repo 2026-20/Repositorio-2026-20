@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 
+import SearchInput from '../../components/ui/SearchInput'
+import StatusBadge from '../../components/ui/StatusBadge'
 import { useAuth } from '../../context/useAuth'
 import { useContextoAuditoria } from '../../context/useContextoAuditoria'
 import { useSincronizacion } from '../../context/useSincronizacion'
 import { iniciarJornada } from '../../services/auditoriaService.js'
 import {
+    corregirConteoLocal,
     estaJornadaIniciadaHoy,
     guardarJornadaIniciada,
     obtenerConteosPendientes,
@@ -20,6 +23,37 @@ import styles from './ConteoPage.module.css'
 // opcion del selector sin ambiguedad, hace falta tambien numCon.
 function claveArticulo(articulo) {
     return `${articulo.codArt}::${articulo.numCon ?? ''}`
+}
+
+// HU-027: minusculas y sin tildes, mismo patron que MiRutaPage, para que
+// "quimica" encuentre "QUÍMICA".
+function normalizar(texto) {
+    return (texto ?? '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+}
+
+// HU-030, calculado del lado del cliente con el mismo criterio que
+// ConteoFisico.getTipoDiferencia() en el backend: fisica - teorica,
+// negativo = faltante, positivo = sobrante, cero = sin diferencia.
+function tipoDiferencia(cantidadTeorica, cantidadFisica) {
+    const diferencia = Number(cantidadFisica) - Number(cantidadTeorica)
+    if (diferencia < 0) return 'FALTANTE'
+    if (diferencia > 0) return 'SOBRANTE'
+    return 'SIN_DIFERENCIA'
+}
+
+const TONO_TIPO_DIFERENCIA = {
+    FALTANTE: 'peligro',
+    SOBRANTE: 'advertencia',
+    SIN_DIFERENCIA: 'exito',
+}
+
+const ETIQUETA_TIPO_DIFERENCIA = {
+    FALTANTE: 'Faltante',
+    SOBRANTE: 'Sobrante',
+    SIN_DIFERENCIA: 'Sin diferencia',
 }
 
 // HU-021. Pantalla minima de registrar conteo (HU-005, sin asignar
@@ -55,17 +89,38 @@ export default function ConteoPage() {
     const [numLoteSeleccionado, setNumLoteSeleccionado] = useState('')
     const [cantidadFisica, setCantidadFisica] = useState('')
     const [observaciones, setObservaciones] = useState('')
+    // HU-007: idempotenciaKey del conteo que se esta corrigiendo, o null si
+    // el formulario esta en modo "registrar uno nuevo" (el de siempre).
+    const [corrigiendoIdempotenciaKey, setCorrigiendoIdempotenciaKey] = useState(null)
 
     const [guardando, setGuardando] = useState(false)
-    const [mensajeExito, setMensajeExito] = useState(false)
+    // Guarda el texto de exito (no un boolean): HU-007 necesita un mensaje
+    // distinto al de registrar, y para cuando se muestra ya se limpio
+    // corrigiendoIdempotenciaKey (limpiarFormularioDeConteo), asi que no se
+    // puede derivar de ese estado en el render.
+    const [mensajeExito, setMensajeExito] = useState('')
     const [errorFormulario, setErrorFormulario] = useState(null)
-    const [pendientesSinSincronizar, setPendientesSinSincronizar] = useState(0)
+    // HU-008/HU-026: todos los conteos locales del usuario (sincronizados o
+    // no) -- de aqui salen tanto el contador de "sin sincronizar" como el
+    // resumen de avance (contados/pendientes) de la bodega activa. Una sola
+    // lectura local para los dos usos, no dos.
+    const [conteosLocales, setConteosLocales] = useState([])
+    // HU-032 criterio 3: filtro del resumen por estado. "Todos" por defecto.
+    const [filtroEstado, setFiltroEstado] = useState('TODOS')
+    // HU-027: busqueda por nombre o codigo. Por lote queda fuera a proposito
+    // -- los lotes de la bodega se cargan recien al elegir un articulo con
+    // indicador de lote (ver el useEffect de obtenerLotesBodega), no antes;
+    // buscar por lote necesitaria cargarlos todos por adelantado, que es un
+    // cambio de carga de datos aparte, no solo de este formulario.
+    const [busquedaArticulo, setBusquedaArticulo] = useState('')
 
-    async function actualizarContadorPendientes() {
+    async function actualizarConteosLocales() {
         if (!usuario?.id) return
-        const pendientes = await obtenerConteosPendientes(usuario.id)
-        setPendientesSinSincronizar(pendientes.filter((conteo) => !conteo.sincronizado).length)
+        const conteos = await obtenerConteosPendientes(usuario.id)
+        setConteosLocales(conteos)
     }
+
+    const pendientesSinSincronizar = conteosLocales.filter((conteo) => !conteo.sincronizado).length
 
     // Se asegura de que la jornada de hoy quede confirmada SIN pedirle nada
     // al usuario: si ya estaba (por esta pantalla antes, o porque la ultima
@@ -127,7 +182,7 @@ export default function ConteoPage() {
         obtenerRuta(usuario.id).then((ruta) => {
             if (!cancelado) setBodegas(ruta)
         })
-        actualizarContadorPendientes()
+        actualizarConteosLocales()
 
         return () => {
             cancelado = true
@@ -157,6 +212,48 @@ export default function ConteoPage() {
         (articulo) => claveArticulo(articulo) === claveArticuloSeleccionado,
     )
 
+    // HU-027 criterio 1: termino parcial contra nombre o codigo, dentro del
+    // contexto activo (articulosVisibles ya esta acotado a ese contexto).
+    const terminoBusqueda = normalizar(busquedaArticulo.trim())
+    const articulosFiltrados = terminoBusqueda
+        ? articulosVisibles.filter(
+              (articulo) =>
+                  normalizar(articulo.desArt).includes(terminoBusqueda) ||
+                  normalizar(articulo.codArt).includes(terminoBusqueda),
+          )
+        : articulosVisibles
+
+    // HU-008/HU-026: resumen de avance de la bodega activa, armado del lado
+    // del cliente combinando el catalogo esperado (articulosVisibles, ya
+    // local) con lo que ya se registro localmente -- igual que hace
+    // VisitaController del lado del backend para HU-008 (ver su javadoc),
+    // pero aqui con datos locales para que funcione sin conexion (criterio 4).
+    const conteosDeLaBodega = conteosLocales.filter((conteo) => conteo.codBod === codBodSeleccionado)
+    const articulosContados = articulosVisibles
+        .map((articulo) => ({
+            articulo,
+            conteo: conteosDeLaBodega.find(
+                (conteo) => conteo.codArt === articulo.codArt && conteo.numCon === articulo.numCon,
+            ),
+        }))
+        .filter(({ conteo }) => conteo !== undefined)
+    const articulosPendientes = articulosVisibles.filter(
+        (articulo) =>
+            !conteosDeLaBodega.some(
+                (conteo) => conteo.codArt === articulo.codArt && conteo.numCon === articulo.numCon,
+            ),
+    )
+
+    // HU-032: mismo resumen de HU-008, agrupado tambien por "con diferencia"
+    // (contado pero con faltante o sobrante) -- no incluye "no localizado"
+    // a proposito: esa es una marca explicita que el usuario tendria que
+    // poder hacer ("busque y no esta"), y hoy no existe esa interaccion en
+    // ningun lado del sistema; agregarla es una HU aparte, no un derivado
+    // de datos que ya existen (como si lo son contado/pendiente/diferencia).
+    const articulosConDiferencia = articulosContados.filter(
+        ({ conteo }) => tipoDiferencia(conteo.cantidadTeorica, conteo.cantidadFisica) !== 'SIN_DIFERENCIA',
+    )
+
     useEffect(() => {
         if (!usuario?.id || !codBodSeleccionado || !articuloSeleccionado?.indicadorLote) {
             setLotes([])
@@ -178,15 +275,40 @@ export default function ConteoPage() {
         setNumLoteSeleccionado('')
         setCantidadFisica('')
         setObservaciones('')
+        setCorrigiendoIdempotenciaKey(null)
+    }
+
+    // HU-007 criterio 1: precarga el formulario con los valores actuales del
+    // registro, para que el usuario solo modifique lo necesario.
+    function iniciarCorreccion(articulo, conteo) {
+        setErrorFormulario(null)
+        setMensajeExito('')
+        setClaveArticuloSeleccionado(claveArticulo(articulo))
+        setNumLoteSeleccionado(conteo.numLote ?? '')
+        setCantidadFisica(conteo.cantidadFisica)
+        setObservaciones(conteo.observaciones ?? '')
+        setCorrigiendoIdempotenciaKey(conteo.idempotenciaKey)
     }
 
     async function manejarRegistrar(evento) {
         evento.preventDefault()
         setErrorFormulario(null)
-        setMensajeExito(false)
+        setMensajeExito('')
 
-        if (!codBodSeleccionado || !articuloSeleccionado || cantidadFisica === '') {
-            setErrorFormulario('Completá bodega, artículo y cantidad física.')
+        if (!codBodSeleccionado || !articuloSeleccionado) {
+            setErrorFormulario('Completá bodega y artículo.')
+            return
+        }
+        // HU-006 criterio 1: campo faltante senalado especificamente.
+        if (cantidadFisica === '') {
+            setErrorFormulario('La cantidad física es obligatoria.')
+            return
+        }
+        // HU-006 criterio 2: no numerico -- type="number" ya bloquea la
+        // mayoria de los casos en el navegador, pero no todos (pegar texto,
+        // notacion rara), asi que se valida igual del lado de la app.
+        if (Number.isNaN(Number(cantidadFisica))) {
+            setErrorFormulario('La cantidad física debe ser un número positivo o cero.')
             return
         }
         if (Number(cantidadFisica) < 0) {
@@ -196,6 +318,18 @@ export default function ConteoPage() {
 
         setGuardando(true)
         try {
+            if (corrigiendoIdempotenciaKey) {
+                // HU-007 criterio 2: mismo registro, no uno nuevo.
+                await corregirConteoLocal(usuario.id, corrigiendoIdempotenciaKey, {
+                    cantidadFisica: Number(cantidadFisica),
+                    observaciones: observaciones || null,
+                })
+                setMensajeExito('Corrección guardada en este dispositivo.')
+                limpiarFormularioDeConteo()
+                await actualizarConteosLocales()
+                return
+            }
+
             await registrarConteoLocal(usuario.id, {
                 codBod: codBodSeleccionado,
                 codArt: articuloSeleccionado.codArt,
@@ -216,11 +350,15 @@ export default function ConteoPage() {
                 detalle: `${articuloSeleccionado.desArt ?? articuloSeleccionado.codArt}: ${cantidadFisica}`,
             })
 
-            setMensajeExito(true)
+            setMensajeExito('Conteo guardado en este dispositivo.')
             limpiarFormularioDeConteo()
-            await actualizarContadorPendientes()
+            await actualizarConteosLocales()
         } catch {
-            setErrorFormulario('No fue posible guardar el conteo en este dispositivo.')
+            setErrorFormulario(
+                corrigiendoIdempotenciaKey
+                    ? 'No fue posible guardar la corrección en este dispositivo.'
+                    : 'No fue posible guardar el conteo en este dispositivo.',
+            )
         } finally {
             setGuardando(false)
         }
@@ -279,6 +417,96 @@ export default function ConteoPage() {
                 </p>
             )}
 
+            {/* HU-008/HU-026: resumen de avance de la bodega activa -- misma
+                señal para "cuanto llevo" (HU-008) y para "que me falta al
+                retomar" (HU-026 criterio 2, reanudar). */}
+            {codBodSeleccionado && (
+                <section className={styles.resumen} aria-label="Resumen de avance">
+                    <h2 className={styles.tituloResumen}>
+                        Avance: {articulosContados.length} contado{articulosContados.length === 1 ? '' : 's'},{' '}
+                        {articulosPendientes.length} pendiente{articulosPendientes.length === 1 ? '' : 's'}
+                    </h2>
+
+                    {/* HU-032 criterio 1/3: cada estado con su color (via
+                        StatusBadge) y, al tocarlo, filtra el detalle de abajo. */}
+                    <div className={styles.filtrosEstado} role="group" aria-label="Filtrar por estado">
+                        {[
+                            { valor: 'TODOS', etiqueta: 'Todos', tono: 'primario', cantidad: articulosVisibles.length },
+                            { valor: 'CONTADO', etiqueta: 'Contados', tono: 'exito', cantidad: articulosContados.length },
+                            {
+                                valor: 'PENDIENTE',
+                                etiqueta: 'Pendientes',
+                                tono: 'advertencia',
+                                cantidad: articulosPendientes.length,
+                            },
+                            {
+                                valor: 'CON_DIFERENCIA',
+                                etiqueta: 'Con diferencia',
+                                tono: 'peligro',
+                                cantidad: articulosConDiferencia.length,
+                            },
+                        ].map((opcion) => (
+                            <button
+                                key={opcion.valor}
+                                type="button"
+                                aria-pressed={filtroEstado === opcion.valor}
+                                className={styles.chipEstado}
+                                onClick={() => setFiltroEstado(opcion.valor)}
+                            >
+                                <StatusBadge tono={opcion.tono}>
+                                    {opcion.etiqueta} ({opcion.cantidad})
+                                </StatusBadge>
+                            </button>
+                        ))}
+                    </div>
+
+                    {(filtroEstado === 'TODOS' || filtroEstado === 'CONTADO' || filtroEstado === 'CON_DIFERENCIA') &&
+                        (filtroEstado === 'CON_DIFERENCIA' ? articulosConDiferencia : articulosContados).length >
+                            0 && (
+                            <ul className={styles.listaResumen}>
+                                {(filtroEstado === 'CON_DIFERENCIA' ? articulosConDiferencia : articulosContados).map(
+                                    ({ articulo, conteo }) => {
+                                        const tipo = tipoDiferencia(conteo.cantidadTeorica, conteo.cantidadFisica)
+                                        return (
+                                            <li key={claveArticulo(articulo)}>
+                                                <span>{articulo.desArt}</span>
+                                                <span>{conteo.cantidadFisica}</span>
+                                                <StatusBadge tono={TONO_TIPO_DIFERENCIA[tipo]}>
+                                                    {ETIQUETA_TIPO_DIFERENCIA[tipo]}
+                                                </StatusBadge>
+                                                {/* HU-007: solo se puede corregir mientras no se haya
+                                                    sincronizado -- corregir uno ya sincronizado necesita
+                                                    el endpoint del backend, fuera de este prototipo (ver
+                                                    el comentario de corregirConteoLocal). */}
+                                                {!conteo.sincronizado && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.botonCorregir}
+                                                        onClick={() => iniciarCorreccion(articulo, conteo)}
+                                                    >
+                                                        Corregir
+                                                    </button>
+                                                )}
+                                            </li>
+                                        )
+                                    },
+                                )}
+                            </ul>
+                        )}
+
+                    {(filtroEstado === 'TODOS' || filtroEstado === 'PENDIENTE') && articulosPendientes.length > 0 && (
+                        <ul className={styles.listaResumen}>
+                            {articulosPendientes.map((articulo) => (
+                                <li key={claveArticulo(articulo)}>
+                                    <span>{articulo.desArt}</span>
+                                    <StatusBadge tono="advertencia">Pendiente</StatusBadge>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            )}
+
             <form className={styles.formulario} onSubmit={manejarRegistrar} noValidate>
                 <div className={styles.grupo}>
                     <label htmlFor="conteo-bodega">Bodega</label>
@@ -289,6 +517,8 @@ export default function ConteoPage() {
                             setCodBodSeleccionado(evento.target.value)
                             setClaveArticuloSeleccionado('')
                             setNumLoteSeleccionado('')
+                            setFiltroEstado('TODOS')
+                            setBusquedaArticulo('')
                         }}
                     >
                         <option value="">Seleccioná una bodega</option>
@@ -302,22 +532,33 @@ export default function ConteoPage() {
 
                 <div className={styles.grupo}>
                     <label htmlFor="conteo-articulo">Artículo</label>
-                    <select
-                        id="conteo-articulo"
-                        value={claveArticuloSeleccionado}
-                        onChange={(evento) => {
-                            setClaveArticuloSeleccionado(evento.target.value)
-                            setNumLoteSeleccionado('')
-                        }}
-                        disabled={!codBodSeleccionado}
-                    >
-                        <option value="">Seleccioná un artículo</option>
-                        {articulosVisibles.map((articulo) => (
-                            <option key={claveArticulo(articulo)} value={claveArticulo(articulo)}>
-                                {articulo.desArt} (teórico: {articulo.cantidadTeorica})
-                            </option>
-                        ))}
-                    </select>
+                    {codBodSeleccionado && (
+                        <SearchInput
+                            value={busquedaArticulo}
+                            onChange={setBusquedaArticulo}
+                            placeholder="Buscar por nombre o código..."
+                        />
+                    )}
+                    {terminoBusqueda && articulosFiltrados.length === 0 ? (
+                        <p className={styles.pendientes}>No se encontraron resultados</p>
+                    ) : (
+                        <select
+                            id="conteo-articulo"
+                            value={claveArticuloSeleccionado}
+                            onChange={(evento) => {
+                                setClaveArticuloSeleccionado(evento.target.value)
+                                setNumLoteSeleccionado('')
+                            }}
+                            disabled={!codBodSeleccionado}
+                        >
+                            <option value="">Seleccioná un artículo</option>
+                            {articulosFiltrados.map((articulo) => (
+                                <option key={claveArticulo(articulo)} value={claveArticulo(articulo)}>
+                                    {articulo.desArt} (teórico: {articulo.cantidadTeorica})
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
 
                 {articuloSeleccionado?.indicadorLote && (
@@ -367,13 +608,25 @@ export default function ConteoPage() {
 
                 {mensajeExito && (
                     <div className={styles.exito} role="status">
-                        Conteo guardado en este dispositivo.
+                        {mensajeExito}
                     </div>
                 )}
 
+                {corrigiendoIdempotenciaKey && (
+                    <p className={styles.pendientes} role="status">
+                        Corrigiendo un conteo ya registrado.
+                    </p>
+                )}
+
                 <button type="submit" className={styles.boton} disabled={guardando}>
-                    {guardando ? 'Guardando…' : 'Registrar conteo'}
+                    {guardando ? 'Guardando…' : corrigiendoIdempotenciaKey ? 'Guardar corrección' : 'Registrar conteo'}
                 </button>
+
+                {corrigiendoIdempotenciaKey && (
+                    <button type="button" className={styles.botonCorregir} onClick={limpiarFormularioDeConteo}>
+                        Cancelar corrección
+                    </button>
+                )}
             </form>
         </main>
     )

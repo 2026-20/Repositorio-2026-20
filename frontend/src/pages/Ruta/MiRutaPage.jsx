@@ -18,6 +18,15 @@ import styles from './MiRutaPage.module.css'
 const ETIQUETA_ESTADO = {
     PENDIENTE: 'Pendiente',
     EN_PROGRESO: 'En progreso',
+    FINALIZADA: 'Finalizada',
+}
+
+// HU-026 criterio 1: diferenciar visualmente (no solo por texto) una visita
+// en progreso de una finalizada.
+const TONO_ESTADO = {
+    PENDIENTE: 'advertencia',
+    EN_PROGRESO: 'primario',
+    FINALIZADA: 'exito',
 }
 
 function formatearDia(fechaIso) {
@@ -296,7 +305,9 @@ export default function MiRutaPage() {
                                                 </span>
                                             </span>
                                             <span className={styles.meta}>
-                                                {ETIQUETA_ESTADO[parada.estadoApp] ?? parada.estadoApp}
+                                                <StatusBadge tono={TONO_ESTADO[parada.estadoApp] ?? 'primario'}>
+                                                    {ETIQUETA_ESTADO[parada.estadoApp] ?? parada.estadoApp}
+                                                </StatusBadge>
                                                 <Icon name="chevronDerecha" size={18} className={styles.chevron} />
                                             </span>
                                         </Card>

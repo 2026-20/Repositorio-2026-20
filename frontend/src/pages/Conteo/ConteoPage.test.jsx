@@ -6,6 +6,7 @@ import { ContextoAuditoriaContext } from '../../context/ContextoAuditoriaContext
 import { SincronizacionContext } from '../../context/SincronizacionContext'
 import { iniciarJornada } from '../../services/auditoriaService.js'
 import {
+    corregirConteoLocal,
     estaJornadaIniciadaHoy,
     guardarJornadaIniciada,
     obtenerConteosPendientes,
@@ -24,6 +25,7 @@ vi.mock('../../storage/conteosPendientesRepositorio.js', () => ({
     guardarJornadaIniciada: vi.fn(),
     obtenerConteosPendientes: vi.fn(),
     registrarConteoLocal: vi.fn(),
+    corregirConteoLocal: vi.fn(),
 }))
 
 vi.mock('../../storage/trazabilidadRepositorio.js', () => ({
@@ -121,6 +123,48 @@ describe('ConteoPage', () => {
         })
     })
 
+    // HU-005 criterio 2: cantidad fisica en cero es valida -- "auditado sin
+    // unidades encontradas", no un campo vacio ni un error.
+    it('HU-005: acepta una cantidad fisica en cero como un conteo valido', async () => {
+        registrarConteoLocal.mockResolvedValue('clave-generada')
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await screen.findByText('Articulo sin lote (teórico: 10)')
+        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+        fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '0' } })
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        await waitFor(() => {
+            expect(registrarConteoLocal).toHaveBeenCalledWith(7, expect.objectContaining({ cantidadFisica: 0 }))
+        })
+        expect(screen.getByRole('status')).toHaveTextContent('Conteo guardado en este dispositivo')
+    })
+
+    // HU-028 criterios 1-3: la observacion es opcional, viaja junto al
+    // registro cuando se completa, y usa el mismo guardado local (OPFS) que
+    // el resto del conteo -- no hay manejo especial para "sin conexion".
+    it('HU-028: una observacion completada queda vinculada al registro', async () => {
+        registrarConteoLocal.mockResolvedValue('clave-generada')
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await screen.findByText('Articulo sin lote (teórico: 10)')
+        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+        fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '8' } })
+        fireEvent.change(screen.getByLabelText('Observaciones'), {
+            target: { value: 'Caja golpeada, se cuenta igual.' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        await waitFor(() => {
+            expect(registrarConteoLocal).toHaveBeenCalledWith(
+                7,
+                expect.objectContaining({ observaciones: 'Caja golpeada, se cuenta igual.' }),
+            )
+        })
+    })
+
     it('distingue dos articulos con el mismo codArt bajo contratos distintos', async () => {
         const articuloContratoA = { ...ARTICULO_SIN_LOTE, numCon: 'A' }
         const articuloContratoB = { ...ARTICULO_SIN_LOTE, numCon: 'B', cantidadTeorica: '99' }
@@ -174,6 +218,28 @@ describe('ConteoPage', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent('no puede ser negativa')
         expect(registrarConteoLocal).not.toHaveBeenCalled()
     })
+
+    // HU-006 criterio 1: campo faltante senalado especificamente (no el
+    // mensaje generico de "completa bodega y articulo").
+    it('HU-006: si falta la cantidad fisica, senala ese campo puntualmente', async () => {
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await screen.findByText('Articulo sin lote (teórico: 10)')
+        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('La cantidad física es obligatoria.')
+        expect(registrarConteoLocal).not.toHaveBeenCalled()
+    })
+
+    // HU-006 criterio 2 (valor no numerico): no hay prueba de interaccion
+    // para esto. Un input type="number" (tanto en navegador real como en
+    // jsdom) sanea cualquier valor no parseable a "" antes de que React lo
+    // vea -- fireEvent.change con 'abc' termina en cantidadFisica === '',
+    // el mismo caso que el criterio 1, nunca en un valor no numerico real.
+    // El guard Number.isNaN() en manejarRegistrar queda como defensa
+    // adicional (ver comentario ahi), pero no es alcanzable por esta via.
 
     it('muestra cuantos conteos siguen sin sincronizar', async () => {
         obtenerConteosPendientes.mockResolvedValue([
@@ -272,6 +338,270 @@ describe('ConteoPage', () => {
 
             await screen.findByLabelText('Bodega')
             expect(iniciarJornada).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    // HU-008 (resumen de avance) / HU-026 criterio 2 (reanudar: ver que ya
+    // se conto y que falta). Mismo calculo, misma pantalla.
+    describe('resumen de avance de la bodega (HU-008/HU-026)', () => {
+        it('HU-008 criterio 1/3: distingue contados de pendientes al seleccionar una bodega', async () => {
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'ya-contado',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '10',
+                    sincronizado: true,
+                },
+            ])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByText('Avance: 1 contado, 1 pendiente')).toBeInTheDocument()
+            expect(screen.getByText('Sin diferencia')).toBeInTheDocument()
+            expect(screen.getAllByText('Pendiente')).toHaveLength(1)
+        })
+
+        // HU-030 tal cual se ve en el resumen: fisica < teorica -> Faltante.
+        it('muestra "Faltante" cuando la cantidad fisica contada es menor que la teorica', async () => {
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'ya-contado',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '7',
+                    sincronizado: true,
+                },
+            ])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByText('Faltante')).toBeInTheDocument()
+        })
+
+        // HU-008 criterio 2: el resumen refleja un conteo nuevo sin recargar
+        // la pantalla -- es el mismo estado de React que ya se actualiza
+        // tras registrar.
+        it('HU-008 criterio 2: el resumen se actualiza al registrar un conteo, sin recargar', async () => {
+            obtenerConteosPendientes.mockResolvedValue([])
+            registrarConteoLocal.mockResolvedValue('clave-generada')
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            expect(await screen.findByText('Avance: 0 contados, 2 pendientes')).toBeInTheDocument()
+
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'nuevo',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '8',
+                    sincronizado: false,
+                },
+            ])
+            fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '8' } })
+            fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+            expect(await screen.findByText('Avance: 1 contado, 1 pendiente')).toBeInTheDocument()
+        })
+    })
+
+    // HU-032: agrupado por estado, con filtro clickeable.
+    describe('cantidad de reactivos por estado (HU-032)', () => {
+        function conteos() {
+            return [
+                {
+                    idempotenciaKey: 'sin-diferencia',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '10',
+                    sincronizado: true,
+                },
+                {
+                    idempotenciaKey: 'con-diferencia',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART2',
+                    numCon: '123',
+                    cantidadTeorica: '5',
+                    cantidadFisica: '3',
+                    sincronizado: true,
+                },
+            ]
+        }
+
+        // HU-032 criterio 1: cada estado con su cantidad -- incluido "con
+        // diferencia" como categoria propia, distinta de "contados" en general.
+        it('muestra los 4 filtros con la cantidad de cada estado', async () => {
+            obtenerConteosPendientes.mockResolvedValue(conteos())
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByText('Todos (2)')).toBeInTheDocument()
+            expect(screen.getByText('Contados (2)')).toBeInTheDocument()
+            expect(screen.getByText('Pendientes (0)')).toBeInTheDocument()
+            expect(screen.getByText('Con diferencia (1)')).toBeInTheDocument()
+        })
+
+        // HU-032 criterio 3: seleccionar un estado filtra el detalle.
+        it('al tocar "Con diferencia" solo queda visible el articulo con diferencia', async () => {
+            obtenerConteosPendientes.mockResolvedValue(conteos())
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote (teórico: 5)')
+
+            fireEvent.click(screen.getByText('Con diferencia (1)'))
+
+            expect(screen.getByText('Articulo con lote')).toBeInTheDocument()
+            expect(screen.queryByText('Articulo sin lote')).not.toBeInTheDocument()
+        })
+    })
+
+    // HU-027: busqueda por nombre o codigo, sobre el catalogo ya local
+    // (criterio 3 sin conexion: no agrega ninguna llamada nueva al backend).
+    describe('buscar articulo (HU-027)', () => {
+        it('HU-027 criterio 1: un termino parcial, sin tildes/mayusculas, filtra por nombre', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote (teórico: 5)')
+
+            // "CON LOTE" (no solo "lote"): ambos articulos de prueba
+            // contienen la palabra "lote" en el nombre ("Articulo con lote"
+            // / "Articulo sin lote") -- la frase completa si distingue.
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'CON LOTE' },
+            })
+
+            expect(screen.getByRole('option', { name: 'Articulo con lote (teórico: 5)' })).toBeInTheDocument()
+            expect(screen.queryByRole('option', { name: /Articulo sin lote/ })).not.toBeInTheDocument()
+        })
+
+        it('HU-027 criterio 1: tambien filtra por codigo de articulo', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote (teórico: 5)')
+
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'art2' },
+            })
+
+            expect(screen.getByRole('option', { name: 'Articulo con lote (teórico: 5)' })).toBeInTheDocument()
+            expect(screen.queryByRole('option', { name: /Articulo sin lote/ })).not.toBeInTheDocument()
+        })
+
+        // HU-027 criterio 2.
+        it('HU-027 criterio 2: sin coincidencias, muestra el mensaje en vez del selector', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote (teórico: 5)')
+
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'no existe este reactivo' },
+            })
+
+            expect(screen.getByText('No se encontraron resultados')).toBeInTheDocument()
+            expect(screen.queryByLabelText('Artículo')).not.toBeInTheDocument()
+        })
+    })
+
+    // HU-007: corregir un conteo ya registrado, sin sincronizar todavia.
+    describe('corregir conteo (HU-007)', () => {
+        const CONTEO_SIN_SINCRONIZAR = {
+            idempotenciaKey: 'sin-sincronizar',
+            codBod: 'MEPRIN',
+            codArt: 'ART1',
+            numCon: '123',
+            cantidadTeorica: '10',
+            cantidadFisica: '7',
+            observaciones: 'anotacion original',
+            sincronizado: false,
+        }
+
+        it('criterio 1: "Corregir" precarga el formulario con los valores actuales', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            fireEvent.click(screen.getByRole('button', { name: 'Corregir' }))
+
+            expect(screen.getByLabelText('Artículo')).toHaveValue('ART1::123')
+            expect(screen.getByLabelText('Cantidad física')).toHaveValue(7)
+            expect(screen.getByLabelText('Observaciones')).toHaveValue('anotacion original')
+            expect(screen.getByRole('button', { name: 'Guardar corrección' })).toBeInTheDocument()
+        })
+
+        it('criterios 2 y 4: confirmar la correccion actualiza el mismo registro, con las mismas validaciones', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            corregirConteoLocal.mockResolvedValue(undefined)
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            fireEvent.click(screen.getByRole('button', { name: 'Corregir' }))
+
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '-1' } })
+            fireEvent.click(screen.getByRole('button', { name: 'Guardar corrección' }))
+            expect(await screen.findByRole('alert')).toHaveTextContent('no puede ser negativa')
+            expect(corregirConteoLocal).not.toHaveBeenCalled()
+
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '10' } })
+            fireEvent.click(screen.getByRole('button', { name: 'Guardar corrección' }))
+
+            // findBy (no waitFor sobre el mock): llamar al mock es sincrono,
+            // pero el mensaje de exito solo aparece despues de que su
+            // promesa resuelve y el componente vuelve a renderizar -- un
+            // waitFor sobre "ya se llamo" puede cumplirse antes de eso.
+            expect(await screen.findByText('Corrección guardada en este dispositivo.')).toBeInTheDocument()
+            expect(corregirConteoLocal).toHaveBeenCalledWith(7, 'sin-sincronizar', {
+                cantidadFisica: 10,
+                observaciones: 'anotacion original',
+            })
+            // No es un registro nuevo: no debe volver a trazar HU-031.
+            expect(registrarAccionLocal).not.toHaveBeenCalled()
+        })
+
+        it('"Cancelar corrección" vuelve al formulario de registrar, sin guardar nada', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            fireEvent.click(screen.getByRole('button', { name: 'Corregir' }))
+
+            fireEvent.click(screen.getByRole('button', { name: 'Cancelar corrección' }))
+
+            expect(screen.getByRole('button', { name: 'Registrar conteo' })).toBeInTheDocument()
+            expect(screen.getByLabelText('Cantidad física')).toHaveValue(null)
+        })
+
+        // HU-007 criterio 3 (parcial, ver corregirConteoLocal): corregir uno
+        // ya sincronizado necesita el endpoint del backend, fuera de este
+        // prototipo -- la UI no ofrece la opcion para que nadie intente algo
+        // que todavia no esta conectado de punta a punta.
+        it('un conteo ya sincronizado no ofrece la opcion de corregir', async () => {
+            obtenerConteosPendientes.mockResolvedValue([{ ...CONTEO_SIN_SINCRONIZAR, sincronizado: true }])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+
+            expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeInTheDocument()
         })
     })
 

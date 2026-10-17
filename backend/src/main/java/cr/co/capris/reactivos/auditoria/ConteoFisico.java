@@ -34,6 +34,20 @@ import java.time.OffsetDateTime;
  * calcula en getDiferencia(), no se persiste -- evita que quede
  * desincronizada si algun dia se corrige cantidadFisica (ver HU-007,
  * corregir conteo) sin acordarse de recalcular una columna aparte.
+ *
+ * HU-030 define la diferencia como (fisica - teorica): negativo = faltante,
+ * positivo = sobrante, cero = sin diferencia. getDiferencia() tiene que
+ * calcularla en ese orden exacto -- invertido daria faltantes como
+ * positivos, lo que confundiria cualquier pantalla/reporte que lo consuma.
+ *
+ * HU-007: a diferencia de BitacoraSeguridad/RegistroTrazabilidad (append-only
+ * a proposito, son auditoria de seguridad), este SI se puede corregir -- la
+ * propia HU lo pide explicito ("actualiza el registro... lo marca
+ * visualmente como corregido", no "crea uno nuevo"). corregir() es la UNICA
+ * forma de mutarlo despues de creado; transmitido bloquea la correccion
+ * (criterio 3) -- hoy siempre queda en false, no existe todavia el envio al
+ * ERP que lo pondria en true (ver HU-040/041, fuera de alcance de este
+ * prototipo), pero el campo y el guard quedan listos para cuando exista.
  */
 @Entity
 @Table(name = "auditoria_conteo_fisico")
@@ -74,6 +88,12 @@ public class ConteoFisico {
 	@Column(name = "registrado_en", nullable = false)
 	private OffsetDateTime registradoEn;
 
+	@Column(name = "corregido", nullable = false)
+	private boolean corregido = false;
+
+	@Column(name = "transmitido", nullable = false)
+	private boolean transmitido = false;
+
 	protected ConteoFisico() {
 		// requerido por JPA
 	}
@@ -89,11 +109,7 @@ public class ConteoFisico {
 			Long usuarioId,
 			String observaciones,
 			OffsetDateTime registradoEn) {
-		if (cantidadFisica == null || cantidadFisica.signum() < 0) {
-			// HU-005 criterio 3: cantidad negativa se rechaza. Cero SI es
-			// valido (criterio 2: "auditado sin unidades encontradas").
-			throw new IllegalArgumentException("La cantidad fisica no puede ser negativa");
-		}
+		validarCantidadFisica(cantidadFisica);
 		this.idempotenciaKey = idempotenciaKey;
 		this.codBod = codBod;
 		this.codArt = codArt;
@@ -106,8 +122,45 @@ public class ConteoFisico {
 		this.registradoEn = registradoEn;
 	}
 
+	private static void validarCantidadFisica(BigDecimal cantidadFisica) {
+		if (cantidadFisica == null || cantidadFisica.signum() < 0) {
+			// HU-005 criterio 3 / HU-007 criterio 4: cantidad negativa se
+			// rechaza tanto al registrar como al corregir. Cero SI es valido
+			// (criterio 2 de HU-005: "auditado sin unidades encontradas").
+			throw new IllegalArgumentException("La cantidad fisica no puede ser negativa");
+		}
+	}
+
+	/**
+	 * HU-007: corrige un conteo ya registrado, mientras no este transmitido
+	 * (criterio 3). Aplica la misma validacion que un registro nuevo
+	 * (criterio 4) y marca el registro como corregido (criterio 2).
+	 */
+	public void corregir(BigDecimal nuevaCantidadFisica, String nuevasObservaciones) {
+		if (transmitido) {
+			throw new ConteoYaTransmitidoException(
+					"No se puede corregir un conteo que ya fue transmitido al ERP");
+		}
+		validarCantidadFisica(nuevaCantidadFisica);
+		this.cantidadFisica = nuevaCantidadFisica;
+		this.observaciones = nuevasObservaciones;
+		this.corregido = true;
+	}
+
 	public BigDecimal getDiferencia() {
-		return cantidadTeorica.subtract(cantidadFisica);
+		return cantidadFisica.subtract(cantidadTeorica);
+	}
+
+	/** HU-030 criterios 2-4: clasificacion derivada del signo de getDiferencia(). */
+	public TipoDiferencia getTipoDiferencia() {
+		int signo = getDiferencia().signum();
+		if (signo < 0) {
+			return TipoDiferencia.FALTANTE;
+		}
+		if (signo > 0) {
+			return TipoDiferencia.SOBRANTE;
+		}
+		return TipoDiferencia.SIN_DIFERENCIA;
 	}
 
 	public Long getId() {
@@ -152,5 +205,13 @@ public class ConteoFisico {
 
 	public OffsetDateTime getRegistradoEn() {
 		return registradoEn;
+	}
+
+	public boolean isCorregido() {
+		return corregido;
+	}
+
+	public boolean isTransmitido() {
+		return transmitido;
 	}
 }
