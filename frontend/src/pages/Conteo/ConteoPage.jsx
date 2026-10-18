@@ -55,9 +55,12 @@ function tipoDiferencia(cantidadTeorica, cantidadFisica) {
     return 'SIN_DIFERENCIA'
 }
 
+// SOBRANTE va en "info" (azul), NO en "advertencia" (ambar) -- ese tono ya
+// lo usa la insignia "Pendiente", y con el mismo color ambos se confundian
+// a simple vista (quedaba solo el texto para distinguirlos).
 const TONO_TIPO_DIFERENCIA = {
     FALTANTE: 'peligro',
-    SOBRANTE: 'advertencia',
+    SOBRANTE: 'info',
     SIN_DIFERENCIA: 'exito',
 }
 
@@ -531,9 +534,23 @@ export default function ConteoPage() {
                                             </span>
                                             <span className={styles.estadoArticulo}>
                                                 {conteo ? (
-                                                    <StatusBadge tono={TONO_TIPO_DIFERENCIA[tipo]}>
-                                                        {ETIQUETA_TIPO_DIFERENCIA[tipo]}
-                                                    </StatusBadge>
+                                                    <>
+                                                        {/* Icono de alerta solo cuando SI hay diferencia -- el
+                                                            color ya distingue Faltante (rojo) de Sobrante
+                                                            (azul) de Pendiente (ambar), pero el icono refuerza
+                                                            de un vistazo que esto es un hallazgo, no un estado
+                                                            neutro como "Pendiente". */}
+                                                        {tipo !== 'SIN_DIFERENCIA' && (
+                                                            <Icon
+                                                                name="alerta"
+                                                                size={14}
+                                                                className={tipo === 'FALTANTE' ? styles.iconoPeligro : styles.iconoInfo}
+                                                            />
+                                                        )}
+                                                        <StatusBadge tono={TONO_TIPO_DIFERENCIA[tipo]}>
+                                                            {ETIQUETA_TIPO_DIFERENCIA[tipo]}
+                                                        </StatusBadge>
+                                                    </>
                                                 ) : (
                                                     <StatusBadge tono="advertencia">Pendiente</StatusBadge>
                                                 )}

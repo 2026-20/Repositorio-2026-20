@@ -141,12 +141,19 @@
     max-width: 640px;
 }
 
+/* align-items: flex-start (no center) -- con el nombre completo (ver
+   .nombreArticulo) algunas tarjetas crecen a 2-3 lineas; centrado dejaba la
+   insignia flotando en medio de un espacio vacio. Un poco mas de padding
+   vertical que el resto de tarjetas (Card ya trae --space-4) para que no
+   se vean apretadas con texto mas alto. */
 .tarjetaArticulo {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: var(--space-3);
     min-height: var(--touch-target-min);
+    padding-top: var(--space-5);
+    padding-bottom: var(--space-5);
 }
 
 .tarjetaArticulo:disabled {
@@ -162,13 +169,14 @@
     min-width: 0;
 }
 
+/* A proposito SIN truncar (a diferencia de .metaArticulo): el nombre
+   completo del reactivo importa mas que el alto parejo de la tarjeta --
+   mejor una tarjeta un poco mas alta que esconder parte del nombre. */
 .nombreArticulo {
     max-width: 100%;
-    overflow: hidden;
     color: var(--color-text);
     font-weight: var(--font-weight-heading);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.3;
 }
 
 .metaArticulo {
@@ -185,10 +193,24 @@
     flex-shrink: 0;
     align-items: center;
     gap: var(--space-2);
+    /* compensa el padding-top mas alto de .tarjetaArticulo (ver arriba) --
+       con align-items: flex-start en el padre, sin esto la insignia queda
+       mas abajo que la primera linea del nombre. */
+    margin-top: 2px;
 }
 
 .chevron {
     color: var(--color-text-muted);
+}
+
+/* Mismo color que la insignia que acompañan (ver TONO_TIPO_DIFERENCIA en
+   ConteoPage.jsx) -- Faltante en rojo, Sobrante en azul. */
+.iconoPeligro {
+    color: var(--color-danger);
+}
+
+.iconoInfo {
+    color: var(--color-info);
 }
 
 /* Contenido de la hoja inferior (BottomSheet) */

@@ -31,3 +31,8 @@
     background: var(--color-danger-bg);
     color: var(--color-danger);
 }
+
+.info {
+    border-color: var(--color-info);
+    color: var(--color-info);
+}
