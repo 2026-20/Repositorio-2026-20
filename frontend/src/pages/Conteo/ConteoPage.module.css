@@ -203,14 +203,11 @@
     color: var(--color-text-muted);
 }
 
-/* Mismo color que la insignia que acompañan (ver TONO_TIPO_DIFERENCIA en
-   ConteoPage.jsx) -- Faltante en rojo, Sobrante en azul. */
-.iconoPeligro {
+/* Siempre rojo, a proposito -- NO sigue el tono de la insignia (Faltante
+   rojo, Sobrante azul). Es la señal de alerta que mas debe resaltar;
+   dejarla en azul para Sobrante la hacia pasar desapercibida. */
+.iconoAlerta {
     color: var(--color-danger);
-}
-
-.iconoInfo {
-    color: var(--color-info);
 }
 
 /* Contenido de la hoja inferior (BottomSheet) */

@@ -535,17 +535,13 @@ export default function ConteoPage() {
                                             <span className={styles.estadoArticulo}>
                                                 {conteo ? (
                                                     <>
-                                                        {/* Icono de alerta solo cuando SI hay diferencia -- el
-                                                            color ya distingue Faltante (rojo) de Sobrante
-                                                            (azul) de Pendiente (ambar), pero el icono refuerza
-                                                            de un vistazo que esto es un hallazgo, no un estado
-                                                            neutro como "Pendiente". */}
+                                                        {/* Icono de alerta solo cuando SI hay diferencia -- SIEMPRE
+                                                            rojo a proposito (no sigue el tono de la insignia):
+                                                            es la señal de "esto es un hallazgo" que mas resalta,
+                                                            mientras el texto/color de la insignia sigue
+                                                            distinguiendo Faltante de Sobrante. */}
                                                         {tipo !== 'SIN_DIFERENCIA' && (
-                                                            <Icon
-                                                                name="alerta"
-                                                                size={14}
-                                                                className={tipo === 'FALTANTE' ? styles.iconoPeligro : styles.iconoInfo}
-                                                            />
+                                                            <Icon name="alerta" size={16} className={styles.iconoAlerta} />
                                                         )}
                                                         <StatusBadge tono={TONO_TIPO_DIFERENCIA[tipo]}>
                                                             {ETIQUETA_TIPO_DIFERENCIA[tipo]}
