@@ -183,6 +183,30 @@ async function guardarJornadaIniciadaInterno(usuarioId, iniciadaEn) {
     }
 }
 
+/**
+ * Borra los conteos y la jornada local de un usuario -- ver "Ajustes >
+ * Borrar auditoría cargada" en AjustesPage.jsx. Separado del catalogo a
+ * proposito (ver comentario arriba sobre por que este archivo esta aparte
+ * de datos-maestros.db): borrarCatalogoLocal no toca esto, y viceversa.
+ */
+async function borrarConteosLocalesInterno(usuarioId) {
+    const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
+    try {
+        await crearEsquema(sesion)
+        await ejecutar(sesion, 'BEGIN')
+        try {
+            await ejecutar(sesion, 'DELETE FROM conteos_pendientes')
+            await ejecutar(sesion, 'DELETE FROM jornada_local')
+            await ejecutar(sesion, 'COMMIT')
+        } catch (error) {
+            await ejecutar(sesion, 'ROLLBACK')
+            throw error
+        }
+    } finally {
+        await cerrarBaseLocal(sesion)
+    }
+}
+
 async function estaJornadaIniciadaHoyInterno(usuarioId) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
@@ -220,4 +244,8 @@ export function guardarJornadaIniciada(usuarioId, iniciadaEn) {
 
 export function estaJornadaIniciadaHoy(usuarioId) {
     return encolar(() => estaJornadaIniciadaHoyInterno(usuarioId))
+}
+
+export function borrarConteosLocales(usuarioId) {
+    return encolar(() => borrarConteosLocalesInterno(usuarioId))
 }

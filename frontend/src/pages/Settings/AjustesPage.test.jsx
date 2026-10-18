@@ -1,9 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../context/AuthContext'
+import { SincronizacionContext } from '../../context/SincronizacionContext'
 import * as authService from '../../services/authService'
 import * as usuarioService from '../../services/usuarioService'
+import * as conteosPendientesRepositorio from '../../storage/conteosPendientesRepositorio.js'
+import * as datosMaestrosRepositorio from '../../storage/datosMaestrosRepositorio.js'
 import AjustesPage from './AjustesPage'
 
 const PERFIL_DE_PRUEBA = {
@@ -256,5 +259,107 @@ describe('AjustesPage - cambio de contraseña', () => {
         completar()
 
         expect(await screen.findByRole('alert')).toHaveTextContent('La contraseña actual no es correcta')
+    })
+})
+
+// Accion destructiva local pedida explicitamente: "escribir confirmar" para
+// evitar que un click doble o un misclick la dispare por accidente.
+describe('AjustesPage - borrar auditoría local', () => {
+    function renderAjustesConSincronizacion(olvidarSincronizacion = vi.fn()) {
+        render(
+            <MemoryRouter>
+                <AuthContext.Provider value={{ token: 'jwt-prueba', usuario: { id: 7, nombreCompleto: 'William Molina' } }}>
+                    <SincronizacionContext.Provider
+                        value={{ estado: 'listo', error: null, ultimaSincronizacion: '2026-10-08T10:00:00.000Z', sincronizar: vi.fn(), olvidarSincronizacion }}
+                    >
+                        <AjustesPage />
+                    </SincronizacionContext.Provider>
+                </AuthContext.Provider>
+            </MemoryRouter>,
+        )
+        return olvidarSincronizacion
+    }
+
+    beforeEach(() => {
+        vi.spyOn(usuarioService, 'consultarPerfil').mockResolvedValue(PERFIL_DE_PRUEBA)
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    function abrirModal() {
+        fireEvent.click(screen.getByRole('button', { name: 'Borrar datos locales' }))
+    }
+
+    // El dialogo tiene su propio boton "Borrar datos locales" (el de
+    // confirmar), mismo texto que el que lo abre -- hay que acotar la
+    // busqueda al dialogo una vez que esta abierto, o getByRole encuentra
+    // los dos.
+    function botonConfirmarEnDialogo() {
+        return within(screen.getByRole('dialog')).getByRole('button', { name: 'Borrar datos locales' })
+    }
+
+    it('el boton de borrar queda deshabilitado hasta escribir "confirmar"', () => {
+        renderAjustesConSincronizacion()
+        abrirModal()
+
+        const botonBorrar = botonConfirmarEnDialogo()
+        expect(botonBorrar).toBeDisabled()
+
+        fireEvent.change(screen.getByLabelText(/Escribí/), { target: { value: 'algo' } })
+        expect(botonBorrar).toBeDisabled()
+
+        fireEvent.change(screen.getByLabelText(/Escribí/), { target: { value: 'confirmar' } })
+        expect(botonBorrar).toBeEnabled()
+    })
+
+    it('no distingue mayusculas ni espacios al escribir la confirmacion', () => {
+        renderAjustesConSincronizacion()
+        abrirModal()
+
+        fireEvent.change(screen.getByLabelText(/Escribí/), { target: { value: '  CONFIRMAR  ' } })
+
+        expect(botonConfirmarEnDialogo()).toBeEnabled()
+    })
+
+    it('al confirmar, borra el catalogo y los conteos locales y avisa a sincronizacion', async () => {
+        const borrarCatalogo = vi.spyOn(datosMaestrosRepositorio, 'borrarCatalogoLocal').mockResolvedValue(undefined)
+        const borrarConteos = vi.spyOn(conteosPendientesRepositorio, 'borrarConteosLocales').mockResolvedValue(undefined)
+        const olvidarSincronizacion = renderAjustesConSincronizacion()
+        abrirModal()
+
+        fireEvent.change(screen.getByLabelText(/Escribí/), { target: { value: 'confirmar' } })
+        fireEvent.click(botonConfirmarEnDialogo())
+
+        expect(await screen.findByRole('status')).toHaveTextContent('Se borraron los datos locales')
+        expect(borrarCatalogo).toHaveBeenCalledWith(7)
+        expect(borrarConteos).toHaveBeenCalledWith(7)
+        expect(olvidarSincronizacion).toHaveBeenCalled()
+    })
+
+    it('"Cancelar" cierra la ventana sin borrar nada', () => {
+        const borrarCatalogo = vi.spyOn(datosMaestrosRepositorio, 'borrarCatalogoLocal')
+        renderAjustesConSincronizacion()
+        abrirModal()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(borrarCatalogo).not.toHaveBeenCalled()
+    })
+
+    it('si falla el borrado, muestra el error y deja la ventana abierta', async () => {
+        vi.spyOn(datosMaestrosRepositorio, 'borrarCatalogoLocal').mockRejectedValue(
+            new Error('No fue posible borrar los datos locales.'),
+        )
+        renderAjustesConSincronizacion()
+        abrirModal()
+
+        fireEvent.change(screen.getByLabelText(/Escribí/), { target: { value: 'confirmar' } })
+        fireEvent.click(botonConfirmarEnDialogo())
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('No fue posible borrar los datos locales.')
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 })
