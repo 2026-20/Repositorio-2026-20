@@ -31,6 +31,7 @@ export default function UsersPage() {
     const [reactivando, setReactivando] = useState(false)
 
     const [mostrarCrear, setMostrarCrear] = useState(false)
+    const [mostrarDescartarCrear, setMostrarDescartarCrear] = useState(false)
     const [creando, setCreando] = useState(false)
     const [errorCrear, setErrorCrear] = useState('')
     const [cargandoOpciones, setCargandoOpciones] = useState(false)
@@ -79,9 +80,34 @@ export default function UsersPage() {
         }
     }
 
+    function hayDatosSinGuardar() {
+        return Boolean(
+            nombreCompleto.trim()
+                || cedula.trim()
+                || correo.trim()
+                || username.trim()
+                || rolId,
+        )
+    }
+
     function cerrarFormularioCrear() {
         if (creando) return
+
+        if (hayDatosSinGuardar()) {
+            setMostrarDescartarCrear(true)
+            return
+        }
+
         setMostrarCrear(false)
+    }
+
+    function confirmarDescartarCrear() {
+        setMostrarDescartarCrear(false)
+        setMostrarCrear(false)
+    }
+
+    function cancelarDescartarCrear() {
+        setMostrarDescartarCrear(false)
     }
 
     async function confirmarCreacion() {
@@ -482,6 +508,23 @@ export default function UsersPage() {
 
                     {/* El backend genera la contraseña temporal y la envia por correo
                         (HU-047) -- este formulario no la pide ni la muestra en ningun campo. */}
+                </ConfirmDialog>
+            )}
+
+            {mostrarDescartarCrear && (
+                <ConfirmDialog
+                    titulo="Descartar cambios"
+                    textoConfirmar="Descartar cambios"
+                    variante="peligro"
+                    onConfirmar={confirmarDescartarCrear}
+                    onCancelar={cancelarDescartarCrear}
+                >
+                    <p>
+                        Tiene datos sin guardar en el formulario de creación de usuario.
+                        Si continúa, se perderán.
+                    </p>
+
+                    <p>¿Desea descartar los cambios?</p>
                 </ConfirmDialog>
             )}
         </main>
