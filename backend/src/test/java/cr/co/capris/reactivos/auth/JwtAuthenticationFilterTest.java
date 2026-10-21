@@ -66,6 +66,35 @@ class JwtAuthenticationFilterTest {
 				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/auth/cambiar-password")).isTrue();
 	}
 
+	// El frontend consulta /api/usuarios/{id} y /api/usuarios/perfil para
+	// verificar la sesion justo despues de loguearse, sin importar si hay un
+	// cambio de contraseña pendiente -- sin esto, ese chequeo botaba al
+	// usuario antes de que pudiera ver la pantalla de cambio obligatorio.
+	@Test
+	void primerIngresoPendientePermiteConsultarElPerfilPropio() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios/perfil")).isFalse();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios/42")).isFalse();
+	}
+
+	// El resto del filtro falla cerrado ante cualquier variante (ver
+	// primerIngresoPendienteBloqueaLasVariantesDeLasRutasPermitidas) -- esta
+	// excepcion nueva tiene que seguir esa misma regla: un prefijo simple
+	// (startsWith) dejaria pasar algo como ".../usuarios/../otra-ruta", que
+	// "empieza con" /api/usuarios/ como string aunque no apunte ahi.
+	@Test
+	void primerIngresoPendienteBloqueaVariantesDeLaConsultaDeUsuarios() {
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios/../otra-ruta")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios/42/algo-mas")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "GET", "/api/usuarios/")).isTrue();
+		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
+				EstadoUsuario.PENDIENTE_PRIMER_INGRESO, "POST", "/api/usuarios/42")).isTrue();
+	}
+
 	@Test
 	void primerIngresoPendienteBloqueaLasVariantesDeLasRutasPermitidas() {
 		assertThat(filtro.primerIngresoPendienteFueraDeRutaPermitida(
@@ -98,6 +127,22 @@ class JwtAuthenticationFilterTest {
 	void contrasenaVencidaBloqueaCualquierOtraRuta() {
 		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
 						true, "GET", "/api/usuarios")).isTrue();
+	}
+
+	@Test
+	void contrasenaVencidaPermiteConsultarElPerfilPropio() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+				true, "GET", "/api/usuarios/perfil")).isFalse();
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+				true, "GET", "/api/usuarios/42")).isFalse();
+	}
+
+	@Test
+	void contrasenaVencidaBloqueaVariantesDeLaConsultaDeUsuarios() {
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+				true, "GET", "/api/usuarios/../otra-ruta")).isTrue();
+		assertThat(filtro.contrasenaVencidaFueraDeRutaPermitida(
+				true, "GET", "/api/usuarios/42/algo-mas")).isTrue();
 	}
 
 	@Test
