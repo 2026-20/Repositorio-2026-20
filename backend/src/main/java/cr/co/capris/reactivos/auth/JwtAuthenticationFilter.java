@@ -29,6 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private static final String RUTA_CAMBIO_PRIMER_INGRESO = "/api/auth/primer-ingreso/cambiar-password";
 	private static final String RUTA_LOGOUT = "/api/auth/logout";
 	private static final String RUTA_CAMBIO_CONTRASENA = "/api/auth/cambiar-password";
+	private static final String RUTA_USUARIOS_PERFIL = "/api/usuarios/perfil";
+	private static final String PREFIJO_RUTA_USUARIOS = "/api/usuarios/";
 
 	private final JwtService jwtService;
 	private final ContextoUsuarioActualImpl contextoUsuarioActual;
@@ -183,8 +185,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return false;
 		}
 
-		boolean permitida = "POST".equals(metodo)
-				&& (RUTA_CAMBIO_PRIMER_INGRESO.equals(ruta) || RUTA_LOGOUT.equals(ruta));
+		boolean permitida = ("POST".equals(metodo)
+				&& (RUTA_CAMBIO_PRIMER_INGRESO.equals(ruta) || RUTA_LOGOUT.equals(ruta)))
+				|| rutaDeConsultaDeSesionPermitida(metodo, ruta);
 
 		return !permitida;
 	}
@@ -192,11 +195,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	boolean contrasenaVencidaFueraDeRutaPermitida(boolean contrasenaVencida, String metodo, String ruta) {
 		if (!contrasenaVencida) {return false;}
 
-		boolean permitida = "POST".equals(metodo)
+		boolean permitida = ("POST".equals(metodo)
 						&& (RUTA_CAMBIO_CONTRASENA.equals(ruta)
-						|| RUTA_LOGOUT.equals(ruta));
+						|| RUTA_LOGOUT.equals(ruta)))
+				|| rutaDeConsultaDeSesionPermitida(metodo, ruta);
 
 		return !permitida;
+	}
+
+	/**
+	 * El frontend verifica la sesion con GET /api/usuarios/{id} (y /perfil) justo
+	 * despues de iniciar sesion, sin importar si hay un cambio de contraseña
+	 * pendiente -- sin esta excepcion ese GET era rechazado y el filtro lo trataba
+	 * como sesion invalida, cerrando la sesion antes de que la pantalla de cambio
+	 * de contraseña pudiera mostrarse.
+	 *
+	 * Match exacto para /perfil, y para /api/usuarios/{id} se exige que el resto
+	 * de la ruta sea solo digitos -- NO un startsWith() plano. Un prefijo simple
+	 * dejaria pasar algo como "/api/usuarios/../otra-ruta" (el string si "empieza
+	 * con" el prefijo aunque apunte a otro lado), justo el tipo de variante que
+	 * el resto de este filtro rechaza a proposito (ver el javadoc de
+	 * primerIngresoPendienteFueraDeRutaPermitida: "falla cerrado").
+	 */
+	private boolean rutaDeConsultaDeSesionPermitida(String metodo, String ruta) {
+		if (!"GET".equals(metodo)) {
+			return false;
+		}
+		if (RUTA_USUARIOS_PERFIL.equals(ruta)) {
+			return true;
+		}
+		return esRutaDeUsuarioPorId(ruta);
+	}
+
+	private boolean esRutaDeUsuarioPorId(String ruta) {
+		if (!ruta.startsWith(PREFIJO_RUTA_USUARIOS)) {
+			return false;
+		}
+		String resto = ruta.substring(PREFIJO_RUTA_USUARIOS.length());
+		return !resto.isEmpty() && resto.chars().allMatch(Character::isDigit);
 	}
 
 	private String rutaSinContexto(HttpServletRequest request) {
