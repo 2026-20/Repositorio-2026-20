@@ -6,6 +6,7 @@ import { ContextoAuditoriaContext } from '../../context/ContextoAuditoriaContext
 import { SincronizacionContext } from '../../context/SincronizacionContext'
 import { iniciarJornada } from '../../services/auditoriaService.js'
 import {
+    corregirConteoLocal,
     estaJornadaIniciadaHoy,
     guardarJornadaIniciada,
     obtenerConteosPendientes,
@@ -14,6 +15,13 @@ import {
 import { obtenerDetalleBodega, obtenerLotesBodega, obtenerRuta } from '../../storage/datosMaestrosRepositorio.js'
 import { registrarAccionLocal } from '../../storage/trazabilidadRepositorio.js'
 import ConteoPage from './ConteoPage'
+
+// NOTA (rama experimental sprint3-conteo-widgets, ver DISENO_WIDGETS_CONTEO.md):
+// mismas HU y misma logica que el prototipo de produccion, pero la interaccion
+// cambio de "un <select> de articulo + 2 listas de resumen" a "una lista de
+// tarjetas tocables + una hoja inferior con stepper". Donde eso cambia una
+// consulta de la prueba (p. ej. ya no hay un <select id="conteo-articulo">),
+// se adapta la consulta, no el comportamiento verificado.
 
 vi.mock('../../services/auditoriaService.js', () => ({
     iniciarJornada: vi.fn(),
@@ -24,6 +32,7 @@ vi.mock('../../storage/conteosPendientesRepositorio.js', () => ({
     guardarJornadaIniciada: vi.fn(),
     obtenerConteosPendientes: vi.fn(),
     registrarConteoLocal: vi.fn(),
+    corregirConteoLocal: vi.fn(),
 }))
 
 vi.mock('../../storage/trazabilidadRepositorio.js', () => ({
@@ -68,7 +77,13 @@ function renderPagina(ultimaSincronizacion = '2026-10-08T10:00:00.000Z') {
     )
 }
 
-describe('ConteoPage', () => {
+// Tocar la tarjeta de un articulo (pendiente o ya contado) abre la hoja
+// inferior -- equivalente a elegirlo en el <select> de la version anterior.
+async function abrirArticulo(nombre) {
+    fireEvent.click(await screen.findByText(nombre))
+}
+
+describe('ConteoPage (alternativa widgets)', () => {
     beforeEach(() => {
         obtenerConteosPendientes.mockResolvedValue([])
         obtenerRuta.mockResolvedValue([BODEGA])
@@ -76,11 +91,7 @@ describe('ConteoPage', () => {
         obtenerLotesBodega.mockResolvedValue([
             { codArt: 'ART2', numLote: 'L1', fechaVencimiento: '2027-01-01', cantidad: '5' },
         ])
-        // La jornada ya estaba confirmada: la mayoria de las pruebas de aqui
-        // son del formulario de conteo en si, no de HU-038 -- ver el
-        // describe de abajo para los 4 estados del aseguramiento silencioso.
         estaJornadaIniciadaHoy.mockResolvedValue(true)
-        // HU-031: no es el foco de estas pruebas, solo necesita no rechazar.
         registrarAccionLocal.mockResolvedValue('id-trazabilidad-generado')
     })
 
@@ -94,8 +105,7 @@ describe('ConteoPage', () => {
         renderPagina()
 
         fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
-        await screen.findByText('Articulo sin lote (teórico: 10)')
-        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+        await abrirArticulo('Articulo sin lote')
         fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '8' } })
         fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
 
@@ -110,7 +120,7 @@ describe('ConteoPage', () => {
                 observaciones: null,
             })
         })
-        expect(screen.getByRole('status')).toHaveTextContent('Conteo guardado en este dispositivo')
+        expect(await screen.findByRole('status')).toHaveTextContent('Conteo guardado en este dispositivo')
 
         // HU-031: el conteo tambien queda trazado localmente.
         expect(registrarAccionLocal).toHaveBeenCalledWith(7, {
@@ -118,6 +128,44 @@ describe('ConteoPage', () => {
             codBod: 'MEPRIN',
             resultado: 'EXITOSO',
             detalle: 'Articulo sin lote: 8',
+        })
+    })
+
+    // HU-005 criterio 2: cantidad fisica en cero es valida -- "auditado sin
+    // unidades encontradas", no un campo vacio ni un error.
+    it('HU-005: acepta una cantidad fisica en cero como un conteo valido', async () => {
+        registrarConteoLocal.mockResolvedValue('clave-generada')
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await abrirArticulo('Articulo sin lote')
+        fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '0' } })
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        await waitFor(() => {
+            expect(registrarConteoLocal).toHaveBeenCalledWith(7, expect.objectContaining({ cantidadFisica: 0 }))
+        })
+        expect(await screen.findByRole('status')).toHaveTextContent('Conteo guardado en este dispositivo')
+    })
+
+    // HU-028 criterios 1-3.
+    it('HU-028: una observacion completada queda vinculada al registro', async () => {
+        registrarConteoLocal.mockResolvedValue('clave-generada')
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await abrirArticulo('Articulo sin lote')
+        fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '8' } })
+        fireEvent.change(screen.getByLabelText('Observaciones'), {
+            target: { value: 'Caja golpeada, se cuenta igual.' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        await waitFor(() => {
+            expect(registrarConteoLocal).toHaveBeenCalledWith(
+                7,
+                expect.objectContaining({ observaciones: 'Caja golpeada, se cuenta igual.' }),
+            )
         })
     })
 
@@ -129,8 +177,10 @@ describe('ConteoPage', () => {
         renderPagina()
 
         fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
-        await screen.findByText('Articulo sin lote (teórico: 99)')
-        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::B' } })
+        // Mismo desArt en los dos contratos: solo se distinguen por el
+        // teorico mostrado -- se abre la tarjeta que lo muestra en 99.
+        await screen.findByText('Teórico: 99')
+        fireEvent.click(screen.getByText('Teórico: 99').closest('button'))
         fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '1' } })
         fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
 
@@ -147,13 +197,14 @@ describe('ConteoPage', () => {
         renderPagina()
 
         fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
-        expect(screen.queryByLabelText('Lote')).not.toBeInTheDocument()
-        await screen.findByText('Articulo con lote (teórico: 5)')
+        await abrirArticulo('Articulo sin lote')
+        expect(screen.queryByText('L1 · vence 2027-01-01')).not.toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
 
-        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART2::123' } })
-        expect(await screen.findByLabelText('Lote')).toBeInTheDocument()
+        await abrirArticulo('Articulo con lote')
+        const pildoraLote = await screen.findByRole('button', { name: 'L1 · vence 2027-01-01' })
 
-        fireEvent.change(screen.getByLabelText('Lote'), { target: { value: 'L1' } })
+        fireEvent.click(pildoraLote)
         fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '4' } })
         fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
 
@@ -166,14 +217,31 @@ describe('ConteoPage', () => {
         renderPagina()
 
         fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
-        await screen.findByText('Articulo sin lote (teórico: 10)')
-        fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+        await abrirArticulo('Articulo sin lote')
         fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '-1' } })
         fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
 
         expect(await screen.findByRole('alert')).toHaveTextContent('no puede ser negativa')
         expect(registrarConteoLocal).not.toHaveBeenCalled()
     })
+
+    // HU-006 criterio 1: campo faltante senalado especificamente.
+    it('HU-006: si falta la cantidad fisica, senala ese campo puntualmente', async () => {
+        renderPagina()
+
+        fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+        await abrirArticulo('Articulo sin lote')
+        fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('La cantidad física es obligatoria.')
+        expect(registrarConteoLocal).not.toHaveBeenCalled()
+    })
+
+    // HU-006 criterio 2 (valor no numerico): sin prueba de interaccion, ver
+    // el comentario equivalente en la version de produccion -- un input
+    // type="number" sanea cualquier valor no parseable a "" antes de que
+    // React lo vea, asi que no hay forma de llegar a un valor no numerico
+    // real via UI (ni con el Stepper, que usa el mismo input por dentro).
 
     it('muestra cuantos conteos siguen sin sincronizar', async () => {
         obtenerConteosPendientes.mockResolvedValue([
@@ -186,11 +254,7 @@ describe('ConteoPage', () => {
     })
 
     // Bug real encontrado probando en un navegador real (Cypress): la
-    // descarga automatica de AppLayout corre en paralelo a esta pantalla,
-    // no antes de que monte. Si la ruta solo se leyera una vez al montar
-    // (dependiendo solo de usuario.id), un usuario nuevo veria la bodega
-    // vacia para siempre, aunque la sincronizacion haya terminado un
-    // instante despues.
+    // descarga automatica de AppLayout corre en paralelo a esta pantalla.
     it('vuelve a leer la ruta cuando termina una sincronizacion que arranco despues de montar', async () => {
         obtenerRuta.mockResolvedValueOnce([]).mockResolvedValueOnce([BODEGA])
         const { rerender } = render(
@@ -224,10 +288,6 @@ describe('ConteoPage', () => {
         expect(await screen.findByText('Bodega Principal')).toBeInTheDocument()
     })
 
-    // HU-038: sin pantalla, sin dialogo, sin estado compartido -- esta
-    // pantalla simplemente se asegura de que la jornada de hoy quede
-    // confirmada antes de mostrar el formulario, sin pedirle nada al
-    // usuario (ver el comentario al inicio de ConteoPage.jsx).
     describe('aseguramiento silencioso de jornada', () => {
         it('si la jornada ya estaba confirmada localmente, muestra el formulario sin llamar a iniciarJornada', async () => {
             renderPagina()
@@ -275,6 +335,265 @@ describe('ConteoPage', () => {
         })
     })
 
+    // HU-008 (resumen de avance) / HU-026 criterio 2 (reanudar). Ahora
+    // representado por los StatTile (ver StatTile.jsx: aria-label
+    // "<etiqueta>: <valor>"), no por una frase "Avance: X contados...".
+    describe('resumen de avance de la bodega (HU-008/HU-026)', () => {
+        it('HU-008 criterio 1/3: distingue contados de pendientes al seleccionar una bodega', async () => {
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'ya-contado',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '10',
+                    sincronizado: true,
+                },
+            ])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByRole('button', { name: 'Contados: 1' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Pendientes: 1' })).toBeInTheDocument()
+            expect(screen.getByText('Sin diferencia')).toBeInTheDocument()
+        })
+
+        // HU-030 tal cual se ve en la tarjeta: fisica < teorica -> Faltante.
+        it('muestra "Faltante" cuando la cantidad fisica contada es menor que la teorica', async () => {
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'ya-contado',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '7',
+                    sincronizado: true,
+                },
+            ])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByText('Faltante')).toBeInTheDocument()
+        })
+
+        // HU-008 criterio 2: el resumen refleja un conteo nuevo sin recargar.
+        it('HU-008 criterio 2: el resumen se actualiza al registrar un conteo, sin recargar', async () => {
+            obtenerConteosPendientes.mockResolvedValue([])
+            registrarConteoLocal.mockResolvedValue('clave-generada')
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            expect(await screen.findByRole('button', { name: 'Contados: 0' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Pendientes: 2' })).toBeInTheDocument()
+
+            obtenerConteosPendientes.mockResolvedValue([
+                {
+                    idempotenciaKey: 'nuevo',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '8',
+                    sincronizado: false,
+                },
+            ])
+            await abrirArticulo('Articulo sin lote')
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '8' } })
+            fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
+
+            expect(await screen.findByRole('button', { name: 'Contados: 1' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Pendientes: 1' })).toBeInTheDocument()
+        })
+    })
+
+    // HU-032: agrupado por estado, con tile clickeable como filtro.
+    describe('cantidad de reactivos por estado (HU-032)', () => {
+        function conteos() {
+            return [
+                {
+                    idempotenciaKey: 'sin-diferencia',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART1',
+                    numCon: '123',
+                    cantidadTeorica: '10',
+                    cantidadFisica: '10',
+                    sincronizado: true,
+                },
+                {
+                    idempotenciaKey: 'con-diferencia',
+                    codBod: 'MEPRIN',
+                    codArt: 'ART2',
+                    numCon: '123',
+                    cantidadTeorica: '5',
+                    cantidadFisica: '3',
+                    sincronizado: true,
+                },
+            ]
+        }
+
+        it('muestra los 4 tiles con la cantidad de cada estado', async () => {
+            obtenerConteosPendientes.mockResolvedValue(conteos())
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+
+            expect(await screen.findByRole('button', { name: 'Todos: 2' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Contados: 2' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Pendientes: 0' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Con diferencia: 1' })).toBeInTheDocument()
+        })
+
+        // HU-032 criterio 3: seleccionar un estado filtra la lista.
+        it('al tocar "Con diferencia" solo queda visible el articulo con diferencia', async () => {
+            obtenerConteosPendientes.mockResolvedValue(conteos())
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote')
+
+            fireEvent.click(screen.getByRole('button', { name: 'Con diferencia: 1' }))
+
+            expect(screen.getByText('Articulo con lote')).toBeInTheDocument()
+            expect(screen.queryByText('Articulo sin lote')).not.toBeInTheDocument()
+        })
+    })
+
+    // HU-027: busqueda por nombre o codigo, sobre el catalogo ya local.
+    describe('buscar articulo (HU-027)', () => {
+        it('HU-027 criterio 1: un termino parcial, sin tildes/mayusculas, filtra por nombre', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote')
+
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'CON LOTE' },
+            })
+
+            expect(screen.getByText('Articulo con lote')).toBeInTheDocument()
+            expect(screen.queryByText('Articulo sin lote')).not.toBeInTheDocument()
+        })
+
+        it('HU-027 criterio 1: tambien filtra por codigo de articulo', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote')
+
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'art2' },
+            })
+
+            expect(screen.getByText('Articulo con lote')).toBeInTheDocument()
+            expect(screen.queryByText('Articulo sin lote')).not.toBeInTheDocument()
+        })
+
+        // HU-027 criterio 2.
+        it('HU-027 criterio 2: sin coincidencias, muestra el mensaje y ninguna tarjeta', async () => {
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Articulo con lote')
+
+            fireEvent.change(screen.getByPlaceholderText('Buscar por nombre o código...'), {
+                target: { value: 'no existe este reactivo' },
+            })
+
+            expect(screen.getByText('No se encontraron resultados')).toBeInTheDocument()
+            expect(screen.queryByText('Articulo sin lote')).not.toBeInTheDocument()
+            expect(screen.queryByText('Articulo con lote')).not.toBeInTheDocument()
+        })
+    })
+
+    // HU-007: corregir un conteo ya registrado, sin sincronizar todavia.
+    // Ahora se toca la tarjeta del articulo ya contado (no un boton
+    // "Corregir" aparte) -- tocarContado hace exactamente lo mismo que
+    // hacia iniciarCorreccion en la version anterior.
+    describe('corregir conteo (HU-007)', () => {
+        const CONTEO_SIN_SINCRONIZAR = {
+            idempotenciaKey: 'sin-sincronizar',
+            codBod: 'MEPRIN',
+            codArt: 'ART1',
+            numCon: '123',
+            cantidadTeorica: '10',
+            cantidadFisica: '7',
+            observaciones: 'anotacion original',
+            sincronizado: false,
+        }
+
+        it('criterio 1: tocar la tarjeta ya contada precarga la hoja con los valores actuales', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            await abrirArticulo('Articulo sin lote')
+
+            expect(screen.getByLabelText('Cantidad física')).toHaveValue(7)
+            expect(screen.getByLabelText('Observaciones')).toHaveValue('anotacion original')
+            expect(screen.getByRole('button', { name: 'Guardar corrección' })).toBeInTheDocument()
+        })
+
+        it('criterios 2 y 4: confirmar la correccion actualiza el mismo registro, con las mismas validaciones', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            corregirConteoLocal.mockResolvedValue(undefined)
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            await abrirArticulo('Articulo sin lote')
+
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '-1' } })
+            fireEvent.click(screen.getByRole('button', { name: 'Guardar corrección' }))
+            expect(await screen.findByRole('alert')).toHaveTextContent('no puede ser negativa')
+            expect(corregirConteoLocal).not.toHaveBeenCalled()
+
+            fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '10' } })
+            fireEvent.click(screen.getByRole('button', { name: 'Guardar corrección' }))
+
+            expect(await screen.findByText('Corrección guardada en este dispositivo.')).toBeInTheDocument()
+            expect(corregirConteoLocal).toHaveBeenCalledWith(7, 'sin-sincronizar', {
+                cantidadFisica: 10,
+                observaciones: 'anotacion original',
+            })
+            // No es un registro nuevo: no debe volver a trazar HU-031.
+            expect(registrarAccionLocal).not.toHaveBeenCalled()
+        })
+
+        it('"Cancelar corrección" cierra la hoja sin guardar nada', async () => {
+            obtenerConteosPendientes.mockResolvedValue([CONTEO_SIN_SINCRONIZAR])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+            await abrirArticulo('Articulo sin lote')
+
+            fireEvent.click(screen.getByRole('button', { name: 'Cancelar corrección' }))
+
+            expect(screen.queryByLabelText('Cantidad física')).not.toBeInTheDocument()
+            expect(corregirConteoLocal).not.toHaveBeenCalled()
+        })
+
+        // HU-007 criterio 3 (parcial, ver corregirConteoLocal): corregir uno
+        // ya sincronizado necesita el endpoint del backend, fuera de este
+        // prototipo -- la tarjeta queda deshabilitada (no abre la hoja).
+        it('un conteo ya sincronizado no abre la hoja al tocarlo', async () => {
+            obtenerConteosPendientes.mockResolvedValue([{ ...CONTEO_SIN_SINCRONIZAR, sincronizado: true }])
+            renderPagina()
+
+            fireEvent.change(await screen.findByLabelText('Bodega'), { target: { value: 'MEPRIN' } })
+            await screen.findByText('Faltante')
+
+            fireEvent.click(screen.getByText('Articulo sin lote'))
+
+            expect(screen.queryByLabelText('Cantidad física')).not.toBeInTheDocument()
+        })
+    })
+
     // HU-004: con un contrato activo elegido en Mi ruta, solo se cuenta
     // dentro de ese contrato y la bodega elegida alli llega ya seleccionada.
     describe('con un contrato activo (HU-004)', () => {
@@ -295,12 +614,15 @@ describe('ConteoPage', () => {
         it('llega con la bodega elegida en Mi ruta y muestra el contrato activo', async () => {
             renderConContexto({ numCon: '123', objCon: 'HEMATOLOGIA', codBodSeleccionada: 'MEPRIN' })
 
-            expect(await screen.findByText('Articulo sin lote (teórico: 10)')).toBeInTheDocument()
-            expect(screen.getByLabelText('Bodega')).toHaveValue('MEPRIN')
+            expect(await screen.findByText('Articulo sin lote')).toBeInTheDocument()
+            // Con contrato activo la bodega ya llega decidida -- no tiene
+            // sentido mostrar un selector redundante (cambio deliberado de
+            // esta alternativa, ver DISENO_WIDGETS_CONTEO.md).
+            expect(screen.queryByLabelText('Bodega')).not.toBeInTheDocument()
             expect(screen.getByTestId('contrato-activo')).toHaveTextContent('123 · HEMATOLOGIA')
         })
 
-        it('solo ofrece las bodegas y los articulos del contrato activo', async () => {
+        it('solo ofrece los articulos del contrato activo', async () => {
             obtenerRuta.mockResolvedValue([BODEGA, { codBod: 'OTRA', desBod: 'Bodega de otro contrato', numCon: '999' }])
             const articuloContratoA = { ...ARTICULO_SIN_LOTE, numCon: 'A', cantidadTeorica: '1' }
             const articuloContratoActivo = { ...ARTICULO_SIN_LOTE, numCon: '123', cantidadTeorica: '99' }
@@ -309,11 +631,10 @@ describe('ConteoPage', () => {
 
             renderConContexto({ numCon: '123', objCon: 'HEMATOLOGIA', codBodSeleccionada: 'MEPRIN' })
 
-            await screen.findByText('Articulo sin lote (teórico: 99)')
-            expect(screen.queryByText('Articulo sin lote (teórico: 1)')).not.toBeInTheDocument()
-            expect(screen.queryByRole('option', { name: 'Bodega de otro contrato' })).not.toBeInTheDocument()
+            await screen.findByText('Teórico: 99')
+            expect(screen.queryByText('Teórico: 1')).not.toBeInTheDocument()
 
-            fireEvent.change(screen.getByLabelText('Artículo'), { target: { value: 'ART1::123' } })
+            await abrirArticulo('Articulo sin lote')
             fireEvent.change(screen.getByLabelText('Cantidad física'), { target: { value: '7' } })
             fireEvent.click(screen.getByRole('button', { name: /Registrar conteo/ }))
 

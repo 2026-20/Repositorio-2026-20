@@ -135,6 +135,27 @@ async function marcarConteoSincronizadoInterno(usuarioId, idempotenciaKey) {
     }
 }
 
+// HU-007: corrige un conteo que TODAVIA no se sincronizo (sincronizado=0) --
+// sigue siendo el mismo id_idempotencia, asi que la proxima sincronizacion
+// lo sube con los valores ya corregidos, como si siempre hubiera sido ese
+// el valor. Corregir un conteo YA sincronizado necesita el endpoint del
+// backend (PUT /api/auditoria/conteos/{id}, ver ConteoFisicoController) --
+// eso queda fuera de este prototipo porque esta base local no guarda el id
+// numerico que el backend le asigna al sincronizar (solo id_idempotencia).
+async function corregirConteoLocalInterno(usuarioId, idempotenciaKey, datos) {
+    const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
+    try {
+        await crearEsquema(sesion)
+        await ejecutar(
+            sesion,
+            'UPDATE conteos_pendientes SET cantidad_fisica = ?, observaciones = ? WHERE id_idempotencia = ? AND sincronizado = 0',
+            [String(datos.cantidadFisica), datos.observaciones ?? null, idempotenciaKey],
+        )
+    } finally {
+        await cerrarBaseLocal(sesion)
+    }
+}
+
 async function marcarConteoConErrorInterno(usuarioId, idempotenciaKey, mensaje) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
@@ -157,6 +178,30 @@ async function guardarJornadaIniciadaInterno(usuarioId, iniciadaEn) {
             hoyLocal(),
             iniciadaEn,
         ])
+    } finally {
+        await cerrarBaseLocal(sesion)
+    }
+}
+
+/**
+ * Borra los conteos y la jornada local de un usuario -- ver "Ajustes >
+ * Borrar auditoría cargada" en AjustesPage.jsx. Separado del catalogo a
+ * proposito (ver comentario arriba sobre por que este archivo esta aparte
+ * de datos-maestros.db): borrarCatalogoLocal no toca esto, y viceversa.
+ */
+async function borrarConteosLocalesInterno(usuarioId) {
+    const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
+    try {
+        await crearEsquema(sesion)
+        await ejecutar(sesion, 'BEGIN')
+        try {
+            await ejecutar(sesion, 'DELETE FROM conteos_pendientes')
+            await ejecutar(sesion, 'DELETE FROM jornada_local')
+            await ejecutar(sesion, 'COMMIT')
+        } catch (error) {
+            await ejecutar(sesion, 'ROLLBACK')
+            throw error
+        }
     } finally {
         await cerrarBaseLocal(sesion)
     }
@@ -185,6 +230,10 @@ export function marcarConteoSincronizado(usuarioId, idempotenciaKey) {
     return encolar(() => marcarConteoSincronizadoInterno(usuarioId, idempotenciaKey))
 }
 
+export function corregirConteoLocal(usuarioId, idempotenciaKey, datos) {
+    return encolar(() => corregirConteoLocalInterno(usuarioId, idempotenciaKey, datos))
+}
+
 export function marcarConteoConError(usuarioId, idempotenciaKey, mensaje) {
     return encolar(() => marcarConteoConErrorInterno(usuarioId, idempotenciaKey, mensaje))
 }
@@ -195,4 +244,8 @@ export function guardarJornadaIniciada(usuarioId, iniciadaEn) {
 
 export function estaJornadaIniciadaHoy(usuarioId) {
     return encolar(() => estaJornadaIniciadaHoyInterno(usuarioId))
+}
+
+export function borrarConteosLocales(usuarioId) {
+    return encolar(() => borrarConteosLocalesInterno(usuarioId))
 }

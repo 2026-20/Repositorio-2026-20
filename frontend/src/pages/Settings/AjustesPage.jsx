@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import FormularioCambioContrasena from '../../components/auth/FormularioCambioContrasena'
+import FormularioBorrarAuditoriaLocal from '../../components/feedback/FormularioBorrarAuditoriaLocal'
 import Modal from '../../components/feedback/Modal'
 import Icon from '../../components/ui/Icon'
 import { useAuth } from '../../context/useAuth'
+import { useSincronizacion } from '../../context/useSincronizacion'
 import { useConectividad } from '../../hooks/useConectividad'
 import { useTheme } from '../../hooks/useTheme'
 import { paths } from '../../routes/paths'
 import { cambiarContrasena } from '../../services/authService'
+import { borrarConteosLocales } from '../../storage/conteosPendientesRepositorio.js'
+import { borrarCatalogoLocal } from '../../storage/datosMaestrosRepositorio.js'
 import styles from './AjustesPage.module.css'
 import { consultarPerfil } from '../../services/usuarioService'
 
@@ -32,12 +36,17 @@ const OPCIONES_APARIENCIA = [
 export default function AjustesPage() {
     const { temaEfectivo, setTema } = useTheme()
     const { usuario, token } = useAuth()
+    // Optional chaining: las pruebas existentes de esta pantalla no envuelven
+    // con SincronizacionProvider (no lo necesitaban antes de esto) -- en la
+    // app real (ver main.jsx) siempre esta montado.
+    const { olvidarSincronizacion } = useSincronizacion() ?? {}
     const enLinea = useConectividad()
     const [perfil, setPerfil] = useState(null)
     const [cargandoPerfil, setCargandoPerfil] = useState(true)
     const [errorPerfil, setErrorPerfil] = useState('')
     const [perfilSinConexion, setPerfilSinConexion] = useState(false)
     const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false)
+    const [mostrarBorrarAuditoria, setMostrarBorrarAuditoria] = useState(false)
 
     useEffect(() => {
         let activo = true
@@ -105,6 +114,21 @@ export default function AjustesPage() {
 
         // Deja ver el mensaje de exito un momento antes de cerrar la ventana sola.
         setTimeout(() => setMostrarCambioContrasena(false), MS_ANTES_DE_CERRAR_TRAS_EXITO)
+    }
+
+    // Borra el catalogo (bodegas/articulos/lotes/ruta) y los conteos locales
+    // de este usuario en este dispositivo -- los dos archivos por separado
+    // (ver borrarCatalogoLocal/borrarConteosLocales), uno despues del otro.
+    // olvidarSincronizacion() pone ultimaSincronizacion en null en el
+    // contexto compartido para que MiRutaPage/ConteoPage, que ya dependen de
+    // ese valor para releer su estado local, lo noten sin recargar la
+    // pagina.
+    async function manejarBorrarAuditoriaLocal() {
+        await borrarCatalogoLocal(usuario.id)
+        await borrarConteosLocales(usuario.id)
+        olvidarSincronizacion?.()
+
+        setTimeout(() => setMostrarBorrarAuditoria(false), MS_ANTES_DE_CERRAR_TRAS_EXITO)
     }
 
     return (
@@ -217,6 +241,33 @@ export default function AjustesPage() {
                     Cambiar contraseña
                 </button>
             </section>
+
+            <section className={styles.seccion}>
+                <h2 className={styles.tituloSeccion}>Borrar auditoría cargada</h2>
+
+                <p className={styles.descripcion}>
+                    Borra la ruta, las bodegas, los artículos y los conteos guardados en este dispositivo. Útil si
+                    algo quedó mal localmente y preferís empezar de cero — vas a necesitar que un administrador
+                    genere la auditoría de nuevo antes de poder contar otra vez.
+                </p>
+
+                <button
+                    type="button"
+                    className={styles.botonPeligro}
+                    onClick={() => setMostrarBorrarAuditoria(true)}
+                >
+                    Borrar datos locales
+                </button>
+            </section>
+
+            {mostrarBorrarAuditoria && (
+                <Modal titulo="Borrar auditoría cargada" onCerrar={() => setMostrarBorrarAuditoria(false)}>
+                    <FormularioBorrarAuditoriaLocal
+                        onConfirmar={manejarBorrarAuditoriaLocal}
+                        onCancelar={() => setMostrarBorrarAuditoria(false)}
+                    />
+                </Modal>
+            )}
 
             {mostrarCambioContrasena && (
                 <Modal

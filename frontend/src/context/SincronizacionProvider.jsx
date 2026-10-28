@@ -90,8 +90,21 @@ export function SincronizacionProvider({ children }) {
         }
     }, [usuario, token])
 
+    // "Ajustes > Borrar auditoría cargada" (ver AjustesPage.jsx) borra el
+    // almacenamiento local directamente -- esto solo pone al dia el estado
+    // compartido para que MiRutaPage/ConteoPage (que dependen de
+    // ultimaSincronizacion para releer) lo noten sin esperar una
+    // sincronizacion nueva ni recargar la pagina.
+    const olvidarSincronizacion = useCallback(() => {
+        setEstado('inactivo')
+        setError(null)
+        setUltimaSincronizacion(null)
+    }, [])
+
     return (
-        <SincronizacionContext.Provider value={{ estado, error, ultimaSincronizacion, sincronizar }}>
+        <SincronizacionContext.Provider
+            value={{ estado, error, ultimaSincronizacion, sincronizar, olvidarSincronizacion }}
+        >
             {children}
         </SincronizacionContext.Provider>
     )

@@ -1,0 +1,94 @@
+/* Curva de "cajon" tipo iOS (Ionic), solo para este componente -- mas
+   adecuada a un panel que entra desde abajo que --ease-out (pensada para
+   elementos que aparecen centrados/en su lugar, no que se deslizan). */
+.fondo {
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(15, 23, 30, 0.5);
+    animation: aparecerFondo 200ms ease-out;
+}
+
+.hoja {
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-high);
+    padding: var(--space-3) var(--space-5) var(--space-6);
+    animation: deslizarArriba 320ms var(--ease-drawer);
+}
+
+.agarradera {
+    width: 40px;
+    height: 4px;
+    margin: 0 auto var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+}
+
+.encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.titulo {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-heading);
+}
+
+.cerrar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+}
+
+.cerrar:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+@keyframes aparecerFondo {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes deslizarArriba {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hoja {
+        animation: aparecerFondo 200ms ease-out;
+    }
+}

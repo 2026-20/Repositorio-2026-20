@@ -28,7 +28,33 @@ const httpsConfigLocal =
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: { https: httpsConfigLocal },
+  server: {
+    https: httpsConfigLocal,
+    // Rama experimental (sprint3-conteo-widgets): deja usar VITE_API_BASE_URL=''
+    // para que el fetch vaya a una ruta relativa y Vite la reenvie al backend
+    // del lado del servidor -- evita tener que agregar este puerto al
+    // allowlist de CORS del backend compartido (ver WebConfig.java), que
+    // sigue sirviendo la sesion de pruebas real en el puerto 5173.
+    //
+    // El navegador igual manda el header Origin (http://localhost:5174) en
+    // el fetch, aunque para el sea "mismo origen" -- el CorsFilter de Spring
+    // lo ve igual y responde 403 "Invalid CORS request" porque 5174 no esta
+    // en el allowlist (confirmado con un navegador real; curl no manda
+    // Origin, por eso una prueba con curl no lo detecta). Se quita el header
+    // antes de reenviar para que el backend lo trate como una llamada
+    // directa, igual que curl.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('origin')
+          })
+        },
+      },
+    },
+  },
   preview: { https: httpsConfigLocal },
   // Vite descubre estas dependencias de wa-sqlite recien a mitad de la
   // corrida de las pruebas "browser" (OPFS) y las reoptimiza, lo que fuerza

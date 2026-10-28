@@ -83,6 +83,9 @@ class AuditoriaIngestaServiceIT {
 	@Autowired
 	private LoteMovimientoRepository loteMovimientoRepository;
 
+	@Autowired
+	private cr.co.capris.reactivos.usuario.UsuarioRepository usuarioRepository;
+
 	private InputStream recurso(String nombreArchivo) {
 		InputStream in = getClass().getClassLoader().getResourceAsStream(DIRECTORIO + nombreArchivo);
 		assertThat(in).as("fixture %s debe existir en src/test/resources/%s", nombreArchivo, DIRECTORIO)
@@ -99,7 +102,7 @@ class AuditoriaIngestaServiceIT {
 	void ingestaLos6ArchivosDePruebaRealesSinDescartarNingunaFila() {
 		ResultadoIngesta bodegas = service.ingestarBodegas(recurso("med_wmolina_cai_bod.xml"), "cai_bod.xml");
 		ResultadoIngesta estados =
-				service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml");
+				service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml", null);
 		ResultadoIngesta detalle =
 				service.ingestarDetalleBodega(recurso("med_wmolina_cai_det_bod.xml"), "cai_det_bod.xml");
 		ResultadoIngesta lotes =
@@ -216,7 +219,7 @@ class AuditoriaIngestaServiceIT {
 	@Test
 	@Order(6)
 	void reingestarElEstadoDeVisitaNoBorraUnResultadoDeAuditoriaYaRegistrado() {
-		service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml");
+		service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml", null);
 
 		// Simula que la app ya registro un resultado para la bodega A2060000
 		// (primera fila de cai_est_vis.xml) antes de que llegue un nuevo
@@ -229,7 +232,7 @@ class AuditoriaIngestaServiceIT {
 
 		// El ERP reenvia el mismo snapshot (ej. otra visita que agrega, o un
 		// reenvio de rutina).
-		service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml");
+		service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml", null);
 
 		Optional<ResultadoVisita> despuesDeReingestar = resultadoVisitaRepository.findByNumConAndCodBod(
 				"0432025114200211-00-13585", "A2060000");
@@ -237,5 +240,29 @@ class AuditoriaIngestaServiceIT {
 		assertThat(despuesDeReingestar.get().getAprobacionTipo1()).isEqualTo("aprobado por un administrador");
 		// Y sigue siendo una sola fila para esa clave, no una duplicada.
 		assertThat(resultadoVisitaRepository.count()).isEqualTo(16);
+	}
+
+	// asignarAUsuario: uso del simulador de ingesta (ftp-gateway) para
+	// pruebas manuales -- ver javadoc de ingestarEstadosVisita.
+	@Test
+	@Order(7)
+	void ingestarConAsignarAUsuarioDejaLasVisitasAsignadasAEseUsuario() {
+		Long idAmelendez = usuarioRepository.findByUsername("amelendez").orElseThrow().getId();
+
+		service.ingestarEstadosVisita(recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml", "amelendez");
+
+		ResultadoVisita visita = resultadoVisitaRepository
+				.findByNumConAndCodBod("0432025114200211-00-13585", "A2060000")
+				.orElseThrow();
+		assertThat(visita.getAsignadoAUsuarioId()).isEqualTo(idAmelendez);
+		assertThat(visita.getFechaAsignada()).isEqualTo(java.time.LocalDate.now());
+	}
+
+	@Test
+	@Order(8)
+	void ingestarConUnUsuarioDePruebaQueNoExisteFalla() {
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.ingestarEstadosVisita(
+						recurso("med_wmolina_cai_est_vis.xml"), "cai_est_vis.xml", "no-existe-este-usuario"))
+				.isInstanceOf(IllegalArgumentException.class);
 	}
 }

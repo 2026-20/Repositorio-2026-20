@@ -125,8 +125,12 @@ describe('HU-004 - Seleccion de contexto de auditoria (desde Mi ruta)', () => {
         cy.location('pathname').should('eq', '/conteo')
         // Conteo confirma la jornada antes de mostrar el formulario (HU-038).
         cy.get('[data-testid="contrato-activo"]', { timeout: 10000 }).should('contain', 'C-001 · HEMATOLOGÍA')
-        cy.get('#conteo-bodega').should('have.value', 'HMEX')
-        cy.get('#conteo-articulo').should('contain', 'Reactivo de hematologia (teórico: 10)')
-        cy.get('#conteo-articulo').should('not.contain', 'teórico: 99')
+        // Alternativa de widgets: con contrato activo la bodega ya llega
+        // decidida -- no se muestra un selector redundante (a diferencia del
+        // prototipo original, que siempre lo mostraba).
+        cy.get('#conteo-bodega').should('not.exist')
+        cy.contains('Reactivo de hematologia', { timeout: 10000 }).should('be.visible')
+        cy.contains('Teórico: 10').should('be.visible')
+        cy.contains('Teórico: 99').should('not.exist')
     })
 })

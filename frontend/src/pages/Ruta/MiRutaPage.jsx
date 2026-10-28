@@ -18,6 +18,15 @@ import styles from './MiRutaPage.module.css'
 const ETIQUETA_ESTADO = {
     PENDIENTE: 'Pendiente',
     EN_PROGRESO: 'En progreso',
+    FINALIZADA: 'Finalizada',
+}
+
+// HU-026 criterio 1: diferenciar visualmente (no solo por texto) una visita
+// en progreso de una finalizada.
+const TONO_ESTADO = {
+    PENDIENTE: 'advertencia',
+    EN_PROGRESO: 'primario',
+    FINALIZADA: 'exito',
 }
 
 function formatearDia(fechaIso) {
@@ -247,6 +256,9 @@ export default function MiRutaPage() {
                                             onClick={() => tocarContrato(contrato)}
                                             aria-current={esActivo ? 'true' : undefined}
                                         >
+                                            <span className={styles.iconoTarjeta} aria-hidden="true">
+                                                <Icon name="paquete" size={18} />
+                                            </span>
                                             <span className={styles.principal}>
                                                 <span className={styles.titulo}>{nombreContrato(contrato)}</span>
                                                 {esActivo && (
@@ -289,6 +301,9 @@ export default function MiRutaPage() {
                                             className={styles.tarjeta}
                                             onClick={() => tocarBodega(parada)}
                                         >
+                                            <span className={styles.iconoTarjeta} aria-hidden="true">
+                                                <Icon name="ruta" size={18} />
+                                            </span>
                                             <span className={styles.principal}>
                                                 <span className={styles.titulo}>{parada.desBod}</span>
                                                 <span className={styles.subtitulo}>
@@ -296,7 +311,9 @@ export default function MiRutaPage() {
                                                 </span>
                                             </span>
                                             <span className={styles.meta}>
-                                                {ETIQUETA_ESTADO[parada.estadoApp] ?? parada.estadoApp}
+                                                <StatusBadge tono={TONO_ESTADO[parada.estadoApp] ?? 'primario'}>
+                                                    {ETIQUETA_ESTADO[parada.estadoApp] ?? parada.estadoApp}
+                                                </StatusBadge>
                                                 <Icon name="chevronDerecha" size={18} className={styles.chevron} />
                                             </span>
                                         </Card>

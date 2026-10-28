@@ -1,5 +1,7 @@
 package cr.co.capris.reactivos.seguridad;
 
+import cr.co.capris.reactivos.auditoria.ConteoFisicoNoEncontradoException;
+import cr.co.capris.reactivos.auditoria.ConteoYaTransmitidoException;
 import cr.co.capris.reactivos.auditoria.JornadaNoIniciadaException;
 
 import org.springframework.http.HttpStatus;
@@ -102,6 +104,20 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> manejar(JornadaNoIniciadaException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 				.body(ErrorResponse.de("JORNADA_NO_INICIADA", ex.getMessage()));
+	}
+
+	// HU-007 criterio 3.
+	@ExceptionHandler(ConteoYaTransmitidoException.class)
+	public ResponseEntity<ErrorResponse> manejar(ConteoYaTransmitidoException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(ErrorResponse.de("CONTEO_YA_TRANSMITIDO", ex.getMessage()));
+	}
+
+	// HU-007.
+	@ExceptionHandler(ConteoFisicoNoEncontradoException.class)
+	public ResponseEntity<ErrorResponse> manejar(ConteoFisicoNoEncontradoException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ErrorResponse.de("CONTEO_NO_ENCONTRADO", ex.getMessage()));
 	}
 
 	// AuditoriaRowReader (XML mal formado) e IdentificadorVisita (nombre de

@@ -179,6 +179,36 @@ async function reemplazarCatalogosInterno(usuarioId, { bodegas, detallesPorBodeg
     }
 }
 
+/**
+ * Borra el catalogo local completo de un usuario (bodegas, detalle, lotes,
+ * ruta y la marca de ultima sincronizacion) -- pensado para "Ajustes >
+ * Borrar auditoría cargada" (ver AjustesPage.jsx), cuando el usuario de
+ * campo necesita descartar lo que tiene localmente porque algo quedo mal
+ * y el administrador va a generarle la auditoria de nuevo. NO borra
+ * conteos_pendientes/jornada_local -- eso vive en otro archivo (ver
+ * conteosPendientesRepositorio.borrarConteosLocales), a proposito para que
+ * quien llama pueda borrar los dos por separado o solo uno de los dos.
+ */
+async function borrarCatalogoLocalInterno(usuarioId) {
+    const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
+    try {
+        await crearEsquema(sesion)
+        await ejecutar(sesion, 'BEGIN')
+        try {
+            await ejecutar(sesion, 'DELETE FROM bodegas')
+            await ejecutar(sesion, 'DELETE FROM detalle_bodega')
+            await ejecutar(sesion, 'DELETE FROM lote_bodega')
+            await ejecutar(sesion, 'DELETE FROM metadatos_sincronizacion')
+            await ejecutar(sesion, 'COMMIT')
+        } catch (error) {
+            await ejecutar(sesion, 'ROLLBACK')
+            throw error
+        }
+    } finally {
+        await cerrarBaseLocal(sesion)
+    }
+}
+
 async function obtenerUltimaSincronizacionInterno(usuarioId) {
     const sesion = await abrirBaseLocal(directorioParaUsuario(usuarioId), NOMBRE_ARCHIVO)
     try {
@@ -268,6 +298,10 @@ async function obtenerLotesBodegaInterno(usuarioId, codBod) {
 // archivo (ver comentario de encolar() arriba).
 export function reemplazarCatalogos(usuarioId, datos) {
     return encolar(() => reemplazarCatalogosInterno(usuarioId, datos))
+}
+
+export function borrarCatalogoLocal(usuarioId) {
+    return encolar(() => borrarCatalogoLocalInterno(usuarioId))
 }
 
 export function obtenerUltimaSincronizacion(usuarioId) {

@@ -13,9 +13,11 @@ public record ConteoFisicoResumenDTO(
 		BigDecimal cantidadTeorica,
 		BigDecimal cantidadFisica,
 		BigDecimal diferencia,
+		TipoDiferencia tipoDiferencia,
 		String usuarioNombre,
 		String observaciones,
-		OffsetDateTime registradoEn) {
+		OffsetDateTime registradoEn,
+		boolean corregido) {
 
 	public static ConteoFisicoResumenDTO desde(ConteoFisico conteo, String usuarioNombre) {
 		return new ConteoFisicoResumenDTO(
@@ -27,8 +29,10 @@ public record ConteoFisicoResumenDTO(
 				conteo.getCantidadTeorica(),
 				conteo.getCantidadFisica(),
 				conteo.getDiferencia(),
+				conteo.getTipoDiferencia(),
 				usuarioNombre,
 				conteo.getObservaciones(),
-				conteo.getRegistradoEn());
+				conteo.getRegistradoEn(),
+				conteo.isCorregido());
 	}
 }

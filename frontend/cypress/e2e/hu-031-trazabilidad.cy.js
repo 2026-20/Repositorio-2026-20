@@ -67,8 +67,10 @@ describe('HU-031 - Trazabilidad de acciones del usuario', () => {
         // ellas (mismo comentario que hu-021-modo-sin-conexion.cy.js).
         cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 40000 }).should('exist')
         cy.get('#conteo-bodega').select('MEPRIN')
-        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 40000 }).should('exist')
-        cy.get('#conteo-articulo').select('ART1::123')
+        // Alternativa de widgets: no hay un <select> de articulo -- se toca
+        // la tarjeta del articulo (misma espera larga que antes, mismo
+        // motivo: carga de catalogo via OPFS).
+        cy.contains('Reactivo de prueba', { timeout: 40000 }).click()
         // be.enabled antes de escribir: en CI, el campo puede quedar
         // deshabilitado un instante de mas mientras React re-renderiza tras
         // seleccionar el articulo -- un type() sin esta espera puede caer

@@ -82,6 +82,46 @@ No dejar este perfil activo fuera de un ambiente de pruebas: el endpoint
 `/simulador/ingesta` no tiene autenticacion propia (mas alla de la que ya
 hace el backend con la API key interna) y dispara escrituras reales.
 
+### Asignar la ingesta a un usuario de prueba conocido
+
+El formulario tiene un campo opcional "Asignar a este usuario" (username,
+ej. `amelendez`). Solo aplica cuando el archivo se rutea a
+`estados-visita` (`cai_est_vis`): si se completa, cada visita de ese
+archivo queda asignada a ese usuario para hoy (mismo mecanismo que
+`VisitaController.asignar()` de HU-037), sin pasar por la asignacion
+manual fila por fila.
+
+Pensado para pruebas de usabilidad/demos: deja cargarle datos de prueba
+(repetidos entre si, da igual) a distintos usuarios conocidos del sistema,
+para demostrar que cada uno carga su propia informacion al iniciar sesion.
+El username **no tiene que ver con `cod_usu`** del XML -- ese campo es
+quien exporto el archivo desde el ERP, no el auditor de campo real (ver
+javadoc de `Bodega` en el backend). Dejar el campo vacio para el
+comportamiento normal de siempre (sin asignar nada).
+
+Esto deja de hacer falta el dia que el ERP mande la asignacion real de
+rutas/auditores (ver `docs/SERVIDOR_PUENTE_FTP.md`, pregunta 1.1.1) -- es
+un atajo deliberadamente temporal sobre el endpoint real de ingesta, no
+una simulacion aparte.
+
+### Carga rapida con los datos de prueba del repo
+
+El formulario tiene un checkbox "Usar los datos de prueba del repo (sin
+subir archivos)". Al marcarlo se ocultan los campos de archivo y basta con
+escribir un username en "Asignar a este usuario" (aqui es obligatorio) --
+el boton reenvia los 4 XML ya empacados en
+`src/main/resources/datos-prueba/` (copia de los mismos 4 de
+`backend/src/test/resources/auditoria/xmls/`: bodegas, detalle, lotes y
+estados-visita) por el mismo camino que el formulario normal, asignando
+las visitas al usuario indicado.
+
+Pensado para agilizar pruebas de usabilidad repetidas: sin esto, dejar
+lista una bodega para un usuario de prueba distinto implica subir 4
+archivos a mano cada vez. `cai_det_bod`/`cai_lot_bod` tienen ~1960/~1690
+filas y se ingestan fila por fila en transacciones separadas (ver javadoc
+de `AuditoriaFilaTransaccional` en el backend), asi que esta llamada puede
+tardar decenas de segundos -- es esperado, no un cuelgue.
+
 ## Tests
 
 ```bash
