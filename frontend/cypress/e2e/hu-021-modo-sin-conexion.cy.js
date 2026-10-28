@@ -94,8 +94,10 @@ describe('HU-021 - Operar en modo sin conexion', () => {
         // cy.intercept) y se descarto esa idea. 40s da margen real.
         cy.get('#conteo-bodega option[value="MEPRIN"]', { timeout: 40000 }).should('exist')
         cy.get('#conteo-bodega').select('MEPRIN')
-        cy.get('#conteo-articulo option[value="ART1::123"]', { timeout: 40000 }).should('exist')
-        cy.get('#conteo-articulo').select('ART1::123')
+        // Alternativa de widgets: no hay un <select> de articulo -- se toca
+        // la tarjeta del articulo (misma espera larga que antes para la
+        // opcion del select, mismo motivo: carga de catalogo via OPFS).
+        cy.contains('Reactivo de prueba', { timeout: 40000 }).click()
         cy.get('#conteo-cantidad').type('9')
         cy.contains('button', 'Registrar conteo').click()
 
