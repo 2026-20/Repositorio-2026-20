@@ -98,7 +98,11 @@ describe('HU-021 - Operar en modo sin conexion', () => {
         // la tarjeta del articulo (misma espera larga que antes para la
         // opcion del select, mismo motivo: carga de catalogo via OPFS).
         cy.contains('Reactivo de prueba', { timeout: 40000 }).click()
-        cy.get('#conteo-cantidad').type('9')
+        // be.enabled antes de escribir: mismo flake ya documentado en
+        // hu-031-trazabilidad.cy.js -- en CI el campo puede quedar
+        // deshabilitado un instante de mas mientras React re-renderiza tras
+        // tocar la tarjeta.
+        cy.get('#conteo-cantidad').should('be.enabled').type('9')
         cy.contains('button', 'Registrar conteo').click()
 
         cy.contains('Conteo guardado en este dispositivo').should('be.visible')
